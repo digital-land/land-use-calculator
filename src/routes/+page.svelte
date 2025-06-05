@@ -3,7 +3,7 @@ import { onMount } from "svelte";
 import { fromUrl, fromArrayBuffer, fromBlob  } from "geotiff";
 
 onMount(async ()=>{
-	const res = await fromUrl(`./LAST_TEST_OF_28_MAY.tif`); console.log("res",res);
+	const res = await fromUrl(`./reduced3.tif`); console.log("res",res);
     const image = await res.getImage(); console.log("img",image);
 
 
@@ -56,11 +56,11 @@ const rasters = await image.readRasters();
 
 console.log("rasters",rasters)
 
-const { width, [0]: flood, [1]: bua, [2]: trees, [3]: england} = rasters;
+// const { width, [0]: flood, [1]: bua, [2]: trees, [3]: england} = rasters;
 
-const cover = {flood: flood[x + y * width], bua: bua[x + y * width], trees: trees[x + y * width], england: england[x + y * width]}
+// const cover = {flood: flood[x + y * width], bua: bua[x + y * width], trees: trees[x + y * width], england: england[x + y * width]}
 
-console.log(`At (${lat.toFixed(6)},${long.toFixed(6)}) the data show ${JSON.stringify(cover)}`);
+// console.log(`At (${lat.toFixed(6)},${long.toFixed(6)}) the data show ${JSON.stringify(cover)}`);
 })
 </script>
 
