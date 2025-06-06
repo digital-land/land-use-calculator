@@ -29,6 +29,7 @@
   import { replaceState } from "$app/navigation";
   import { page } from "$app/state";
   import { joinData } from "./dataJoin.js";
+  import { fromUrl, fromArrayBuffer, fromBlob  } from "geotiff";
 
   let {
     data,
@@ -73,7 +74,7 @@
     mapHeight = 200,
     setMaxBounds,
     onclick,
-    ...rest
+    tifLayer
   }: {
     data?: object[];
     customPallet?: object[] | undefined;
@@ -115,9 +116,13 @@
     setCustomPallet?: boolean;
     customBreaks?: number[];
     interative: boolean;
-    onclick: any
+    onclick: any;
+    tifLayer: any;
   } = $props();
-$inspect(onclick)
+$inspect(tifLayer)
+
+
+
   let styleLookup = {
     "Carto-light":
       "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
@@ -166,8 +171,89 @@ $inspect(onclick)
       : [],
   );
 
+  async function addRaster(tifLayer) {
+    
+    	const res = await fromUrl(tifLayer);
+      console.log("res",res);
+     const image = await res.getImage();
+     console.log("img",image.getGeoKeys());
+
+    // const [originX, pixelWidth, , originY, , pixelHeight] = image.getGeoKeys().ModelPixelScale;
+
+    const width = image.getWidth();
+    const height = image.getHeight();
+
+    const rasters = await image.readRasters({ interleave: true });
+    const band = rasters; // 1 band: Float32Array or Uint8Array, depending on TIFF
+
+  function getMinMax(arr) {
+    let min = Infinity, max = -Infinity;
+    for (let i = 0; i < arr.length; i++) {
+      if (!isNaN(arr[i])) {
+        if (arr[i] < min) min = arr[i];
+        if (arr[i] > max) max = arr[i];
+      }
+    }
+    return [min, max];
+  }
+console.log(band)
+    // Normalize values to 0-255
+    const [min, max] = getMinMax(band);
+    const scale = 255 / (max - min);
+        // Create canvas
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext('2d');
+    const imageData = ctx.createImageData(width, height);
+
+        // Fill imageData with raster values
+    for (let i = 0; i < band.length; i++) {
+      const value = (band[i] - min) * scale;
+      const grayscale = Math.max(0, Math.min(255, value));
+
+      imageData.data[i * 4 + 0] = grayscale;
+      imageData.data[i * 4 + 1] = grayscale;
+      imageData.data[i * 4 + 2] = grayscale;
+      imageData.data[i * 4 + 3] = 255;
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+
+    // Convert canvas to data URL
+    const dataURL = canvas.toDataURL();
+
+
+    // Define image bounds from GeoTIFF metadata
+    const bbox = image.getBoundingBox(); // [minX, minY, maxX, maxY]
+
+    // Add as image source
+    map.addSource('geotiff-image', {
+      type: 'image',
+      url: dataURL,
+      coordinates: [
+        [bbox[0], bbox[3]], // top-left
+        [bbox[2], bbox[3]], // top-right
+        [bbox[2], bbox[1]], // bottom-right
+        [bbox[0], bbox[1]]  // bottom-left
+      ]
+    });
+
+    map.addLayer({
+      id: 'geotiff-layer',
+      source: 'geotiff-image',
+      type: 'raster',
+      paint: { 'raster-opacity': 0.35 }
+    });
+  }
+
+
   // let colors = $derived(fillColors.map((d) => contrastingColor(d)));
   $effect(() => {
+      if (loaded) {
+    addRaster(tifLayer)
+  }
     //Things can get out of sync when changing source
     //this section makes sure that the geojson layers end up below the text layers
     // let geoJsonLayerIds = map
@@ -204,6 +290,7 @@ $inspect(onclick)
     }
 
     // map?.setMaxBounds(bounds);
+
   });
 
   // let vals = $derived(
@@ -368,7 +455,7 @@ $inspect(onclick)
         />
       {/if}
     </GeoJSON> -->
-      <!-- <RasterTileSource tiles={['/reduced3.tif']} tileSize={256}>
+      <!-- <RasterTileSource tiles={tifLayer} tileSize={256}>
     <RasterLayer
       paint={{
         'raster-opacity': 0.5,

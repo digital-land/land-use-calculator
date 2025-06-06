@@ -12,11 +12,12 @@ function transform(a, b, M, roundToInt = false) {
   ];
 }
 
-let gpsToPixel, pixelToGPS, rasters;
+let gpsToPixel, pixelToGPS, rasters, image = $state();
 
 onMount(async ()=>{
 	const res = await fromUrl(`./reduced3.tif`); console.log("res",res);
-    const image = await res.getImage(); console.log("img",image);
+     image = await res.getImage();
+     console.log("img",image);
 
 
 
@@ -120,7 +121,13 @@ let styleSheet = {
 
 <h1>GeoTIFF app</h1>
 
-<Map onclick={logClick} mapHeight={500} {styleSheet} />
+{#await image}
+{console.log('Waiting')}
+{:then image}
+{console.log('done waiting')}
+    <Map tifLayer={'/reduced3.tif'} onclick={logClick} mapHeight={500} {styleSheet} />
+{/await}
+
 
 <p>Clicked location is {clickedLocation}</p>
 <p>Corresponding tile pixel coordinate: {tileAtClickedLocation}</p>
