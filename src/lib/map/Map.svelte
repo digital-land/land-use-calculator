@@ -8,6 +8,8 @@
     Control,
     ControlButton,
     ControlGroup,
+    RasterTileSource,
+    RasterLayer
   } from "svelte-maplibre";
   import { contrastingColor } from "./colors.js";
   import { colorbrewer } from "./colorbrewer.js";
@@ -318,6 +320,7 @@ $inspect(onclick)
         {scaleControlPosition}
         {scaleControlUnit}
       />
+    {/if}
       <Control>
         <ControlGroup>
           <button
@@ -331,7 +334,7 @@ $inspect(onclick)
           ></ControlGroup
         >
       </Control>
-    {/if}
+
 
     <!-- <GeoJSON id="areas" data={merged} promoteId="areanm">
       <FillLayer
@@ -365,6 +368,13 @@ $inspect(onclick)
         />
       {/if}
     </GeoJSON> -->
+      <!-- <RasterTileSource tiles={['/reduced3.tif']} tileSize={256}>
+    <RasterLayer
+      paint={{
+        'raster-opacity': 0.5,
+      }}
+    />
+  </RasterTileSource> -->
     {#if tooltip}
       <Tooltip
         {currentMousePosition}
@@ -381,7 +391,7 @@ $inspect(onclick)
   :global(.maplibregl-ctrl-group button.reset-button) {
     /* margin: 10px; */
     width: fit-content;
-    padding: 0px 10px;
+    padding: 5px 10px;
     font-size: 16px;
     height: 100%;
   }
