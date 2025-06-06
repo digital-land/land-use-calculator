@@ -4,6 +4,16 @@ import { fromUrl, fromArrayBuffer, fromBlob  } from "geotiff";
 // import { Map } from "@communitiesuk/svelte-component-library";
 import Map from '$lib/map/Map.svelte'
 
+function transform(a, b, M, roundToInt = false) {
+  const round = (v) => (roundToInt ? v | 0 : v);
+  return [
+    round(M[0] + M[1] * a + M[2] * b),
+    round(M[3] + M[4] * a + M[5] * b),
+  ];
+}
+
+let gpsToPixel, pixelToGPS, rasters;
+
 onMount(async ()=>{
 	const res = await fromUrl(`./reduced3.tif`); console.log("res",res);
     const image = await res.getImage(); console.log("img",image);
@@ -13,13 +23,7 @@ onMount(async ()=>{
 
 const lerp = (a, b, t) => (1 - t) * a + t * b;
 
-function transform(a, b, M, roundToInt = false) {
-  const round = (v) => (roundToInt ? v | 0 : v);
-  return [
-    round(M[0] + M[1] * a + M[2] * b),
-    round(M[3] + M[4] * a + M[5] * b),
-  ];
-}
+
 
 
 // Construct the WGS-84 forward and inverse affine matrices:
@@ -28,10 +32,10 @@ let [sx, sy, sz] = s;
 let [px, py, k, gx, gy, gz] = t;
 sy = -sy; // WGS-84 tiles have a "flipped" y component
 
-const pixelToGPS = [gx, sx, 0, gy, 0, sy];
+pixelToGPS = [gx, sx, 0, gy, 0, sy];
 console.log(`pixel to GPS transform matrix:`, pixelToGPS);
 
-const gpsToPixel = [-gx / sx, 1 / sx, 0, -gy / sy, 0, 1 / sy];
+gpsToPixel = [-gx / sx, 1 / sx, 0, -gy / sy, 0, 1 / sy];
 console.log(`GPS to pixel transform matrix:`, gpsToPixel);
 
 // Convert a GPS coordinate to a pixel coordinate in our tile:
@@ -54,7 +58,7 @@ const gpsBBox = [transform(x, y, pixelToGPS), transform(x + 1, y + 1, pixelToGPS
 console.log(`Pixel covers the following GPS area:`, gpsBBox);
 
 // Finally, retrieve the elevation associated with this pixel's geographic area:
-const rasters = await image.readRasters();
+rasters = await image.readRasters();
 
 console.log("rasters",rasters)
 
@@ -63,10 +67,14 @@ console.log("rasters",rasters)
 // const cover = {flood: flood[x + y * width], bua: bua[x + y * width], trees: trees[x + y * width], england: england[x + y * width]}
 
 // console.log(`At (${lat.toFixed(6)},${long.toFixed(6)}) the data show ${JSON.stringify(cover)}`);
+
 })
 
 let clickedLocation = $state(undefined);
-$inspect(clickedLocation);
+let tileAtClickedLocation = $derived(clickedLocation ? transform(clickedLocation.lng, clickedLocation.lat, gpsToPixel, true) : undefined)
+let tileArea = $derived(tileAtClickedLocation ? [transform(tileAtClickedLocation[0], tileAtClickedLocation[1], pixelToGPS), transform(tileAtClickedLocation[0] + 1, tileAtClickedLocation[1] + 1, pixelToGPS)] : undefined)
+let tileData = $derived(tileAtClickedLocation ? rasters.map(layer => layer[tileAtClickedLocation[0] + tileAtClickedLocation[1]*rasters.width]) : undefined)
+$inspect(clickedLocation, tileAtClickedLocation, tileArea, tileData);
 
 function logClick(e) {
   clickedLocation = e.lngLat
@@ -115,3 +123,6 @@ let styleSheet = {
 <Map onclick={logClick} mapHeight={500} {styleSheet} />
 
 <p>Clicked location is {clickedLocation}</p>
+<p>Corresponding tile pixel coordinate: {tileAtClickedLocation}</p>
+<p>Pixel covers the following GPS area: {tileArea}</p>
+<p>Data at this location: {tileData}</p>
