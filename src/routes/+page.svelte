@@ -1,6 +1,8 @@
 <script>
 import { onMount } from "svelte";
 import { fromUrl, fromArrayBuffer, fromBlob  } from "geotiff";
+// import { Map } from "@communitiesuk/svelte-component-library";
+import Map from '$lib/map/Map.svelte'
 
 onMount(async ()=>{
 	const res = await fromUrl(`./reduced3.tif`); console.log("res",res);
@@ -62,6 +64,54 @@ console.log("rasters",rasters)
 
 // console.log(`At (${lat.toFixed(6)},${long.toFixed(6)}) the data show ${JSON.stringify(cover)}`);
 })
+
+let clickedLocation = $state(undefined);
+$inspect(clickedLocation);
+
+function logClick(e) {
+  clickedLocation = e.lngLat
+}
+
+let styleSheet = {
+    version: 8,
+    sources: {
+      esri: {
+        type: 'raster',
+        tiles: [
+          'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+        ],
+        tileSize: 256,
+        attribution:
+          'Imagery © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community'
+      },
+      labels: {
+        type: 'raster',
+        tiles: [
+          'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'
+        ],
+        tileSize: 256,
+        attribution:
+          'Labels © Esri — Source: Esri and the GIS User Community'
+      }
+    },
+    layers: [
+      {
+        id: 'esri-imagery',
+        type: 'raster',
+        source: 'esri'
+      },
+      {
+        id: 'esri-labels',
+        type: 'raster',
+        source: 'labels'
+      }
+    ]
+  }
+
 </script>
 
 <h1>GeoTIFF app</h1>
+
+<Map onclick={logClick} mapHeight={500} {styleSheet} />
+
+<p>Clicked location is {clickedLocation}</p>
