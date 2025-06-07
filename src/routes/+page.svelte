@@ -1,86 +1,82 @@
 <script>
-import { onMount } from "svelte";
-import { fromUrl, fromArrayBuffer, fromBlob  } from "geotiff";
-// import { Map } from "@communitiesuk/svelte-component-library";
-import Map from '$lib/map/Map.svelte'
-
-function transform(a, b, M, roundToInt = false) {
-  const round = (v) => (roundToInt ? v | 0 : v);
-  return [
-    round(M[0] + M[1] * a + M[2] * b),
-    round(M[3] + M[4] * a + M[5] * b),
-  ];
-}
-
-let gpsToPixel, pixelToGPS, rasters;
-
-onMount(async ()=>{
-	const res = await fromUrl(`./reduced3.tif`); console.log("res",res);
-    const image = await res.getImage(); console.log("img",image);
+  import { onMount } from "svelte";
+  import { fromUrl } from "geotiff";
+  import Map from '$lib/map/Map.svelte';
 
 
+  let width = $state(0);
+  let height = $state(0);
+let count = $state(0)
+ 
+  function transform(a, b, M, roundToInt = false) {
+    const round = (v) => (roundToInt ? v | 0 : v);
+    return [
+      round(M[0] + M[1] * a + M[2] * b),
+      round(M[3] + M[4] * a + M[5] * b),
+    ];
+  }
 
+  let gpsToPixel, pixelToGPS;
+  let rasterData = { data: null, width: 0 };
 
-const lerp = (a, b, t) => (1 - t) * a + t * b;
+let rasters = $state([]);
 
+  onMount(async () => {
+    const res = await fromUrl(`./base.tif`);
+    const image = await res.getImage();
 
+    const { ModelPixelScale: s, ModelTiepoint: t } = image.fileDirectory;
+    let [sx, sy, sz] = s;
+    let [px, py, k, gx, gy, gz] = t;
+    sy = -sy;
 
+    pixelToGPS = [gx, sx, 0, gy, 0, sy];
+    gpsToPixel = [-gx / sx, 1 / sx, 0, -gy / sy, 0, 1 / sy];
 
-// Construct the WGS-84 forward and inverse affine matrices:
-const { ModelPixelScale: s, ModelTiepoint: t } = image.fileDirectory;
-let [sx, sy, sz] = s;
-let [px, py, k, gx, gy, gz] = t;
-sy = -sy; // WGS-84 tiles have a "flipped" y component
+    const [gx1, gy1, gx2, gy2] = image.getBoundingBox();
+    const lerp = (a, b, t) => (1 - t) * a + t * b;
+    const lat = lerp(gy1, gy2, Math.random());
+    const long = lerp(gx1, gx2, Math.random());
+    const [x, y] = transform(long, lat, gpsToPixel, true);
 
-pixelToGPS = [gx, sx, 0, gy, 0, sy];
-console.log(`pixel to GPS transform matrix:`, pixelToGPS);
+    rasters = await image.readRasters({ samples: [0, 1, 2], interleave: false });
+    width = image.getWidth();
+    height = image.getHeight();
+    rasterData = {
+      data: rasters,
+      width
+    };
 
-gpsToPixel = [-gx / sx, 1 / sx, 0, -gy / sy, 0, 1 / sy];
-console.log(`GPS to pixel transform matrix:`, gpsToPixel);
+    console.log(`At pixel [${x},${y}]:`, rasters.map(band => band[x + y * width]));
+  });
 
-// Convert a GPS coordinate to a pixel coordinate in our tile:
-const [gx1, gy1, gx2, gy2] = image.getBoundingBox();
+  let clickedLocation = $state(undefined);
+  let tileAtClickedLocation = $derived(
+    clickedLocation ? transform(clickedLocation.lng, clickedLocation.lat, gpsToPixel, true) : undefined
+  );
 
-const lat = lerp(gy1, gy2, Math.random());
+  let tileArea = $derived(
+    tileAtClickedLocation
+      ? [
+          transform(tileAtClickedLocation[0], tileAtClickedLocation[1], pixelToGPS),
+          transform(tileAtClickedLocation[0] + 1, tileAtClickedLocation[1] + 1, pixelToGPS),
+        ]
+      : undefined
+  );
 
-const long = lerp(gx1, gx2, Math.random());
+  let tileData = $derived(
+    tileAtClickedLocation && rasterData.data
+      ? rasterData.data.map(layer => layer[tileAtClickedLocation[0] + tileAtClickedLocation[1] * rasterData.width])
+      : undefined
+  );
 
-console.log(`Looking up GPS coordinate (${lat.toFixed(6)},${long.toFixed(6)})`);
+  $inspect(clickedLocation, tileAtClickedLocation, tileArea, tileData);
 
-const [x, y] = transform(long, lat, gpsToPixel, true);
+  function logClick(e) {
+    clickedLocation = e.lngLat;
+  }
 
-console.log(`Corresponding tile pixel coordinate: [${x}][${y}]`);
-
-// And as each pixel in the tile covers a geographic area, not a single
-// GPS coordinate, get the area that this pixel covers:
-const gpsBBox = [transform(x, y, pixelToGPS), transform(x + 1, y + 1, pixelToGPS)];
-
-console.log(`Pixel covers the following GPS area:`, gpsBBox);
-
-// Finally, retrieve the elevation associated with this pixel's geographic area:
-rasters = await image.readRasters();
-
-console.log("rasters",rasters)
-
-// const { width, [0]: flood, [1]: bua, [2]: trees, [3]: england} = rasters;
-
-// const cover = {flood: flood[x + y * width], bua: bua[x + y * width], trees: trees[x + y * width], england: england[x + y * width]}
-
-// console.log(`At (${lat.toFixed(6)},${long.toFixed(6)}) the data show ${JSON.stringify(cover)}`);
-
-})
-
-let clickedLocation = $state(undefined);
-let tileAtClickedLocation = $derived(clickedLocation ? transform(clickedLocation.lng, clickedLocation.lat, gpsToPixel, true) : undefined)
-let tileArea = $derived(tileAtClickedLocation ? [transform(tileAtClickedLocation[0], tileAtClickedLocation[1], pixelToGPS), transform(tileAtClickedLocation[0] + 1, tileAtClickedLocation[1] + 1, pixelToGPS)] : undefined)
-let tileData = $derived(tileAtClickedLocation ? rasters.map(layer => layer[tileAtClickedLocation[0] + tileAtClickedLocation[1]*rasters.width]) : undefined)
-$inspect(clickedLocation, tileAtClickedLocation, tileArea, tileData);
-
-function logClick(e) {
-  clickedLocation = e.lngLat
-}
-
-let styleSheet = {
+  let styleSheet = {
     version: 8,
     sources: {
       esri: {
@@ -89,8 +85,7 @@ let styleSheet = {
           'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
         ],
         tileSize: 256,
-        attribution:
-          'Imagery © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community'
+        attribution: 'Imagery © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community'
       },
       labels: {
         type: 'raster',
@@ -98,8 +93,7 @@ let styleSheet = {
           'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'
         ],
         tileSize: 256,
-        attribution:
-          'Labels © Esri — Source: Esri and the GIS User Community'
+        attribution: 'Labels © Esri — Source: Esri and the GIS User Community'
       }
     },
     layers: [
@@ -114,7 +108,28 @@ let styleSheet = {
         source: 'labels'
       }
     ]
+  };
+
+//Count empty pixels in England
+$effect(() => {
+  if (!rasters || rasters.length === 0) return;
+
+  count = 0;
+  const numPixels = rasters[0].length;
+
+  for (let i = 0; i < numPixels; i++) {
+    if (
+      rasters[0][i] === 1 &&
+      rasters.slice(1).every(band => band[i] === 0)
+    ) {
+      count++;
+    }
   }
+
+  console.log("Pixels where only band 1 has a value:", count);
+});
+
+$inspect("rastas",rasters)
 
 </script>
 
@@ -126,3 +141,5 @@ let styleSheet = {
 <p>Corresponding tile pixel coordinate: {tileAtClickedLocation}</p>
 <p>Pixel covers the following GPS area: {tileArea}</p>
 <p>Data at this location: {tileData}</p>
+<p>Size of England: {count}Ha</p>
+
