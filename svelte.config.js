@@ -5,7 +5,11 @@ const config = {
     preprocess: vitePreprocess(),
 
     kit: {
-        adapter: adapter(),
+        adapter: adapter({
+        pages: 'docs',     // Output folder for pages
+        assets: 'docs',    // Output folder for static assets
+        fallback: 'index.html'     // or null if you're not doing SPA routing
+    }),
         paths: {
             base: process.env.NODE_ENV === 'production' ? '/sveltekit-github-pages' : '',
         }
