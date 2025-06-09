@@ -18,6 +18,7 @@
 	},
 	"dependencies": {
 		"@communitiesuk/svelte-component-library": "^0.1.16",
+		"@sveltejs/adapter-static": "^3.0.8",
 		"d3-dsv": "^3.0.1",
 		"geotiff": "^2.1.3"
 	}
