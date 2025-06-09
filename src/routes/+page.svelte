@@ -110,7 +110,7 @@ unpackWorker.onmessage = (e) => {
 $inspect(selected)
 </script>
 
-<h1>GeoTIFF App</h1>
+<h1>The app that answers: How much land in England is not in these categories</h1>
 
 {#if rasterLayers.length}
   <p>England total: {rasterLayers.find(e => e.filename === "ENGLAND_MASTER.tif")?.area.toLocaleString()} Ha</p>
