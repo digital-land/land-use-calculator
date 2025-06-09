@@ -141,8 +141,8 @@ $inspect(selected)
     <p>Blending... {$blendingProgress.toFixed(1)}%</p>
     <progress max="100" value="{$blendingProgress}"></progress>
   {:else}
-    <p>English land outside selected categories: 
+    <p><b>English land outside selected categories: 
       {(rasterLayers.find(e => e.filename === "ENGLAND_MASTER.tif")?.area - blendedArrayLength).toLocaleString()} Ha
-    </p>
+    </b></p>
   {/if}
 {/if}
