@@ -99,11 +99,7 @@ unpackWorker.onmessage = (e) => {
     width = image.getWidth();
     height = image.getHeight();
 
-    const [lookupRes, metadataRes] = await Promise.all([
-      fetch('./lookup.json'),
-      fetch('./bitpacking_metadata.csv')
-    ]);
-    lookup = await lookupRes.json();
+    const metadataRes = await fetch('./bitpacking_metadata.csv')
     const metadataCsv = await metadataRes.text();
     const rasterLayersParsed = parseMetadataCsv(metadataCsv);
 
