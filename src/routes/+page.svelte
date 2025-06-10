@@ -1,6 +1,8 @@
 <script>
   import { onMount } from "svelte";
-  import { fromUrl, fromArrayBuffer, fromBlob } from "geotiff";
+  import { fromUrl } from "geotiff";
+  import { writable } from "svelte/store";
+  import { browser } from "$app/environment";
   // import { Map } from "@communitiesuk/svelte-component-library";
   import Map from "$lib/map/Map.svelte";
 
@@ -16,62 +18,6 @@
     pixelToGPS,
     rasters,
     image = $state();
-
-  onMount(async () => {
-    const res = await fromUrl(`./reduced3.tif`);
-    console.log("res", res);
-    image = await res.getImage();
-    console.log("img", image);
-
-    const lerp = (a, b, t) => (1 - t) * a + t * b;
-
-    // Construct the WGS-84 forward and inverse affine matrices:
-    const { ModelPixelScale: s, ModelTiepoint: t } = image.fileDirectory;
-    let [sx, sy, sz] = s;
-    let [px, py, k, gx, gy, gz] = t;
-    sy = -sy; // WGS-84 tiles have a "flipped" y component
-
-    pixelToGPS = [gx, sx, 0, gy, 0, sy];
-    console.log(`pixel to GPS transform matrix:`, pixelToGPS);
-
-    gpsToPixel = [-gx / sx, 1 / sx, 0, -gy / sy, 0, 1 / sy];
-    console.log(`GPS to pixel transform matrix:`, gpsToPixel);
-
-    // Convert a GPS coordinate to a pixel coordinate in our tile:
-    const [gx1, gy1, gx2, gy2] = image.getBoundingBox();
-
-    const lat = lerp(gy1, gy2, Math.random());
-
-    const long = lerp(gx1, gx2, Math.random());
-
-    console.log(
-      `Looking up GPS coordinate (${lat.toFixed(6)},${long.toFixed(6)})`
-    );
-
-    const [x, y] = transform(long, lat, gpsToPixel, true);
-
-    console.log(`Corresponding tile pixel coordinate: [${x}][${y}]`);
-
-    // And as each pixel in the tile covers a geographic area, not a single
-    // GPS coordinate, get the area that this pixel covers:
-    const gpsBBox = [
-      transform(x, y, pixelToGPS),
-      transform(x + 1, y + 1, pixelToGPS),
-    ];
-
-    console.log(`Pixel covers the following GPS area:`, gpsBBox);
-
-    // Finally, retrieve the elevation associated with this pixel's geographic area:
-    rasters = await image.readRasters();
-
-    console.log("rasters", rasters);
-
-    // const { width, [0]: flood, [1]: bua, [2]: trees, [3]: england} = rasters;
-
-    // const cover = {flood: flood[x + y * width], bua: bua[x + y * width], trees: trees[x + y * width], england: england[x + y * width]}
-
-    // console.log(`At (${lat.toFixed(6)},${long.toFixed(6)}) the data show ${JSON.stringify(cover)}`);
-  });
 
   let clickedLocation = $state(undefined);
   let tileAtClickedLocation = $derived(
@@ -146,11 +92,6 @@
       },
     ],
   };
-
-  import { onMount } from "svelte";
-  import { fromUrl } from "geotiff";
-  import { writable } from "svelte/store";
-  import { browser } from "$app/environment";
 
   // UI + state
   let width = 0,
@@ -247,7 +188,7 @@
 
   onMount(async () => {
     const geotiff = await fromUrl("./output.tif");
-    const image = await geotiff.getImage();
+    image = await geotiff.getImage();
     width = image.getWidth();
     height = image.getHeight();
 
@@ -255,7 +196,7 @@
     const metadataCsv = await metadataRes.text();
     const rasterLayersParsed = parseMetadataCsv(metadataCsv);
 
-    const rasters = await image.readRasters();
+    rasters = await image.readRasters();
     unpackWorker.postMessage({
       rasters,
       width,
@@ -263,8 +204,55 @@
       rasterLayers: rasterLayersParsed,
     });
     console.log("sp", startingPosition);
+
+    const lerp = (a, b, t) => (1 - t) * a + t * b;
+
+    // Construct the WGS-84 forward and inverse affine matrices:
+    const { ModelPixelScale: s, ModelTiepoint: t } = image.fileDirectory;
+    console.log(s, t);
+    let [sx, sy, sz] = s;
+    let [px, py, k, gx, gy, gz] = t;
+    sy = -sy; // WGS-84 tiles have a "flipped" y component
+
+    pixelToGPS = [gx, sx, 0, gy, 0, sy];
+    console.log(`pixel to GPS transform matrix:`, pixelToGPS);
+
+    gpsToPixel = [-gx / sx, 1 / sx, 0, -gy / sy, 0, 1 / sy];
+    console.log(`GPS to pixel transform matrix:`, gpsToPixel);
+
+    // Convert a GPS coordinate to a pixel coordinate in our tile:
+    const [gx1, gy1, gx2, gy2] = image.getBoundingBox();
+
+    const lat = lerp(gy1, gy2, Math.random());
+
+    const long = lerp(gx1, gx2, Math.random());
+
+    console.log(
+      `Looking up GPS coordinate (${lat.toFixed(6)},${long.toFixed(6)})`
+    );
+
+    const [x, y] = transform(long, lat, gpsToPixel, true);
+
+    console.log(`Corresponding tile pixel coordinate: [${x}][${y}]`);
+
+    // And as each pixel in the tile covers a geographic area, not a single
+    // GPS coordinate, get the area that this pixel covers:
+    const gpsBBox = [
+      transform(x, y, pixelToGPS),
+      transform(x + 1, y + 1, pixelToGPS),
+    ];
+
+    console.log(`Pixel covers the following GPS area:`, gpsBBox);
+
+    console.log("rasters", rasters);
+
+    // const { width, [0]: flood, [1]: bua, [2]: trees, [3]: england} = rasters;
+
+    // const cover = {flood: flood[x + y * width], bua: bua[x + y * width], trees: trees[x + y * width], england: england[x + y * width]}
+
+    // console.log(`At (${lat.toFixed(6)},${long.toFixed(6)}) the data show ${JSON.stringify(cover)}`);
   });
-  $inspect(selected);
+  $inspect(selected, rasterLayers);
 </script>
 
 <h1>[Heading]</h1>
@@ -279,7 +267,7 @@
     {:then image}
       {console.log("done waiting")}
       <Map
-        tifLayer={"/reduced3.tif"}
+        tifLayer={"/output.tif"}
         onclick={logClick}
         mapHeight={500}
         {styleSheet}
