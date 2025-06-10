@@ -119,17 +119,41 @@ let styleSheet = {
 
 </script>
 
-<h1>GeoTIFF app</h1>
+<h1>[Heading]</h1>
+<p>[Description]</p>
+<h2>[Headline takeaway statement]</h2>
+<p>[potentially visualisations]</p>
 
-{#await image}
+<div class="container">
+  <div>
+  {#await image}
 {console.log('Waiting')}
 {:then image}
 {console.log('done waiting')}
     <Map tifLayer={'/reduced3.tif'} onclick={logClick} mapHeight={500} {styleSheet} />
 {/await}
-
-
-<p>Clicked location is {clickedLocation}</p>
+</div>
+<div class='output'>
+  <h2>Selected filters</h2>
+  <details>
+    <summary>Expand to adjust</summary>
+        <p>Clicked location is {clickedLocation}</p>
 <p>Corresponding tile pixel coordinate: {tileAtClickedLocation}</p>
 <p>Pixel covers the following GPS area: {tileArea}</p>
 <p>Data at this location: {tileData}</p>
+  </details>
+  <div>
+
+  </div>
+</div>
+</div>
+
+<style>
+  .container {
+    display: grid;
+    grid-template-columns: 65% 35%;
+  }
+  .output {
+    padding: 10px;
+  }
+</style>

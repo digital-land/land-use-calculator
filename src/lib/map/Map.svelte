@@ -213,12 +213,12 @@ console.log(band)
       const value = (band[i] - min) * scale;
       const grayscale = Math.max(0, Math.min(255, value));
 
-      imageData.data[i * 4 + 0] = grayscale;
-      imageData.data[i * 4 + 1] = grayscale;
-      imageData.data[i * 4 + 2] = grayscale;
-      imageData.data[i * 4 + 3] = 255;
+      imageData.data[i * 4 + 0] = grayscale; //R
+      imageData.data[i * 4 + 1] = grayscale; //G
+      imageData.data[i * 4 + 2] = grayscale; //B
+      imageData.data[i * 4 + 3] = band[i] == 1 ? 255 : 0; //Alpha
     }
-
+console.log(imageData)
     ctx.putImageData(imageData, 0, 0);
 
     // Convert canvas to data URL
@@ -244,7 +244,7 @@ console.log(band)
       id: 'geotiff-layer',
       source: 'geotiff-image',
       type: 'raster',
-      paint: { 'raster-opacity': 0.35 }
+      paint: { 'raster-opacity': 0.55 }
     });
   }
 
