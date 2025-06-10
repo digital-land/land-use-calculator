@@ -47,11 +47,11 @@ unpackWorker.onmessage = (e) => {
     layer.data = bitLayers[i];
   });
 
-  England = rasterLayers.find(l => l.filename === "ENGLAND_MASTER.tif")?.data;
-  selected=rasterLayers.map(e=>e.filename).filter(e=>e!="ENGLAND_MASTER.tif");
+  England = rasterLayers.find(l => l.filename === "ENGLAND_MASTER_KM.tif")?.data;
+  selected=rasterLayers.map(e=>e.filename).filter(e=>e!="ENGLAND_MASTER_KM.tif");
 
 
-  startingPosition=rasterLayers.map(e=>e.filename).filter(e=>e!="ENGLAND_MASTER.tif");
+  startingPosition=rasterLayers.map(e=>e.filename).filter(e=>e!="ENGLAND_MASTER_KM.tif");
   updateBlending();
 };
 
@@ -94,7 +94,7 @@ unpackWorker.onmessage = (e) => {
   }
 
   onMount(async () => {
-    const geotiff = await fromUrl('./multi.tif');
+    const geotiff = await fromUrl('./output.tif');
     const image = await geotiff.getImage();
     width = image.getWidth();
     height = image.getHeight();
@@ -113,14 +113,14 @@ $inspect(selected)
 <h1>The app that answers: How much land in England is not in these categories?</h1>
 
 {#if rasterLayers.length}
-  <p>England total: {rasterLayers.find(e => e.filename === "ENGLAND_MASTER.tif")?.area.toLocaleString()} Ha</p>
+  <p>England total: {rasterLayers.find(e => e.filename === "ENGLAND_MASTER_KM.tif")?.area.toLocaleString()} KM2</p>
 
   <fieldset>
     <legend>Layers to turn on/off:</legend>
     <button onclick={() => {selected.length=0; updateBlending(); return selected=selected}}>all off</button>
     <button onclick={() => {selected.length=0; startingPosition.forEach(e=>selected.push(e)); updateBlending(); return selected=selected}}>all on</button>
     {#each rasterLayers as layer (layer.filename)}
-      {#if layer.filename !== "ENGLAND_MASTER.tif"}
+      {#if layer.filename !== "ENGLAND_MASTER_KM.tif"}
         <div>
           <input
             name="checkbox"
@@ -130,7 +130,7 @@ $inspect(selected)
             onchange={() => updateBlending()}
           />
           <label for="checkbox">
-            {layer.filename.replace('.tif', '')}: {layer.area?.toLocaleString() ?? 0} Ha
+            {layer.filename.replace('.tif', '')}: {layer.area?.toLocaleString() ?? 0} KM2
           </label>
         </div>
       {/if}
@@ -142,7 +142,7 @@ $inspect(selected)
     <progress max="100" value="{$blendingProgress}"></progress>
   {:else}
     <p><b>English land outside selected categories: 
-      {(rasterLayers.find(e => e.filename === "ENGLAND_MASTER.tif")?.area - blendedArrayLength).toLocaleString()} Ha
+      {(rasterLayers.find(e => e.filename === "ENGLAND_MASTER_KM.tif")?.area - blendedArrayLength).toLocaleString()} KM2
     </b></p>
   {/if}
 {/if}
