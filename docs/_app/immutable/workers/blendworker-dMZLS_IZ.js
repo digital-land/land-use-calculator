@@ -1,0 +1,1 @@
+(function(){"use strict";self.onmessage=function(l){const{bitArrays:n,englandMask:o}=l.data,t=o.length,a=new Uint8Array(t);let i=0;for(let e=0;e<t;e++)if(o[e]){for(let s=0;s<n.length;s++)if(n[s][e]){a[e]=1,i++;break}e%1e6===0&&self.postMessage({progress:e/t*100})}self.postMessage({type:"done",result:a,activeCount:i})}})();
