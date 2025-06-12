@@ -5,6 +5,8 @@
   import { browser } from "$app/environment";
   import { CheckBox } from "@communitiesuk/svelte-component-library";
   import Map from "$lib/map/Map.svelte";
+  import OSstyle from "./Maptilerstyle.json";
+  import proj4 from "proj4";
 
   function transform(a, b, M, roundToInt = false) {
     const round = (v) => (roundToInt ? v | 0 : v);
@@ -165,12 +167,12 @@
   }
   $inspect(rasters);
   onMount(async () => {
-    const geotiff = await fromUrl("./Multilayer84.tif");
+    const geotiff = await fromUrl("./multi_3857.tif");
     image = await geotiff.getImage();
     width = image.getWidth();
     height = image.getHeight();
     bbox = image.getBoundingBox();
-    console.log(image, width, height, bbox);
+    console.log(image, width, height, bbox[0]);
     const metadataRes = await fetch("./bitpacking_metadata.csv");
     const metadataCsv = await metadataRes.text();
     const rasterLayersParsed = parseMetadataCsv(metadataCsv);
@@ -330,6 +332,65 @@
       dataURL = canvas.toDataURL();
     }
 
+    const apiKey = "";
+
+    // // Define parameters object.
+    // const params = {
+    //   key: apiKey,
+    //   service: "WMTS",
+    //   request: "GetTile",
+    //   version: "2.0.0",
+    //   height: 256,
+    //   width: 256,
+    //   outputFormat: "image/png",
+    //   style: "default",
+    //   layer: "Light_3857",
+    //   tileMatrixSet: "EPSG:3857",
+    //   tileMatrix: "{z}",
+    //   tileRow: "{y}",
+    //   tileCol: "{x}",
+    // };
+
+    // // Construct query string parameters from object.
+    // const queryString = Object.keys(params)
+    //   .map(function (key) {
+    //     return key + "=" + params[key];
+    //   })
+    //   .join("&");
+
+    // Create a map style object using the WMTS service.
+    // const style = {
+    //     "version": 8,
+    //     "sources": {
+    //         "raster-tiles": {
+    //             "type": "raster",
+    //             "tiles": [ "https://api.os.uk/maps/raster/v1/wmts?" + queryString ],
+    //             "tileSize": 256
+    //         }
+    //     },
+    //     "layers": [{
+    //         "id": "os-maps-wmts",
+    //         "type": "raster",
+    //         "source": "raster-tiles"
+    //     }]
+    // };
+
+    // Define the projections
+    const epsg3857 = "EPSG:3857";
+    const wgs84 = "EPSG:4326";
+
+    // Define the bounding box in EPSG:3857 format
+    // const bbox3857 = [minX, minY, maxX, maxY];
+
+    // Convert the coordinates
+    const minLngLat = proj4(epsg3857, wgs84, [bbox[0], bbox[1]]);
+    const maxLngLat = proj4(epsg3857, wgs84, [bbox[2], bbox[3]]);
+
+    // Bounding box in LngLat format
+    const bboxLngLat = [minLngLat[0], minLngLat[1], maxLngLat[0], maxLngLat[1]];
+
+    console.log("Bounding box in LngLat format:", bboxLngLat);
+
     styleSheet = {
       version: 8,
       sources: {
@@ -346,43 +407,76 @@
                 ],
               }
             : {},
-        labels: {
-          type: "raster",
-          tiles: [
-            "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
-          ],
-          tileSize: 256,
-          attribution:
-            "Labels © Esri — Source: Esri and the GIS User Community",
-        },
-        esri: {
-          type: "raster",
-          tiles: [
-            "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-          ],
-          tileSize: 256,
-          attribution:
-            "Imagery © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community",
-        },
+        // "raster-tiles": {
+        //   type: "raster",
+        //   tiles: ["https://api.os.uk/maps/raster/v1/wmts?" + queryString],
+        //   tileSize: 256,
+        // },
+        // "raster-tiles": {
+        //   type: "raster",
+        //   tiles: [
+        //     "/api/maps/raster/v1/zxy/Light_3857/{z}/{x}/{y}.png?key=" + apiKey,
+        //   ],
+        //   tileSize: 256,
+        // },
+        // labels: {
+        //   type: "raster",
+        //   tiles: [
+        //     "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
+        //   ],
+        //   tileSize: 256,
+        //   attribution:
+        //     "Labels © Esri — Source: Esri and the GIS User Community",
+        // },
+        // esri: {
+        //   type: "raster",
+        //   tiles: [
+        //     "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        //   ],
+        //   tileSize: 256,
+        //   attribution:
+        //     "Imagery © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community",
+        // },
       },
       layers: [
-        {
-          id: "esri-imagery",
-          type: "raster",
-          source: "esri",
-        },
+        // {
+        //   id: "esri-imagery",
+        //   type: "raster",
+        //   source: "esri",
+        // },
+        // {
+        //   id: "os-maps-wmts",
+        //   type: "raster",
+        //   source: "raster-tiles",
+        // },
+        // {
+        //   id: "os-maps-zxy",
+        //   type: "raster",
+        //   source: "raster-tiles",
+        // },
         {
           id: "geotiff-layer",
           source: "geotiff-image",
           type: "raster",
           paint: { "raster-opacity": 1 },
         },
-        {
-          id: "esri-labels",
-          type: "raster",
-          source: "labels",
-        },
+        // {
+        //   id: "esri-labels",
+        //   type: "raster",
+        //   source: "labels",
+        // },
       ],
+      // projection: {
+      //   type: [
+      //     "interpolate",
+      //     ["linear"],
+      //     ["zoom"],
+      //     10,
+      //     "vertical-perspective",
+      //     12,
+      //     "mercator",
+      //   ],
+      // },
     };
     if (rasterLayers.length) {
       checkboxOptions = rasterLayers
