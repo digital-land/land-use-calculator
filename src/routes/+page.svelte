@@ -381,103 +381,115 @@
 
     // Define the bounding box in EPSG:3857 format
     // const bbox3857 = [minX, minY, maxX, maxY];
+    if (bbox[0]) {
+      // Convert the coordinates
+      const minLngLat = proj4(epsg3857, wgs84, [
+        parseInt(bbox[0]),
+        parseInt(bbox[1]),
+      ]);
+      const maxLngLat = proj4(epsg3857, wgs84, [
+        parseInt(bbox[2]),
+        parseInt(bbox[3]),
+      ]);
 
-    // Convert the coordinates
-    const minLngLat = proj4(epsg3857, wgs84, [bbox[0], bbox[1]]);
-    const maxLngLat = proj4(epsg3857, wgs84, [bbox[2], bbox[3]]);
+      // Bounding box in LngLat format
+      const bboxLngLat = [
+        minLngLat[0],
+        minLngLat[1],
+        maxLngLat[0],
+        maxLngLat[1],
+      ];
 
-    // Bounding box in LngLat format
-    const bboxLngLat = [minLngLat[0], minLngLat[1], maxLngLat[0], maxLngLat[1]];
+      console.log("Bounding box in LngLat format:", bboxLngLat);
 
-    console.log("Bounding box in LngLat format:", bboxLngLat);
-
-    styleSheet = {
-      version: 8,
-      sources: {
-        "geotiff-image":
-          dataURL && bbox
-            ? {
-                type: "image",
-                url: dataURL,
-                coordinates: [
-                  [bbox[0], bbox[3]], // top-left
-                  [bbox[2], bbox[3]], // top-right
-                  [bbox[2], bbox[1]], // bottom-right
-                  [bbox[0], bbox[1]], // bottom-left
-                ],
-              }
-            : {},
-        // "raster-tiles": {
-        //   type: "raster",
-        //   tiles: ["https://api.os.uk/maps/raster/v1/wmts?" + queryString],
-        //   tileSize: 256,
-        // },
-        // "raster-tiles": {
-        //   type: "raster",
-        //   tiles: [
-        //     "/api/maps/raster/v1/zxy/Light_3857/{z}/{x}/{y}.png?key=" + apiKey,
-        //   ],
-        //   tileSize: 256,
-        // },
-        // labels: {
-        //   type: "raster",
-        //   tiles: [
-        //     "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
-        //   ],
-        //   tileSize: 256,
-        //   attribution:
-        //     "Labels © Esri — Source: Esri and the GIS User Community",
-        // },
-        // esri: {
-        //   type: "raster",
-        //   tiles: [
-        //     "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        //   ],
-        //   tileSize: 256,
-        //   attribution:
-        //     "Imagery © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community",
-        // },
-      },
-      layers: [
-        // {
-        //   id: "esri-imagery",
-        //   type: "raster",
-        //   source: "esri",
-        // },
-        // {
-        //   id: "os-maps-wmts",
-        //   type: "raster",
-        //   source: "raster-tiles",
-        // },
-        // {
-        //   id: "os-maps-zxy",
-        //   type: "raster",
-        //   source: "raster-tiles",
-        // },
-        {
-          id: "geotiff-layer",
-          source: "geotiff-image",
-          type: "raster",
-          paint: { "raster-opacity": 1 },
+      styleSheet = {
+        version: 8,
+        sources: {
+          "geotiff-image":
+            dataURL && bbox
+              ? {
+                  type: "image",
+                  url: dataURL,
+                  coordinates: [
+                    [bboxLngLat[0], bboxLngLat[3]], // top-left
+                    [bboxLngLat[2], bboxLngLat[3]], // top-right
+                    [bboxLngLat[2], bboxLngLat[1]], // bottom-right
+                    [bboxLngLat[0], bboxLngLat[1]], // bottom-left
+                  ],
+                }
+              : {},
+          // "raster-tiles": {
+          //   type: "raster",
+          //   tiles: ["https://api.os.uk/maps/raster/v1/wmts?" + queryString],
+          //   tileSize: 256,
+          // },
+          // "raster-tiles": {
+          //   type: "raster",
+          //   tiles: [
+          //     "/api/maps/raster/v1/zxy/Light_3857/{z}/{x}/{y}.png?key=" + apiKey,
+          //   ],
+          //   tileSize: 256,
+          // },
+          labels: {
+            type: "raster",
+            tiles: [
+              "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
+            ],
+            tileSize: 256,
+            attribution:
+              "Labels © Esri — Source: Esri and the GIS User Community",
+          },
+          esri: {
+            type: "raster",
+            tiles: [
+              "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+            ],
+            tileSize: 256,
+            attribution:
+              "Imagery © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community",
+          },
         },
-        // {
-        //   id: "esri-labels",
-        //   type: "raster",
-        //   source: "labels",
+        layers: [
+          {
+            id: "esri-imagery",
+            type: "raster",
+            source: "esri",
+          },
+          // {
+          //   id: "os-maps-wmts",
+          //   type: "raster",
+          //   source: "raster-tiles",
+          // },
+          // {
+          //   id: "os-maps-zxy",
+          //   type: "raster",
+          //   source: "raster-tiles",
+          // },
+          {
+            id: "geotiff-layer",
+            source: "geotiff-image",
+            type: "raster",
+            paint: { "raster-opacity": 1 },
+          },
+          {
+            id: "esri-labels",
+            type: "raster",
+            source: "labels",
+          },
+        ],
+        // projection: {
+        //   type: [
+        //     "interpolate",
+        //     ["linear"],
+        //     ["zoom"],
+        //     10,
+        //     "vertical-perspective",
+        //     12,
+        //     "mercator",
+        //   ],
         // },
-      ],
-      // projection: {
-      //   type: [
-      //     "interpolate",
-      //     ["linear"],
-      //     ["zoom"],
-      //     10,
-      //     "vertical-perspective",
-      //     12,
-      //     "mercator",
-      //   ],
-      // },
-    };
+      };
+    }
     if (rasterLayers.length) {
       checkboxOptions = rasterLayers
         .filter((d) => d.filename !== "ENGLAND_MASTER_KM.tif")
@@ -520,10 +532,10 @@
       {console.log("")}
     {:then image}
       {console.log("done waiting")}
-      <!-- {#if dataURL && bbox} -->
-      <!-- {console.log(bbox)} -->
-      <Map onclick={logClick} mapHeight={700} {styleSheet} />
-      <!-- {/if} -->
+      {#if dataURL && bbox}
+        {console.log(bbox)}
+        <Map onclick={logClick} mapHeight={700} {styleSheet} />
+      {/if}
     {/await}
   </div>
   <div class="output">
