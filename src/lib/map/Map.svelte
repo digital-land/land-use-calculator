@@ -9,7 +9,7 @@
     ControlButton,
     ControlGroup,
     RasterTileSource,
-    RasterLayer
+    RasterLayer,
   } from "svelte-maplibre";
   import { contrastingColor } from "./colors.js";
   import { colorbrewer } from "./colorbrewer.js";
@@ -29,7 +29,7 @@
   import { replaceState } from "$app/navigation";
   import { page } from "$app/state";
   import { joinData } from "./dataJoin.js";
-  import { fromUrl, fromArrayBuffer, fromBlob  } from "geotiff";
+  import { fromUrl, fromArrayBuffer, fromBlob } from "geotiff";
 
   let {
     data,
@@ -52,9 +52,9 @@
     maxBorderWidth = 1.5,
     tooltip,
     clickToZoom = true,
-    geoType = 'ltla',
+    geoType = "ltla",
     year = 2020,
-    metric = '',
+    metric = "",
     breaksType = "quantile",
     customBreaks,
     numberOfBreaks = 5,
@@ -74,7 +74,13 @@
     mapHeight = 200,
     setMaxBounds,
     onclick,
-    tifLayer
+    tifLayer,
+    selected,
+    rasterLayers,
+    blendedArray,
+    geoTiffWidth,
+    geoTiffHeight,
+    bbox,
   }: {
     data?: object[];
     customPallet?: object[] | undefined;
@@ -118,10 +124,14 @@
     interative: boolean;
     onclick: any;
     tifLayer: any;
+    selected: any;
+    rasterLayers: any;
+    blendedArray: [];
+    geoTiffWidth: number;
+    geoTiffHeight: number;
+    bbox: [];
   } = $props();
-$inspect(tifLayer)
-
-
+  $inspect({ geoTiffWidth });
 
   let styleLookup = {
     "Carto-light":
@@ -147,7 +157,7 @@ $inspect(tifLayer)
   // );
 
   const geojsonData: FeatureCollection = $derived(
-    topojson.feature(fullTopo, fullTopo.objects[geoType]),
+    topojson.feature(fullTopo, fullTopo.objects[geoType])
   );
 
   let filteredGeoJsonData = $derived(filterGeo(geojsonData, year));
@@ -168,92 +178,11 @@ $inspect(tifLayer)
       ? map.getStyle().layers.filter((layer) => {
           return layer.type === "symbol" && layer["source-layer"] === "place";
         })
-      : [],
+      : []
   );
-
-  async function addRaster(tifLayer) {
-    
-    	const res = await fromUrl(tifLayer);
-      console.log("res",res);
-     const image = await res.getImage();
-     console.log("img",image.getGeoKeys());
-
-    // const [originX, pixelWidth, , originY, , pixelHeight] = image.getGeoKeys().ModelPixelScale;
-
-    const width = image.getWidth();
-    const height = image.getHeight();
-
-    const rasters = await image.readRasters({ interleave: true });
-    const band = rasters; // 1 band: Float32Array or Uint8Array, depending on TIFF
-
-  function getMinMax(arr) {
-    let min = Infinity, max = -Infinity;
-    for (let i = 0; i < arr.length; i++) {
-      if (!isNaN(arr[i])) {
-        if (arr[i] < min) min = arr[i];
-        if (arr[i] > max) max = arr[i];
-      }
-    }
-    return [min, max];
-  }
-console.log(band)
-    // Normalize values to 0-255
-    const [min, max] = getMinMax(band);
-    const scale = 255 / (max - min);
-        // Create canvas
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-
-    const ctx = canvas.getContext('2d');
-    const imageData = ctx.createImageData(width, height);
-
-        // Fill imageData with raster values
-    for (let i = 0; i < band.length; i++) {
-      const value = (band[i] - min) * scale;
-      const grayscale = Math.max(0, Math.min(255, value));
-
-      imageData.data[i * 4 + 0] = grayscale; //R
-      imageData.data[i * 4 + 1] = grayscale; //G
-      imageData.data[i * 4 + 2] = grayscale; //B
-      imageData.data[i * 4 + 3] = band[i] == 1 ? 255 : 0; //Alpha
-    }
-console.log(imageData)
-    ctx.putImageData(imageData, 0, 0);
-
-    // Convert canvas to data URL
-    const dataURL = canvas.toDataURL();
-
-
-    // Define image bounds from GeoTIFF metadata
-    const bbox = image.getBoundingBox(); // [minX, minY, maxX, maxY]
-
-    // Add as image source
-    map.addSource('geotiff-image', {
-      type: 'image',
-      url: dataURL,
-      coordinates: [
-        [bbox[0], bbox[3]], // top-left
-        [bbox[2], bbox[3]], // top-right
-        [bbox[2], bbox[1]], // bottom-right
-        [bbox[0], bbox[1]]  // bottom-left
-      ]
-    });
-
-    map.addLayer({
-      id: 'geotiff-layer',
-      source: 'geotiff-image',
-      type: 'raster',
-      paint: { 'raster-opacity': 0.55 }
-    });
-  }
-
 
   // let colors = $derived(fillColors.map((d) => contrastingColor(d)));
   $effect(() => {
-      if (loaded) {
-    addRaster(tifLayer)
-  }
     //Things can get out of sync when changing source
     //this section makes sure that the geojson layers end up below the text layers
     // let geoJsonLayerIds = map
@@ -290,7 +219,6 @@ console.log(imageData)
     }
 
     // map?.setMaxBounds(bounds);
-
   });
 
   // let vals = $derived(
@@ -408,20 +336,19 @@ console.log(imageData)
         {scaleControlUnit}
       />
     {/if}
-      <Control>
-        <ControlGroup>
-          <button
-            class="reset-button"
-            onclick={() => {
-              map.flyTo({
-                center: center,
-                zoom: zoom,
-              });
-            }}>Reset view</button
-          ></ControlGroup
-        >
-      </Control>
-
+    <Control>
+      <ControlGroup>
+        <button
+          class="reset-button"
+          onclick={() => {
+            map.flyTo({
+              center: center,
+              zoom: zoom,
+            });
+          }}>Reset view</button
+        ></ControlGroup
+      >
+    </Control>
 
     <!-- <GeoJSON id="areas" data={merged} promoteId="areanm">
       <FillLayer
@@ -455,7 +382,7 @@ console.log(imageData)
         />
       {/if}
     </GeoJSON> -->
-      <!-- <RasterTileSource tiles={tifLayer} tileSize={256}>
+    <!-- <RasterTileSource tiles={tifLayer} tileSize={256}>
     <RasterLayer
       paint={{
         'raster-opacity': 0.5,
@@ -482,5 +409,4 @@ console.log(imageData)
     font-size: 16px;
     height: 100%;
   }
-  
 </style>
