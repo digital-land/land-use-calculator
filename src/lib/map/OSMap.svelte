@@ -1,5 +1,5 @@
 <script>
-  let { dataURL } = $props();
+  let { dataURL, bbox } = $props();
   // $inspect(dataURL);
   import { onMount } from "svelte";
   import { onDestroy } from "svelte";
@@ -19,7 +19,6 @@
   const serviceUrl = "https://api.os.uk/maps/vector/v1/vts";
   let worker;
   onMount(async () => {
-    console.log("onsdfb");
     worker = new GeoTIFFWorker();
     worker.onmessage = (event) => {
       if (event.data.error) {
@@ -98,49 +97,48 @@
         zoom: 2,
       }),
     });
-    worker.onmessage = (e) => {
-      console.log("MESSAGE FROM GEOTIFFWORKER:", e);
-      const { data, width, height, bbox } = e.data;
+    // worker.onmessage = (e) => {
+    //   console.log("MESSAGE FROM GEOTIFFWORKER:", e);
+    //   const { data, width, height, bbox } = e.data;
 
-      // Draw GeoTIFF to a canvas
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      ctx.imageSmoothingEnabled = false; // 🔧 prevent blurring
-      const imageData = ctx.createImageData(width, height);
+    //   // Draw GeoTIFF to a canvas
+    //   const canvas = document.createElement("canvas");
+    //   canvas.width = width;
+    //   canvas.height = height;
+    //   const ctx = canvas.getContext("2d");
+    //   ctx.imageSmoothingEnabled = false; // 🔧 prevent blurring
+    //   const imageData = ctx.createImageData(width, height);
 
-      //Do the thing to turn it into bits
+    //   //Do the thing to turn it into bits
 
-      for (let i = 0; i < data[0].length; i++) {
-        const val = data[0][i] + data[1][i] + data[2][i];
-        imageData.data[4 * i + 0] = data[0][i]; // R
-        imageData.data[4 * i + 1] = data[1][i]; // G
-        imageData.data[4 * i + 2] = data[2][i]; // B
-        imageData.data[4 * i + 3] = val > 0 ? 255 : 0; // A
-      }
-      console.log("imageData", imageData);
-      console.log("bbox", bbox);
-      ctx.putImageData(imageData, 0, 0);
-
-      if (dataURL) {
-        const tiffLayer = new ImageLayer({
-          source: new ImageStatic({
-            url: dataURL,
-            imageExtent: bbox,
-            projection: "EPSG:27700",
-          }),
-          opacity: 0.5,
-        });
-
-        map.addLayer(tiffLayer);
-      }
-    };
+    //   for (let i = 0; i < data[0].length; i++) {
+    //     const val = data[0][i] + data[1][i] + data[2][i];
+    //     imageData.data[4 * i + 0] = data[0][i]; // R
+    //     imageData.data[4 * i + 1] = data[1][i]; // G
+    //     imageData.data[4 * i + 2] = data[2][i]; // B
+    //     imageData.data[4 * i + 3] = val > 0 ? 255 : 0; // A
+    //   }
+    //   console.log("imageData", imageData);
+    //   console.log("bbox", bbox);
+    //   // ctx.putImageData(imageData, 0, 0);
+    // };
+    if (dataURL) {
+      const tiffLayer = new ImageLayer({
+        source: new ImageStatic({
+          url: dataURL,
+          imageExtent: bbox,
+          projection: "EPSG:27700",
+        }),
+        opacity: 0.95,
+      });
+      console.log(dataURL, bbox);
+      map.addLayer(tiffLayer);
+    }
   });
 
-  onDestroy(() => {
-    if (worker) worker.terminate();
-  });
+  // onDestroy(() => {
+  //   if (worker) worker.terminate();
+  // });
 </script>
 
 <div bind:this={mapElement} class="map-container"></div>
