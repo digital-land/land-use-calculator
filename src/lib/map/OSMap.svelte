@@ -19,6 +19,7 @@
   const serviceUrl = "https://api.os.uk/maps/vector/v1/vts";
   let worker;
   onMount(async () => {
+    console.log("onsdfb");
     worker = new GeoTIFFWorker();
     worker.onmessage = (event) => {
       if (event.data.error) {
@@ -141,22 +142,6 @@
     if (worker) worker.terminate();
   });
 </script>
-
-<svelte:head>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.5.0/ol.css" />
-  <link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/gh/OrdnanceSurvey/os-api-branding@0.3.1/os-api-branding.css"
-  />
-  <script
-    src="https://cdn.jsdelivr.net/npm/proj4@2.15.0/dist/proj4.js"
-  ></script>
-  <script src="https://cdn.jsdelivr.net/npm/ol/dist/ol.js"></script>
-  <script src="https://unpkg.com/ol-mapbox-style@12.3.5/dist/olms.js"></script>
-  <script
-    src="https://cdn.jsdelivr.net/gh/OrdnanceSurvey/os-api-branding@0.3.1/os-api-branding.js"
-  ></script>
-</svelte:head>
 
 <div bind:this={mapElement} class="map-container"></div>
 
