@@ -387,6 +387,22 @@
   });
 </script>
 
+<svelte:head>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.5.0/ol.css" />
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/gh/OrdnanceSurvey/os-api-branding@0.3.1/os-api-branding.css"
+  />
+  <script
+    src="https://cdn.jsdelivr.net/npm/proj4@2.15.0/dist/proj4.js"
+  ></script>
+  <script src="https://cdn.jsdelivr.net/npm/ol/dist/ol.js"></script>
+  <script src="https://unpkg.com/ol-mapbox-style@12.3.5/dist/olms.js"></script>
+  <script
+    src="https://cdn.jsdelivr.net/gh/OrdnanceSurvey/os-api-branding@0.3.1/os-api-branding.js"
+  ></script>
+</svelte:head>
+
 <h1>[Heading]</h1>
 <p>[Description]</p>
 <h2>
