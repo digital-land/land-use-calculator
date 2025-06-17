@@ -6,7 +6,7 @@
   import { CheckBox } from "@communitiesuk/svelte-component-library";
   import Map from "$lib/map/Map.svelte";
   import OsMap from "$lib/map/OSMap.svelte";
-  import OSstyle from "./Maptilerstyle.json";
+  // import OSstyle from "./Maptilerstyle.json";
   import proj4 from "proj4";
 
   function transform(a, b, M, roundToInt = false) {
@@ -131,7 +131,9 @@
       updateBlending();
     };
 
-        unpackWorker.onerror = (e) => {console.log("EARROR",e)}
+    unpackWorker.onerror = (e) => {
+      console.log("EARROR", e);
+    };
     blendWorker.onmessage = (e) => {
       if (e.data.progress !== undefined) {
         blendingProgress.set(e.data.progress);
@@ -170,7 +172,7 @@
   }
   $inspect(rasters);
   onMount(async () => {
-    const geotiff = await fromUrl("/multi_3857.tif");
+    const geotiff = await fromUrl("/data/output.tif");
     image = await geotiff.getImage();
     width = image.getWidth();
     height = image.getHeight();
@@ -181,8 +183,8 @@
 
     console.log("SENDING UNPACK MESSAGE");
     unpackWorker.postMessage({
-      url: "/multi_3857.tif",
-      metadataCsv: metadataCsv
+      url: "/data/output.tif",
+      metadataCsv: metadataCsv,
     });
 
     console.log("sp", startingPosition);
@@ -404,15 +406,16 @@
     {:then image}
       {console.log("done waiting")}
       {#if dataURL && bbox}
-        {console.log(bbox)}
-        <Map onclick={logClick} mapHeight={700} {styleSheet} />
+        {console.log({ bbox })}
+        <!-- <Map onclick={logClick} mapHeight={700} {styleSheet} /> -->
+
+        <div class="os-map-container">
+          Hello!
+          <OsMap {dataURL} />
+        </div>
       {/if}
     {/await}
   </div>
-  <!-- <div class="container">
-    Hello!
-  <OsMap inputs={{a:1,b:2,c:3}}/>
-  </div> -->
   <div class="output">
     {#if rasterLayers.length}
       <p>
@@ -501,5 +504,8 @@
   }
   .output {
     padding: 10px;
+  }
+  .os-map-container {
+    height: 700px;
   }
 </style>
