@@ -1,6 +1,7 @@
 // src/lib/workers/blendWorker.js
 
 self.onmessage = function (e) {
+  try{
   const { bitArrays, englandMask } = e.data;
   const length = englandMask.length;
   const result = new Uint8Array(length);
@@ -28,4 +29,8 @@ self.onmessage = function (e) {
     result,
     activeCount
   });
+
+    } catch (error) {
+    self.postMessage({ error: error.message});
+  }
 };

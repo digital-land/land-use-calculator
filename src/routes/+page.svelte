@@ -5,6 +5,7 @@
   import { browser } from "$app/environment";
   import { CheckBox } from "@communitiesuk/svelte-component-library";
   import Map from "$lib/map/Map.svelte";
+  import OsMap from "$lib/map/OSMap.svelte";
   import OSstyle from "./Maptilerstyle.json";
   import proj4 from "proj4";
 
@@ -101,6 +102,7 @@
     );
 
     unpackWorker.onmessage = (e) => {
+      console.log("UNPACKING - this is what e looks like:", e);
       const { bitLayers: bits, rasterLayers: layers } = e.data;
 
       if (!Array.isArray(bits) || !Array.isArray(layers)) {
@@ -129,6 +131,7 @@
       updateBlending();
     };
 
+        unpackWorker.onerror = (e) => {console.log("EARROR",e)}
     blendWorker.onmessage = (e) => {
       if (e.data.progress !== undefined) {
         blendingProgress.set(e.data.progress);
@@ -167,7 +170,7 @@
   }
   $inspect(rasters);
   onMount(async () => {
-    const geotiff = await fromUrl("./multi_3857.tif");
+    const geotiff = await fromUrl("/multi_3857.tif");
     image = await geotiff.getImage();
     width = image.getWidth();
     height = image.getHeight();
@@ -175,18 +178,11 @@
     console.log(image, width, height, bbox[0]);
     const metadataRes = await fetch("./bitpacking_metadata.csv");
     const metadataCsv = await metadataRes.text();
-    const rasterLayersParsed = parseMetadataCsv(metadataCsv);
 
-    rasters = await image.readRasters();
-
-    //Stripping out the border that's left from reprojecting
-    rasters = rasters.map((raster) => raster.map((d) => (d === 255 ? 0 : d)));
-
+    console.log("SENDING UNPACK MESSAGE");
     unpackWorker.postMessage({
-      rasters,
-      width,
-      height,
-      rasterLayers: rasterLayersParsed,
+      url: "/multi_3857.tif",
+      metadataCsv: metadataCsv
     });
 
     console.log("sp", startingPosition);
@@ -199,119 +195,35 @@
     let [sx, sy, sz] = s;
     let [px, py, k, gx, gy, gz] = t;
     sy = -sy; // WGS-84 tiles have a "flipped" y component
-
     pixelToGPS = [gx, sx, 0, gy, 0, sy];
     console.log(`pixel to GPS transform matrix:`, pixelToGPS);
-
     gpsToPixel = [-gx / sx, 1 / sx, 0, -gy / sy, 0, 1 / sy];
     console.log(`GPS to pixel transform matrix:`, gpsToPixel);
 
     // Convert a GPS coordinate to a pixel coordinate in our tile:
     const [gx1, gy1, gx2, gy2] = image.getBoundingBox();
-
     const lat = lerp(gy1, gy2, Math.random());
-
     const long = lerp(gx1, gx2, Math.random());
 
     console.log(
       `Looking up GPS coordinate (${lat.toFixed(6)},${long.toFixed(6)})`
     );
-
     const [x, y] = transform(long, lat, gpsToPixel, true);
-
     console.log(`Corresponding tile pixel coordinate: [${x}][${y}]`);
 
-    // And as each pixel in the tile covers a geographic area, not a single
-    // GPS coordinate, get the area that this pixel covers:
     const gpsBBox = [
       transform(x, y, pixelToGPS),
       transform(x + 1, y + 1, pixelToGPS),
     ];
 
     console.log(`Pixel covers the following GPS area:`, gpsBBox);
-
     console.log("rasters", rasters);
 
-    // const { width, [0]: flood, [1]: bua, [2]: trees, [3]: england} = rasters;
-
-    // const cover = {flood: flood[x + y * width], bua: bua[x + y * width], trees: trees[x + y * width], england: england[x + y * width]}
-
-    // console.log(`At (${lat.toFixed(6)},${long.toFixed(6)}) the data show ${JSON.stringify(cover)}`);
-
-    //   async function addRaster(tifLayer) {
-    // console.log("ihsafd");
-    // Create canvas
     canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
-
     ctx = canvas.getContext("2d");
-
-    // rasterLayers.forEach((layer) => {
     imageData = ctx.createImageData(width, height);
-
-    // const res = await fromUrl(tifLayer);
-    // console.log("res", res);
-    // const image = await res.getImage();
-    // console.log("img", image.getGeoKeys());
-
-    // const [originX, pixelWidth, , originY, , pixelHeight] =
-    //   image.getGeoKeys().ModelPixelScale;
-
-    // const width = image.getWidth();
-    // const height = image.getHeight();
-
-    // const rasters = await image.readRasters({ interleave: true });
-    // const band = rasters; // 1 band: Float32Array or Uint8Array, depending on TIFF
-    // const band = $derived(blendedArray);
-
-    // function getMinMax(arr) {
-    //   let min = Infinity,
-    //     max = -Infinity;
-    //   for (let i = 0; i < arr.length; i++) {
-    //     if (!isNaN(arr[i])) {
-    //       if (arr[i] < min) min = arr[i];
-    //       if (arr[i] > max) max = arr[i];
-    //     }
-    //   }
-    //   return [min, max];
-    // }
-    // $inspect(band);
-    // Normalize values to 0-255
-    // const [min, max] = getMinMax(blendedArray);
-    // const scale = 255 / (max - min);
-
-    // Fill imageData with raster values
-
-    // console.log({ imageData });
-
-    // });
-
-    // Define image bounds from GeoTIFF metadata
-    // const bbox = image.getBoundingBox(); // [minX, minY, maxX, maxY]
-    // console.log(bbox);
-
-    // // Add as image source
-    // map.addSource("geotiff-image", {
-    //   type: "image",
-    //   url: dataURL,
-    //   coordinates: [
-    //     [bbox[0], bbox[3]], // top-left
-    //     [bbox[2], bbox[3]], // top-right
-    //     [bbox[2], bbox[1]], // bottom-right
-    //     [bbox[0], bbox[1]], // bottom-left
-    //   ],
-    // });
-
-    // // map.removeLayer("geotiff-layer");
-
-    // map.addLayer({
-    //   id: "geotiff-layer",
-    //   source: "geotiff-image",
-    //   type: "raster",
-    //   paint: { "raster-opacity": 0.55 },
-    // });
-    // }
   });
   // $inspect(selected, rasterLayers);
   $effect(() => {
@@ -333,47 +245,6 @@
     }
 
     const apiKey = "";
-
-    // // Define parameters object.
-    // const params = {
-    //   key: apiKey,
-    //   service: "WMTS",
-    //   request: "GetTile",
-    //   version: "2.0.0",
-    //   height: 256,
-    //   width: 256,
-    //   outputFormat: "image/png",
-    //   style: "default",
-    //   layer: "Light_3857",
-    //   tileMatrixSet: "EPSG:3857",
-    //   tileMatrix: "{z}",
-    //   tileRow: "{y}",
-    //   tileCol: "{x}",
-    // };
-
-    // // Construct query string parameters from object.
-    // const queryString = Object.keys(params)
-    //   .map(function (key) {
-    //     return key + "=" + params[key];
-    //   })
-    //   .join("&");
-
-    // Create a map style object using the WMTS service.
-    // const style = {
-    //     "version": 8,
-    //     "sources": {
-    //         "raster-tiles": {
-    //             "type": "raster",
-    //             "tiles": [ "https://api.os.uk/maps/raster/v1/wmts?" + queryString ],
-    //             "tileSize": 256
-    //         }
-    //     },
-    //     "layers": [{
-    //         "id": "os-maps-wmts",
-    //         "type": "raster",
-    //         "source": "raster-tiles"
-    //     }]
-    // };
 
     // Define the projections
     const epsg3857 = "EPSG:3857";
@@ -538,6 +409,10 @@
       {/if}
     {/await}
   </div>
+  <!-- <div class="container">
+    Hello!
+  <OsMap inputs={{a:1,b:2,c:3}}/>
+  </div> -->
   <div class="output">
     {#if rasterLayers.length}
       <p>
