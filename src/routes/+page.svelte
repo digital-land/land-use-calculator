@@ -9,53 +9,53 @@
   // import OSstyle from "./Maptilerstyle.json";
   import proj4 from "proj4";
 
-  function transform(a, b, M, roundToInt = false) {
-    const round = (v) => (roundToInt ? v | 0 : v);
-    return [
-      round(M[0] + M[1] * a + M[2] * b),
-      round(M[3] + M[4] * a + M[5] * b),
-    ];
-  }
+  // function transform(a, b, M, roundToInt = false) {
+  //   const round = (v) => (roundToInt ? v | 0 : v);
+  //   return [
+  //     round(M[0] + M[1] * a + M[2] * b),
+  //     round(M[3] + M[4] * a + M[5] * b),
+  //   ];
+  // }
 
   let gpsToPixel,
     pixelToGPS,
     rasters,
     image = $state();
 
-  let clickedLocation = $state(undefined);
-  let tileAtClickedLocation = $derived(
-    clickedLocation
-      ? transform(clickedLocation.lng, clickedLocation.lat, gpsToPixel, true)
-      : undefined
-  );
-  let tileArea = $derived(
-    tileAtClickedLocation
-      ? [
-          transform(
-            tileAtClickedLocation[0],
-            tileAtClickedLocation[1],
-            pixelToGPS
-          ),
-          transform(
-            tileAtClickedLocation[0] + 1,
-            tileAtClickedLocation[1] + 1,
-            pixelToGPS
-          ),
-        ]
-      : undefined
-  );
-  let tileData = $derived(
-    tileAtClickedLocation
-      ? rasters.map(
-          (layer) =>
-            layer[
-              tileAtClickedLocation[0] +
-                tileAtClickedLocation[1] * rasters.width
-            ]
-        )
-      : undefined
-  );
-  $inspect(clickedLocation, tileAtClickedLocation, tileArea, tileData);
+  // let clickedLocation = $state(undefined);
+  // let tileAtClickedLocation = $derived(
+  //   clickedLocation
+  //     ? transform(clickedLocation.lng, clickedLocation.lat, gpsToPixel, true)
+  //     : undefined
+  // );
+  // let tileArea = $derived(
+  //   tileAtClickedLocation
+  //     ? [
+  //         transform(
+  //           tileAtClickedLocation[0],
+  //           tileAtClickedLocation[1],
+  //           pixelToGPS
+  //         ),
+  //         transform(
+  //           tileAtClickedLocation[0] + 1,
+  //           tileAtClickedLocation[1] + 1,
+  //           pixelToGPS
+  //         ),
+  //       ]
+  //     : undefined
+  // );
+  // let tileData = $derived(
+  //   tileAtClickedLocation
+  //     ? rasters.map(
+  //         (layer) =>
+  //           layer[
+  //             tileAtClickedLocation[0] +
+  //               tileAtClickedLocation[1] * rasters.width
+  //           ]
+  //       )
+  //     : undefined
+  // );
+  // $inspect(clickedLocation, tileAtClickedLocation, tileArea, tileData);
 
   function logClick(e) {
     clickedLocation = e.lngLat;
@@ -83,7 +83,7 @@
   let greenValue = Math.random() * 255;
   let blueValue = Math.random() * 255;
   let checkboxOptions = $state();
-  $inspect(blendedArray.length);
+  // $inspect(blendedArray.length);
   const blendingProgress = writable(0);
 
   // Workers
@@ -119,15 +119,15 @@
       });
 
       England = rasterLayers.find(
-        (l) => l.filename === "ENGLAND_MASTER_KM.tif"
+        (l) => l.filename === "ENGLAND_100M.tif"
       )?.data;
       selected = rasterLayers
         .map((e) => e.filename)
-        .filter((e) => e != "ENGLAND_MASTER_KM.tif");
+        .filter((e) => e != "ENGLAND_100M.tif");
 
       startingPosition = rasterLayers
         .map((e) => e.filename)
-        .filter((e) => e != "ENGLAND_MASTER_KM.tif");
+        .filter((e) => e != "ENGLAND_100M.tif");
       updateBlending();
     };
 
@@ -170,7 +170,7 @@
       return row;
     });
   }
-  $inspect(rasters);
+  // $inspect(rasters);
   onMount(async () => {
     const geotiff = await fromUrl("/data/output.tif");
     image = await geotiff.getImage();
@@ -187,39 +187,39 @@
       metadataCsv: metadataCsv,
     });
 
-    console.log("sp", startingPosition);
+    // console.log("sp", startingPosition);
 
-    const lerp = (a, b, t) => (1 - t) * a + t * b;
+    // const lerp = (a, b, t) => (1 - t) * a + t * b;
 
-    // Construct the WGS-84 forward and inverse affine matrices:
-    const { ModelPixelScale: s, ModelTiepoint: t } = image.fileDirectory;
-    console.log(s, t);
-    let [sx, sy, sz] = s;
-    let [px, py, k, gx, gy, gz] = t;
-    sy = -sy; // WGS-84 tiles have a "flipped" y component
-    pixelToGPS = [gx, sx, 0, gy, 0, sy];
-    console.log(`pixel to GPS transform matrix:`, pixelToGPS);
-    gpsToPixel = [-gx / sx, 1 / sx, 0, -gy / sy, 0, 1 / sy];
-    console.log(`GPS to pixel transform matrix:`, gpsToPixel);
+    // // Construct the WGS-84 forward and inverse affine matrices:
+    // const { ModelPixelScale: s, ModelTiepoint: t } = image.fileDirectory;
+    // console.log(s, t);
+    // let [sx, sy, sz] = s;
+    // let [px, py, k, gx, gy, gz] = t;
+    // sy = -sy; // WGS-84 tiles have a "flipped" y component
+    // pixelToGPS = [gx, sx, 0, gy, 0, sy];
+    // console.log(`pixel to GPS transform matrix:`, pixelToGPS);
+    // gpsToPixel = [-gx / sx, 1 / sx, 0, -gy / sy, 0, 1 / sy];
+    // console.log(`GPS to pixel transform matrix:`, gpsToPixel);
 
-    // Convert a GPS coordinate to a pixel coordinate in our tile:
-    const [gx1, gy1, gx2, gy2] = image.getBoundingBox();
-    const lat = lerp(gy1, gy2, Math.random());
-    const long = lerp(gx1, gx2, Math.random());
+    // // Convert a GPS coordinate to a pixel coordinate in our tile:
+    // const [gx1, gy1, gx2, gy2] = image.getBoundingBox();
+    // const lat = lerp(gy1, gy2, Math.random());
+    // const long = lerp(gx1, gx2, Math.random());
 
-    console.log(
-      `Looking up GPS coordinate (${lat.toFixed(6)},${long.toFixed(6)})`
-    );
-    const [x, y] = transform(long, lat, gpsToPixel, true);
-    console.log(`Corresponding tile pixel coordinate: [${x}][${y}]`);
+    // console.log(
+    //   `Looking up GPS coordinate (${lat.toFixed(6)},${long.toFixed(6)})`
+    // );
+    // const [x, y] = transform(long, lat, gpsToPixel, true);
+    // console.log(`Corresponding tile pixel coordinate: [${x}][${y}]`);
 
-    const gpsBBox = [
-      transform(x, y, pixelToGPS),
-      transform(x + 1, y + 1, pixelToGPS),
-    ];
+    // const gpsBBox = [
+    //   transform(x, y, pixelToGPS),
+    //   transform(x + 1, y + 1, pixelToGPS),
+    // ];
 
-    console.log(`Pixel covers the following GPS area:`, gpsBBox);
-    console.log("rasters", rasters);
+    // console.log(`Pixel covers the following GPS area:`, gpsBBox);
+    // console.log("rasters", rasters);
 
     canvas = document.createElement("canvas");
     canvas.width = width;
@@ -233,9 +233,9 @@
     for (let i = 0; i < blendedArray.length; i++) {
       const value = blendedArray[i];
       // console.log(value);
-      imageData.data[i * 4 + 0] = 255; // redValue; //R
-      imageData.data[i * 4 + 1] = 255; // greenValue; //G
-      imageData.data[i * 4 + 2] = 255; // blueValue; //B
+      imageData.data[i * 4 + 0] = 0; // redValue; //R
+      imageData.data[i * 4 + 1] = 0; // greenValue; //G
+      imageData.data[i * 4 + 2] = 0; // blueValue; //B
       imageData.data[i * 4 + 3] = value !== 0 ? 255 : 0; //Alpha
     }
 
@@ -246,131 +246,131 @@
       dataURL = canvas.toDataURL();
     }
 
-    const apiKey = "";
+    // const apiKey = "";
 
-    // Define the projections
-    const epsg3857 = "EPSG:3857";
-    const wgs84 = "EPSG:4326";
+    // // Define the projections
+    // const epsg3857 = "EPSG:3857";
+    // const wgs84 = "EPSG:4326";
 
     // Define the bounding box in EPSG:3857 format
     // const bbox3857 = [minX, minY, maxX, maxY];
-    if (bbox[0]) {
-      // Convert the coordinates
-      const minLngLat = proj4(epsg3857, wgs84, [
-        parseInt(bbox[0]),
-        parseInt(bbox[1]),
-      ]);
-      const maxLngLat = proj4(epsg3857, wgs84, [
-        parseInt(bbox[2]),
-        parseInt(bbox[3]),
-      ]);
+    // if (bbox[0]) {
+    //   // Convert the coordinates
+    //   const minLngLat = proj4(epsg3857, wgs84, [
+    //     parseInt(bbox[0]),
+    //     parseInt(bbox[1]),
+    //   ]);
+    //   const maxLngLat = proj4(epsg3857, wgs84, [
+    //     parseInt(bbox[2]),
+    //     parseInt(bbox[3]),
+    //   ]);
 
-      // Bounding box in LngLat format
-      const bboxLngLat = [
-        minLngLat[0],
-        minLngLat[1],
-        maxLngLat[0],
-        maxLngLat[1],
-      ];
+    //   // Bounding box in LngLat format
+    //   const bboxLngLat = [
+    //     minLngLat[0],
+    //     minLngLat[1],
+    //     maxLngLat[0],
+    //     maxLngLat[1],
+    //   ];
 
-      console.log("Bounding box in LngLat format:", bboxLngLat);
+    //   console.log("Bounding box in LngLat format:", bboxLngLat);
 
-      styleSheet = {
-        version: 8,
-        sources: {
-          "geotiff-image":
-            dataURL && bbox
-              ? {
-                  type: "image",
-                  url: dataURL,
-                  coordinates: [
-                    [bboxLngLat[0], bboxLngLat[3]], // top-left
-                    [bboxLngLat[2], bboxLngLat[3]], // top-right
-                    [bboxLngLat[2], bboxLngLat[1]], // bottom-right
-                    [bboxLngLat[0], bboxLngLat[1]], // bottom-left
-                  ],
-                }
-              : {},
-          // "raster-tiles": {
-          //   type: "raster",
-          //   tiles: ["https://api.os.uk/maps/raster/v1/wmts?" + queryString],
-          //   tileSize: 256,
-          // },
-          // "raster-tiles": {
-          //   type: "raster",
-          //   tiles: [
-          //     "/api/maps/raster/v1/zxy/Light_3857/{z}/{x}/{y}.png?key=" + apiKey,
-          //   ],
-          //   tileSize: 256,
-          // },
-          labels: {
-            type: "raster",
-            tiles: [
-              "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
-            ],
-            tileSize: 256,
-            attribution:
-              "Labels © Esri — Source: Esri and the GIS User Community",
-          },
-          esri: {
-            type: "raster",
-            tiles: [
-              "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-            ],
-            tileSize: 256,
-            attribution:
-              "Imagery © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community",
-          },
-        },
-        layers: [
-          {
-            id: "esri-imagery",
-            type: "raster",
-            source: "esri",
-          },
-          // {
-          //   id: "os-maps-wmts",
-          //   type: "raster",
-          //   source: "raster-tiles",
-          // },
-          // {
-          //   id: "os-maps-zxy",
-          //   type: "raster",
-          //   source: "raster-tiles",
-          // },
-          {
-            id: "geotiff-layer",
-            source: "geotiff-image",
-            type: "raster",
-            paint: { "raster-opacity": 1 },
-          },
-          {
-            id: "esri-labels",
-            type: "raster",
-            source: "labels",
-          },
-        ],
-        // projection: {
-        //   type: [
-        //     "interpolate",
-        //     ["linear"],
-        //     ["zoom"],
-        //     10,
-        //     "vertical-perspective",
-        //     12,
-        //     "mercator",
-        //   ],
-        // },
-      };
-    }
+    //   styleSheet = {
+    //     version: 8,
+    //     sources: {
+    //       "geotiff-image":
+    //         dataURL && bbox
+    //           ? {
+    //               type: "image",
+    //               url: dataURL,
+    //               coordinates: [
+    //                 [bboxLngLat[0], bboxLngLat[3]], // top-left
+    //                 [bboxLngLat[2], bboxLngLat[3]], // top-right
+    //                 [bboxLngLat[2], bboxLngLat[1]], // bottom-right
+    //                 [bboxLngLat[0], bboxLngLat[1]], // bottom-left
+    //               ],
+    //             }
+    //           : {},
+    //       // "raster-tiles": {
+    //       //   type: "raster",
+    //       //   tiles: ["https://api.os.uk/maps/raster/v1/wmts?" + queryString],
+    //       //   tileSize: 256,
+    //       // },
+    //       // "raster-tiles": {
+    //       //   type: "raster",
+    //       //   tiles: [
+    //       //     "/api/maps/raster/v1/zxy/Light_3857/{z}/{x}/{y}.png?key=" + apiKey,
+    //       //   ],
+    //       //   tileSize: 256,
+    //       // },
+    //       labels: {
+    //         type: "raster",
+    //         tiles: [
+    //           "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
+    //         ],
+    //         tileSize: 256,
+    //         attribution:
+    //           "Labels © Esri — Source: Esri and the GIS User Community",
+    //       },
+    //       esri: {
+    //         type: "raster",
+    //         tiles: [
+    //           "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    //         ],
+    //         tileSize: 256,
+    //         attribution:
+    //           "Imagery © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community",
+    //       },
+    //     },
+    //     layers: [
+    //       {
+    //         id: "esri-imagery",
+    //         type: "raster",
+    //         source: "esri",
+    //       },
+    //       // {
+    //       //   id: "os-maps-wmts",
+    //       //   type: "raster",
+    //       //   source: "raster-tiles",
+    //       // },
+    //       // {
+    //       //   id: "os-maps-zxy",
+    //       //   type: "raster",
+    //       //   source: "raster-tiles",
+    //       // },
+    //       {
+    //         id: "geotiff-layer",
+    //         source: "geotiff-image",
+    //         type: "raster",
+    //         paint: { "raster-opacity": 1 },
+    //       },
+    //       {
+    //         id: "esri-labels",
+    //         type: "raster",
+    //         source: "labels",
+    //       },
+    //     ],
+    //     // projection: {
+    //     //   type: [
+    //     //     "interpolate",
+    //     //     ["linear"],
+    //     //     ["zoom"],
+    //     //     10,
+    //     //     "vertical-perspective",
+    //     //     12,
+    //     //     "mercator",
+    //     //   ],
+    //     // },
+    //   };
+    // }
     if (rasterLayers.length) {
       checkboxOptions = rasterLayers
-        .filter((d) => d.filename !== "ENGLAND_MASTER_KM.tif")
+        .filter((d) => d.filename !== "ENGLAND_100M.tif")
         .map((d) => {
           return {
             label: `${d.filename.replace(".tif", "").replaceAll("_", " ")}: ${
               d.area?.toLocaleString() ?? 0
-            } kM2`,
+            } ha`,
             value: d.filename,
           };
         });
@@ -407,11 +407,11 @@
 <p>[Description]</p>
 <h2>
   The total area of land in England is {rasterLayers
-    .find((e) => e.filename === "ENGLAND_MASTER_KM.tif")
-    ?.area.toLocaleString()} kM2, removing undevelopable land there is {(
-    rasterLayers.find((e) => e.filename === "ENGLAND_MASTER_KM.tif")?.area -
+    .find((e) => e.filename === "ENGLAND_100M.tif")
+    ?.area.toLocaleString()} ha, removing undevelopable land there is {(
+    rasterLayers.find((e) => e.filename === "ENGLAND_100M.tif")?.area -
     blendedArrayLength
-  ).toLocaleString()} kM2
+  ).toLocaleString()} ha
 </h2>
 <p>[potentially visualisations]</p>
 
@@ -427,7 +427,10 @@
 
         <div class="os-map-container">
           Hello!
-          <OsMap {dataURL} />
+          {#key dataURL || bbox}
+            {console.log(bbox)}
+            <OsMap {dataURL} {bbox} />
+          {/key}
         </div>
       {/if}
     {/await}
@@ -436,8 +439,8 @@
     {#if rasterLayers.length}
       <p>
         England total: {rasterLayers
-          .find((e) => e.filename === "ENGLAND_MASTER_KM.tif")
-          ?.area.toLocaleString()} KM2
+          .find((e) => e.filename === "ENGLAND_100M.tif")
+          ?.area.toLocaleString()} ha
       </p>
 
       <fieldset>
@@ -458,7 +461,7 @@
           }}>all on</button
         >
         {#each rasterLayers as layer (layer.filename)}
-          {#if layer.filename !== "ENGLAND_MASTER_KM.tif"}
+          {#if layer.filename !== "ENGLAND_100M.tif"}
             <div>
               <input
                 name="checkbox"
@@ -470,7 +473,7 @@
 
               <label for="checkbox">
                 {layer.filename.replace(".tif", "")}: {layer.area?.toLocaleString() ??
-                  0} KM2
+                  0} ha
               </label>
             </div>
           {/if}
@@ -494,9 +497,9 @@
           <b
             >English land outside selected categories:
             {(
-              rasterLayers.find((e) => e.filename === "ENGLAND_MASTER_KM.tif")
+              rasterLayers.find((e) => e.filename === "ENGLAND_100M.tif")
                 ?.area - blendedArrayLength
-            ).toLocaleString()} KM2
+            ).toLocaleString()} ha
           </b>
         </p>
       {/if}
@@ -504,14 +507,14 @@
   </div>
 </div>
 
-<h2>Selected area</h2>
+<!-- <h2>Selected area</h2>
 <details open>
   <summary>Expand to adjust</summary>
   <p>Clicked location is {clickedLocation}</p>
   <p>Corresponding tile pixel coordinate: {tileAtClickedLocation}</p>
   <p>Pixel covers the following GPS area: {tileArea}</p>
   <p>Data at this location: {tileData}</p>
-</details>
+</details> -->
 
 <style>
   .container {
