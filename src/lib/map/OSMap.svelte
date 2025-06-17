@@ -12,7 +12,6 @@
   let geotiffData = null; // to hold the raster data info
   import ImageCanvasSource from "ol/source/ImageCanvas";
 
-  console.log(GeoTIFF);
   let mapElement;
   let map;
   const apiKey = "oCUBI8DjgzTP5J8VptrnOAxYVeZc0cZ2";
@@ -131,7 +130,6 @@
         }),
         opacity: 0.95,
       });
-      console.log(dataURL, bbox);
       map.addLayer(tiffLayer);
     }
   });

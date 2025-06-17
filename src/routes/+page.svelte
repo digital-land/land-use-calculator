@@ -102,7 +102,7 @@
     );
 
     unpackWorker.onmessage = (e) => {
-      console.log("UNPACKING - this is what e looks like:", e);
+
       const { bitLayers: bits, rasterLayers: layers } = e.data;
 
       if (!Array.isArray(bits) || !Array.isArray(layers)) {
@@ -132,7 +132,7 @@
     };
 
     unpackWorker.onerror = (e) => {
-      console.log("EARROR", e);
+      console.log("ERROR", e);
     };
     blendWorker.onmessage = (e) => {
       if (e.data.progress !== undefined) {
@@ -232,7 +232,7 @@
     console.log(blendedArrayLength, blendedArray.length);
     for (let i = 0; i < blendedArray.length; i++) {
       const value = blendedArray[i];
-      // console.log(value);
+
       imageData.data[i * 4 + 0] = 0; // redValue; //R
       imageData.data[i * 4 + 1] = 0; // greenValue; //G
       imageData.data[i * 4 + 2] = 0; // blueValue; //B
@@ -426,7 +426,6 @@
         <!-- <Map onclick={logClick} mapHeight={700} {styleSheet} /> -->
 
         <div class="os-map-container">
-          Hello!
           {#key dataURL || bbox}
             {console.log(bbox)}
             <OsMap {dataURL} {bbox} />

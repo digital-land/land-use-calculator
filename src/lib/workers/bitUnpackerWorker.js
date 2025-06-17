@@ -1,6 +1,6 @@
 import { fromUrl } from "geotiff";
 
-console.log("HELOOOOOOOOO")
+
 
   // Parse metadata CSV
   function parseMetadataCsv(csvText) {
@@ -15,13 +15,13 @@ console.log("HELOOOOOOOOO")
   }
   
 self.onmessage = async function (e) {
-  console.log("STARTING FUNC", e)
+
  
   const { url, metadataCsv } = e.data;
-console.log("URL", url)
+
 
 const geotiff = await fromUrl(url);
-console.log("geotiff",geotiff) 
+
 try {
 const image = await geotiff.getImage(),
       width = image.getWidth(),
