@@ -1,6 +1,6 @@
 <script>
-  let {input} = $props()
-
+  let { dataURL } = $props();
+  // $inspect(dataURL);
   import { onMount } from "svelte";
   import { onDestroy } from "svelte";
   //import GeoTIFF from 'ol/source/GeoTIFF';
@@ -93,12 +93,12 @@
         resolutions,
         minZoom: 2,
         maxZoom: 15,
-        center: [337297, 503995],
-        zoom: 9,
+        center: [377297, 353995],
+        zoom: 2,
       }),
     });
     worker.onmessage = (e) => {
-      console.log("MESSAGE FROM GEOTIFFWORKER:",e);
+      console.log("MESSAGE FROM GEOTIFFWORKER:", e);
       const { data, width, height, bbox } = e.data;
 
       // Draw GeoTIFF to a canvas
@@ -109,6 +109,8 @@
       ctx.imageSmoothingEnabled = false; // 🔧 prevent blurring
       const imageData = ctx.createImageData(width, height);
 
+      //Do the thing to turn it into bits
+
       for (let i = 0; i < data[0].length; i++) {
         const val = data[0][i] + data[1][i] + data[2][i];
         imageData.data[4 * i + 0] = data[0][i]; // R
@@ -116,27 +118,28 @@
         imageData.data[4 * i + 2] = data[2][i]; // B
         imageData.data[4 * i + 3] = val > 0 ? 255 : 0; // A
       }
-console.log("imageData",imageData)
+      console.log("imageData", imageData);
+      console.log("bbox", bbox);
       ctx.putImageData(imageData, 0, 0);
 
-      const tiffLayer = new ImageLayer({
-        source: new ImageStatic({
-          url: canvas.toDataURL(),
-          imageExtent: bbox,
-          projection: "EPSG:27700",
-        }),
-        opacity: 0.5,
-      });
+      if (dataURL) {
+        const tiffLayer = new ImageLayer({
+          source: new ImageStatic({
+            url: dataURL,
+            imageExtent: bbox,
+            projection: "EPSG:27700",
+          }),
+          opacity: 0.5,
+        });
 
-      map.addLayer(tiffLayer);
+        map.addLayer(tiffLayer);
+      }
     };
   });
-
 
   onDestroy(() => {
     if (worker) worker.terminate();
   });
-
 </script>
 
 <svelte:head>
@@ -159,10 +162,8 @@ console.log("imageData",imageData)
 
 <style>
   .map-container {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 100%;
+    width: fit-content;
     height: 100%;
+    width: 100%;
   }
 </style>
