@@ -8,6 +8,7 @@
   import OsMap from "$lib/map/OSMap.svelte";
   // import OSstyle from "./Maptilerstyle.json";
   import proj4 from "proj4";
+  import { base } from "$app/paths";
 
   // function transform(a, b, M, roundToInt = false) {
   //   const round = (v) => (roundToInt ? v | 0 : v);
@@ -171,18 +172,18 @@
   }
   // $inspect(rasters);
   onMount(async () => {
-    const geotiff = await fromUrl("/data/output.tif");
+    const geotiff = await fromUrl(`${base}/data/output.tif`);
     image = await geotiff.getImage();
     width = image.getWidth();
     height = image.getHeight();
     bbox = image.getBoundingBox();
-    console.log(image, width, height, bbox[0]);
+    // console.log(image, width, height, bbox[0]);
     const metadataRes = await fetch("./bitpacking_metadata.csv");
     const metadataCsv = await metadataRes.text();
 
-    console.log("SENDING UNPACK MESSAGE");
+    // console.log("SENDING UNPACK MESSAGE");
     unpackWorker.postMessage({
-      url: "/data/output.tif",
+      url: `${base}/data/output.tif`,
       metadataCsv: metadataCsv,
     });
 
@@ -228,7 +229,7 @@
   });
   // $inspect(selected, rasterLayers);
   $effect(() => {
-    console.log(blendedArrayLength, blendedArray.length);
+    // console.log(blendedArrayLength, blendedArray.length);
     for (let i = 0; i < blendedArray.length; i++) {
       const value = blendedArray[i];
 

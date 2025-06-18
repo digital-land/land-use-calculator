@@ -11,6 +11,7 @@
   import ImageStatic from "ol/source/ImageStatic";
   let geotiffData = null; // to hold the raster data info
   import ImageCanvasSource from "ol/source/ImageCanvas";
+  import { base } from "$app/paths";
 
   let mapElement;
   let map;
@@ -32,7 +33,7 @@
     };
     // Send the GeoTIFF URL to the worker
     worker.postMessage({
-      url: "/data/output.tif", // Adjust this path to your GeoTIFF file
+      url: `${base}/data/output.tif`, // Adjust this path to your GeoTIFF file
     });
 
     proj4.defs(
@@ -154,9 +155,9 @@
       });
       // console.log(dataURL, bbox);
       if (map) {
-        console.log(map.getLayerGroup().getLayers());
+        // console.log(map.getLayerGroup().getLayers());
         map.removeLayer(map.getLayers().array_[1]);
-        console.log(map.getLayerGroup().getLayers());
+        // console.log(map.getLayerGroup().getLayers());
         map.addLayer(tiffLayer);
       }
     }
