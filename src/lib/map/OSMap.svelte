@@ -121,22 +121,46 @@
     //   console.log("bbox", bbox);
     //   // ctx.putImageData(imageData, 0, 0);
     // };
-    if (dataURL) {
-      const tiffLayer = new ImageLayer({
+  });
+
+  // $effect(() => {
+  //   if (dataURL && bbox) {
+  //     const tiffLayer = new ImageLayer({
+  //       source: new ImageStatic({
+  //         url: dataURL,
+  //         imageExtent: bbox,
+  //         projection: "EPSG:27700",
+  //       }),
+  //       opacity: 0.75,
+  //     });
+  //     console.log(dataURL, bbox);
+  //     map.addLayer(tiffLayer);
+  //   }
+  // });
+  // onDestroy(() => {
+  //   if (worker) worker.terminate();
+  // });
+  let tiffLayer;
+
+  $effect(() => {
+    if (dataURL && bbox) {
+      tiffLayer = new ImageLayer({
         source: new ImageStatic({
           url: dataURL,
           imageExtent: bbox,
           projection: "EPSG:27700",
         }),
-        opacity: 0.95,
+        opacity: 0.75,
       });
-      map.addLayer(tiffLayer);
+      // console.log(dataURL, bbox);
+      if (map) {
+        console.log(map.getLayerGroup().getLayers());
+        map.removeLayer(map.getLayers().array_[1]);
+        console.log(map.getLayerGroup().getLayers());
+        map.addLayer(tiffLayer);
+      }
     }
   });
-
-  // onDestroy(() => {
-  //   if (worker) worker.terminate();
-  // });
 </script>
 
 <div bind:this={mapElement} class="map-container"></div>
