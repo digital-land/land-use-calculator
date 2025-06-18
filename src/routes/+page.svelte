@@ -102,7 +102,6 @@
     );
 
     unpackWorker.onmessage = (e) => {
-
       const { bitLayers: bits, rasterLayers: layers } = e.data;
 
       if (!Array.isArray(bits) || !Array.isArray(layers)) {
@@ -379,12 +378,16 @@
     // console.log(checkboxOptions);
   });
 
-  $inspect(checkboxOptions);
+  // $inspect(checkboxOptions);
   let selectionsLength = $derived(selected.length);
   $effect(() => {
     selectionsLength = selected.length;
     updateBlending();
   });
+
+  let englandArea = $derived(
+    rasterLayers.find((e) => e.filename === "ENGLAND_100M.tif")?.area
+  );
 </script>
 
 <svelte:head>
@@ -403,35 +406,33 @@
   ></script>
 </svelte:head>
 
-<h1>[Heading]</h1>
-<p>[Description]</p>
+<!-- <h1>[Heading]</h1> -->
+<!-- <p>[Description]</p> -->
 <h2>
-  The total area of land in England is {rasterLayers
-    .find((e) => e.filename === "ENGLAND_100M.tif")
-    ?.area.toLocaleString()} ha, removing undevelopable land there is {(
-    rasterLayers.find((e) => e.filename === "ENGLAND_100M.tif")?.area -
-    blendedArrayLength
-  ).toLocaleString()} ha
+  The total area of land in England is {englandArea
+    ? englandArea.toLocaleString()
+    : "..."} ha, removing undevelopable land there is {englandArea
+    ? (englandArea - blendedArrayLength).toLocaleString()
+    : "..."} ha
 </h2>
-<p>[potentially visualisations]</p>
+<!-- <p>[potentially visualisations]</p> -->
 
 <div class="container">
   <div>
     {#await image}
-      {console.log("")}
+      {console.log("waiting")}
+      <p>Generating the map...</p>
     {:then image}
       {console.log("done waiting")}
-      {#if dataURL && bbox}
-        {console.log({ bbox })}
-        <!-- <Map onclick={logClick} mapHeight={700} {styleSheet} /> -->
+      <!-- {#if dataURL && bbox} -->
+      <!-- <Map onclick={logClick} mapHeight={700} {styleSheet} /> -->
 
-        <div class="os-map-container">
-          {#key dataURL || bbox}
-            {console.log(bbox)}
-            <OsMap {dataURL} {bbox} />
-          {/key}
-        </div>
-      {/if}
+      <div class="os-map-container">
+        <!-- {#key dataURL || bbox} -->
+        <OsMap {dataURL} {bbox} />
+        <!-- {/key} -->
+      </div>
+      <!-- {/if} -->
     {/await}
   </div>
   <div class="output">
@@ -471,7 +472,7 @@
               />
 
               <label for="checkbox">
-                {layer.filename.replace(".tif", "")}: {layer.area?.toLocaleString() ??
+                {layer.filename.replace(".tif", "").replaceAll("_", " ")}: {layer.area?.toLocaleString() ??
                   0} ha
               </label>
             </div>
