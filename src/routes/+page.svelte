@@ -416,23 +416,6 @@
 <!-- <p>[potentially visualisations]</p> -->
 
 <div class="container">
-  <div>
-    {#await image}
-      {console.log("waiting")}
-      <p>Generating the map...</p>
-    {:then image}
-      {console.log("done waiting")}
-      <!-- {#if dataURL && bbox} -->
-      <!-- <Map onclick={logClick} mapHeight={700} {styleSheet} /> -->
-
-      <div class="os-map-container">
-        {#key tiffLocation}
-          <OsMap {dataURL} {bbox} {tiffLocation} />
-        {/key}
-      </div>
-      <!-- {/if} -->
-    {/await}
-  </div>
   <div class="output">
     <div>
       <details>
@@ -517,17 +500,36 @@
       {/if}
     {/if}
   </div>
-  {#key tableData}
-    {#if tableData}
-      <Table
-        caption={""}
-        data={tableData}
-        metaData={tableMetadata}
-        colourScale={"Off"}
-        bind:sortState
-      />
-    {/if}
-  {/key}
+  <div>
+    {#await image}
+      {console.log("waiting")}
+      <p>Generating the map...</p>
+    {:then image}
+      {console.log("done waiting")}
+      <!-- {#if dataURL && bbox} -->
+      <!-- <Map onclick={logClick} mapHeight={700} {styleSheet} /> -->
+
+      <div class="os-map-container">
+        {#key tiffLocation}
+          <OsMap {dataURL} {bbox} {tiffLocation} />
+        {/key}
+      </div>
+      <!-- {/if} -->
+    {/await}
+  </div>
+  <div class="table">
+    {#key tableData}
+      {#if tableData}
+        <Table
+          caption={""}
+          data={tableData}
+          metaData={tableMetadata}
+          colourScale={"Off"}
+          bind:sortState
+        />
+      {/if}
+    {/key}
+  </div>
 </div>
 
 <!-- <h2>Selected area</h2>
@@ -542,10 +544,11 @@
 <style>
   .container {
     display: grid;
-    grid-template-columns: 40% 20% 40%;
+    grid-template-columns: 20% 40% 40%;
     font-family: sans-serif;
   }
-  .output {
+  .output,
+  .table {
     padding: 10px;
   }
   .os-map-container {
