@@ -1,6 +1,6 @@
 <script>
   import { onMount } from "svelte";
-  import { fromUrl } from "geotiff";
+  import { fromUrl, fromBlob } from "geotiff";
   import { writable } from "svelte/store";
   import { browser } from "$app/environment";
   import { CheckBox } from "@communitiesuk/svelte-component-library";
@@ -8,58 +8,17 @@
   import OsMap from "$lib/map/OSMap.svelte";
   // import OSstyle from "./Maptilerstyle.json";
   import proj4 from "proj4";
+  import { base } from "$app/paths";
+  import Table from "$lib/Table.svelte";
 
-  // function transform(a, b, M, roundToInt = false) {
-  //   const round = (v) => (roundToInt ? v | 0 : v);
-  //   return [
-  //     round(M[0] + M[1] * a + M[2] * b),
-  //     round(M[3] + M[4] * a + M[5] * b),
-  //   ];
+  // let gpsToPixel,
+  //   pixelToGPS,
+  //   rasters,
+  //   image = $state();
+
+  // function logClick(e) {
+  //   clickedLocation = e.lngLat;
   // }
-
-  let gpsToPixel,
-    pixelToGPS,
-    rasters,
-    image = $state();
-
-  // let clickedLocation = $state(undefined);
-  // let tileAtClickedLocation = $derived(
-  //   clickedLocation
-  //     ? transform(clickedLocation.lng, clickedLocation.lat, gpsToPixel, true)
-  //     : undefined
-  // );
-  // let tileArea = $derived(
-  //   tileAtClickedLocation
-  //     ? [
-  //         transform(
-  //           tileAtClickedLocation[0],
-  //           tileAtClickedLocation[1],
-  //           pixelToGPS
-  //         ),
-  //         transform(
-  //           tileAtClickedLocation[0] + 1,
-  //           tileAtClickedLocation[1] + 1,
-  //           pixelToGPS
-  //         ),
-  //       ]
-  //     : undefined
-  // );
-  // let tileData = $derived(
-  //   tileAtClickedLocation
-  //     ? rasters.map(
-  //         (layer) =>
-  //           layer[
-  //             tileAtClickedLocation[0] +
-  //               tileAtClickedLocation[1] * rasters.width
-  //           ]
-  //       )
-  //     : undefined
-  // );
-  // $inspect(clickedLocation, tileAtClickedLocation, tileArea, tileData);
-
-  function logClick(e) {
-    clickedLocation = e.lngLat;
-  }
 
   let dataURL = $state();
 
@@ -69,22 +28,32 @@
   let bbox = $state([]);
   let canvas = $state();
   let ctx = $state();
+  let image = $state();
   let imageData = $state();
   let rasterLayers = $state([]);
   let lookup = [];
-  let bitLayers = [];
+  let bitLayers = $state([]);
   let England;
   let selected = $state([]);
   let blendedArray = $state([]);
   let blendedArrayLength = $state(0);
   let startingPosition;
-  let styleSheet = $state();
-  let redValue = Math.random() * 255;
-  let greenValue = Math.random() * 255;
-  let blueValue = Math.random() * 255;
+  // let styleSheet = $state();
+  // let redValue = Math.random() * 255;
+  // let greenValue = Math.random() * 255;
+  // let blueValue = Math.random() * 255;
   let checkboxOptions = $state();
   // $inspect(blendedArray.length);
   const blendingProgress = writable(0);
+  let geotiffFile = $state();
+  $inspect(geotiffFile);
+  let tiffLocation = $derived(
+    geotiffFile?.length > 0 ? geotiffFile[0] : `${base}/data/output.tif`
+  );
+  $inspect({ tiffLocation });
+  let metadataCsv = $state();
+  let geotiff = $state();
+  $inspect(geotiff);
 
   // Workers
   let unpackWorker, blendWorker;
@@ -144,10 +113,10 @@
     };
   }
 
-  // Util: Count '1's
-  function countOnes(arr) {
-    return arr.reduce((sum, val) => sum + val, 0);
-  }
+  // // Util: Count '1's
+  // function countOnes(arr) {
+  //   return arr.reduce((sum, val) => sum + val, 0);
+  // }
 
   // Trigger blending in worker
   function updateBlending() {
@@ -170,21 +139,26 @@
     });
   }
   // $inspect(rasters);
-  onMount(async () => {
-    const geotiff = await fromUrl("/data/output.tif");
+  $effect(async () => {
+    geotiff =
+      geotiffFile?.length > 0
+        ? await fromBlob(tiffLocation)
+        : await fromUrl(tiffLocation);
     image = await geotiff.getImage();
     width = image.getWidth();
     height = image.getHeight();
     bbox = image.getBoundingBox();
     console.log(image, width, height, bbox[0]);
     const metadataRes = await fetch("./bitpacking_metadata.csv");
-    const metadataCsv = await metadataRes.text();
+    metadataCsv = await metadataRes.text();
 
-    console.log("SENDING UNPACK MESSAGE");
-    unpackWorker.postMessage({
-      url: "/data/output.tif",
-      metadataCsv: metadataCsv,
-    });
+    // console.log("SENDING UNPACK MESSAGE");
+    if (metadataCsv) {
+      unpackWorker.postMessage({
+        url: tiffLocation,
+        metadataCsv: metadataCsv,
+      });
+    }
 
     // console.log("sp", startingPosition);
 
@@ -381,6 +355,14 @@
   // $inspect(checkboxOptions);
   let selectionsLength = $derived(selected.length);
   $effect(() => {
+    // if (metadataCsv) {
+    //   console.log(metadataCsv);
+    //   unpackWorker.postMessage({
+    //     url: tiffLocation,
+    //     metadataCsv: metadataCsv,
+    //   });
+    // }
+
     selectionsLength = selected.length;
     updateBlending();
   });
@@ -388,6 +370,22 @@
   let englandArea = $derived(
     rasterLayers.find((e) => e.filename === "ENGLAND_100M.tif")?.area
   );
+
+  let tableData = $derived(
+    selected.map((layer) => {
+      return {
+        name: layer.replace(".tif", "").replaceAll("_", " "),
+        area: rasterLayers.find((d) => d.filename == layer).area,
+      };
+    })
+  );
+
+  let tableMetadata = {
+    name: { explainer: "About name", label: "Name", shortLabel: "Name" },
+    area: { explainer: "about area", label: "Area", shortLabel: "Area" },
+  };
+
+  let sortState = $state({ column: "sortedColumn", order: "ascending" });
 </script>
 
 <svelte:head>
@@ -428,14 +426,27 @@
       <!-- <Map onclick={logClick} mapHeight={700} {styleSheet} /> -->
 
       <div class="os-map-container">
-        <!-- {#key dataURL || bbox} -->
-        <OsMap {dataURL} {bbox} />
-        <!-- {/key} -->
+        {#key tiffLocation}
+          <OsMap {dataURL} {bbox} {tiffLocation} />
+        {/key}
       </div>
       <!-- {/if} -->
     {/await}
   </div>
   <div class="output">
+    <div>
+      <details>
+        <summary>Upload a file (optional)</summary>
+        <br />
+        <label for="file-upload">Upload a geotiff file:</label>
+        <input
+          bind:files={geotiffFile}
+          accept="image/tiff"
+          id="file-upload"
+          type="file"
+        />
+      </details>
+    </div>
     {#if rasterLayers.length}
       <p>
         England total: {rasterLayers
@@ -460,6 +471,7 @@
             return (selected = selected);
           }}>all on</button
         >
+
         {#each rasterLayers as layer (layer.filename)}
           {#if layer.filename !== "ENGLAND_100M.tif"}
             <div>
@@ -472,8 +484,8 @@
               />
 
               <label for="checkbox">
-                {layer.filename.replace(".tif", "").replaceAll("_", " ")}: {layer.area?.toLocaleString() ??
-                  0} ha
+                {layer.filename.replace(".tif", "").replaceAll("_", " ")}
+                <!-- : {layer.area?.toLocaleString() ?? 0} ha -->
               </label>
             </div>
           {/if}
@@ -505,6 +517,17 @@
       {/if}
     {/if}
   </div>
+  {#key tableData}
+    {#if tableData}
+      <Table
+        caption={""}
+        data={tableData}
+        metaData={tableMetadata}
+        colourScale={"Off"}
+        bind:sortState
+      />
+    {/if}
+  {/key}
 </div>
 
 <!-- <h2>Selected area</h2>
@@ -519,7 +542,8 @@
 <style>
   .container {
     display: grid;
-    grid-template-columns: 65% 35%;
+    grid-template-columns: 40% 20% 40%;
+    font-family: sans-serif;
   }
   .output {
     padding: 10px;

@@ -1,4 +1,4 @@
-import { fromUrl } from "geotiff";
+import { fromUrl, fromBlob } from "geotiff";
 
 
 
@@ -16,11 +16,9 @@ import { fromUrl } from "geotiff";
   
 self.onmessage = async function (e) {
 
- 
   const { url, metadataCsv } = e.data;
 
-
-const geotiff = await fromUrl(url);
+const geotiff = typeof url == 'string' ? await fromUrl(url) : await fromBlob(url);
 
 try {
 const image = await geotiff.getImage(),

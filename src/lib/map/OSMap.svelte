@@ -1,5 +1,5 @@
 <script>
-  let { dataURL, bbox } = $props();
+  let { dataURL, bbox, tiffLocation } = $props();
   // $inspect(dataURL);
   import { onMount } from "svelte";
   import { onDestroy } from "svelte";
@@ -18,22 +18,22 @@
   const serviceUrl = "https://api.os.uk/maps/vector/v1/vts";
   let worker;
   onMount(async () => {
-    worker = new GeoTIFFWorker();
-    worker.onmessage = (event) => {
-      if (event.data.error) {
-        console.error("Worker error:", event.data.error);
-        return;
-      }
-      geotiffData = event.data;
-      console.log("Received GeoTIFF data:", geotiffData);
-    };
-    worker.onerror = (error) => {
-      console.error("Worker error:", error);
-    };
-    // Send the GeoTIFF URL to the worker
-    worker.postMessage({
-      url: "/data/output.tif", // Adjust this path to your GeoTIFF file
-    });
+    // worker = new GeoTIFFWorker();
+    // worker.onmessage = (event) => {
+    //   if (event.data.error) {
+    //     console.error("Worker error:", event.data.error);
+    //     return;
+    //   }
+    //   geotiffData = event.data;
+    //   console.log("Received GeoTIFF data:", geotiffData);
+    // };
+    // worker.onerror = (error) => {
+    //   console.error("Worker error:", error);
+    // };
+    // // Send the GeoTIFF URL to the worker
+    // worker.postMessage({
+    //   url: `${base}/data/output.tif`, // Adjust this path to your GeoTIFF file
+    // });
 
     proj4.defs(
       "EPSG:27700",
@@ -74,7 +74,7 @@
       { resolutions }
     );
 
-    vectorTileLayer.setSource(
+    await vectorTileLayer.setSource(
       new ol.source.VectorTile({
         format: new ol.format.MVT(),
         url: tiles,
