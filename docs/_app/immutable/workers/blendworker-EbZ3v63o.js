@@ -1,0 +1,1 @@
+self.onmessage=function(a){try{const{bitArrays:s,englandMask:l}=a.data,t=l.length,n=new Uint8Array(t);let o=0;for(let e=0;e<t;e++){for(let r=0;r<s.length;r++)if(s[r][e]){n[e]=1,o++;break}e%1e6===0&&self.postMessage({progress:e/t*100})}self.postMessage({type:"done",result:n,activeCount:o})}catch(s){self.postMessage({error:s.message})}};

@@ -1,1 +1,0 @@
-(function(){"use strict";self.onmessage=function(o){const{rasters:c,width:i,height:l,rasterLayers:h}=o.data,s=[];let t=0;const f=h.map(u=>{const r=c[Math.floor(t/8)],d=t%8,n=new Uint8Array(i*l);let a=0;for(let e=0;e<r.length;e++)r[e]&1<<d&&(n[e]=1,a++);s.push(n);const y={...u,area:a};return t++,y});self.postMessage({bitLayers:s,rasterLayers:f})}})();
