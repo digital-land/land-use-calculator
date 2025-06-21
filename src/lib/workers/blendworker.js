@@ -8,7 +8,7 @@ self.onmessage = function (e) {
   let activeCount = 0;
 
   for (let i = 0; i < length; i++) {
-    if (!englandMask[i]) continue;
+
 
     for (let j = 0; j < bitArrays.length; j++) {
       if (bitArrays[j][i]) {

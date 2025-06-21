@@ -11,20 +11,10 @@
   import { base } from "$app/paths";
   import Table from "$lib/Table.svelte";
 
-  // let gpsToPixel,
-  //   pixelToGPS,
-  //   rasters,
-  //   image = $state();
-
-  // function logClick(e) {
-  //   clickedLocation = e.lngLat;
-  // }
-
+  let ones
   let dataURL = $state();
-
-  // UI + state
-  let width = $state(0),
-    height = $state(0);
+  let occurences=$state();
+  let width = $state(0),height = $state(0);
   let bbox = $state([]);
   let canvas = $state();
   let ctx = $state();
@@ -56,19 +46,21 @@
   $inspect(geotiff);
 
   // Workers
-  let unpackWorker, blendWorker;
+  let unpackWorker, blendWorker, onesWorker;
 
   // Init workers on client
   if (browser) {
     unpackWorker = new Worker(
-      new URL("$lib/workers/bitUnpackerWorker.js", import.meta.url),
+      new URL("../lib/workers/bitUnpackerWorker.js?worker", import.meta.url),
       { type: "module" }
     );
 
     blendWorker = new Worker(
-      new URL("$lib/workers/blendWorker.js", import.meta.url),
+      new URL("../lib/workers/blendWorker.js?worker", import.meta.url),
       { type: "module" }
     );
+
+
 
     unpackWorker.onmessage = (e) => {
       const { bitLayers: bits, rasterLayers: layers } = e.data;
@@ -97,6 +89,7 @@
         .map((e) => e.filename)
         .filter((e) => e != "ENGLAND_100M.tif");
       updateBlending();
+      //findTheOnes();
     };
 
     unpackWorker.onerror = (e) => {
@@ -118,14 +111,91 @@
   //   return arr.reduce((sum, val) => sum + val, 0);
   // }
 
+
+function countOccurrences(uint8Array) {
+  const counts = {};
+  for (let i = 0; i < uint8Array.length; i++) {
+    const value = uint8Array[i];
+    if (counts[value] === undefined) {
+      counts[value] = 1;
+    } else {
+      counts[value]++;
+    }
+  }
+  return counts;
+}
+  
   // Trigger blending in worker
   function updateBlending() {
     if (!England) return;
     const active = rasterLayers.filter((l) => selected.includes(l.filename));
+    console.log("active",active)
     const bitArrays = active.map((l) => l.data);
     blendingProgress.set(0);
+    console.log("bitarrays",bitArrays)//THIS IS WHERE I NEED TO DO THE SINGLE BLOCKER CALC...
     blendWorker.postMessage({ bitArrays, englandMask: England });
+    findTheOnes(bitArrays, active)
   }
+
+
+
+function findTheOnes(ba, active) {
+  if (ba.length){
+  const bitArrays = ba;
+  const NUM_WORKERS = 4;
+  const numArrays = 18;
+  const length = bitArrays[0].length;
+
+  const inputArrays = bitArrays;
+  const chunkSize = Math.ceil(length / NUM_WORKERS);
+  const workers = [];
+  const finalArray = new Uint8Array(length);
+  const promises = [];
+
+  for (let w = 0; w < NUM_WORKERS; w++) {
+    const worker = new Worker(new URL('../lib/workers/onesWorker.js?worker', import.meta.url), { type: 'module' });
+    workers.push(worker);
+
+    const start = w * chunkSize;
+    const end = Math.min(start + chunkSize, length);
+    const chunkSlices = inputArrays.map(arr => arr.slice(start, end));
+
+    const p = new Promise((resolve, reject) => {
+      worker.onmessage = function (e) {
+        if (e.data.error) {
+          console.error(`Worker ${w} reported error:`, e.data.error);
+          reject(new Error(e.data.error));
+          return;
+        }
+
+        finalArray.set(new Uint8Array(e.data.result), start);
+        resolve();
+      };
+
+      worker.onerror = function (err) {
+        console.error(`Worker ${w} failed:`, err.message);
+        reject(err);
+      };
+
+      worker.postMessage({
+        arrays: chunkSlices,
+        start,
+        end
+      }, chunkSlices.map(a => a.buffer));
+    });
+
+    // ✅ push promise into array
+    promises.push(p);
+  }
+
+  // ✅ wait for all promises to complete
+  return Promise.all(promises).then(() => {
+    occurences=countOccurrences(finalArray)
+    console.log("✅ All workers done. Final array ready.",occurences);
+  });
+  }
+}
+
 
   // Parse metadata CSV
   function parseMetadataCsv(csvText) {
@@ -209,7 +279,7 @@
       imageData.data[i * 4 + 0] = 0; // redValue; //R
       imageData.data[i * 4 + 1] = 0; // greenValue; //G
       imageData.data[i * 4 + 2] = 0; // blueValue; //B
-      imageData.data[i * 4 + 3] = value !== 0 ? 255 : 0; //Alpha
+      imageData.data[i * 4 + 3] = value !== 0  ? 255 : 0; //Alpha
     }
 
     if (canvas) {
@@ -355,14 +425,6 @@
   // $inspect(checkboxOptions);
   let selectionsLength = $derived(selected.length);
   $effect(() => {
-    // if (metadataCsv) {
-    //   console.log(metadataCsv);
-    //   unpackWorker.postMessage({
-    //     url: tiffLocation,
-    //     metadataCsv: metadataCsv,
-    //   });
-    // }
-
     selectionsLength = selected.length;
     updateBlending();
   });
@@ -372,10 +434,11 @@
   );
 
   let tableData = $derived(
-    selected.map((layer) => {
+    selected.map((layer,i) => {
       return {
         name: layer.replace(".tif", "").replaceAll("_", " "),
         area: rasterLayers.find((d) => d.filename == layer).area,
+        unique: occurences?occurences[i]:0
       };
     })
   );
@@ -383,9 +446,10 @@
   let tableMetadata = {
     name: { explainer: "About name", label: "Name", shortLabel: "Name" },
     area: { explainer: "about area", label: "Area", shortLabel: "Area" },
+    unique: {explainer: "hectares where this is the only barrier to development", label:"Uniquely this", shortLabel:"Uniquely this"}
   };
 
-  let sortState = $state({ column: "sortedColumn", order: "ascending" });
+  let sortState = $state({ column: "sortedColumn", order: "descending" });
 </script>
 
 <svelte:head>
@@ -409,9 +473,9 @@
 <h2>
   The total area of land in England is {englandArea
     ? englandArea.toLocaleString()
-    : "..."} ha, removing undevelopable land there is {englandArea
+    : "..."} ha. Removing areas with the selected restrictions there are {englandArea
     ? (englandArea - blendedArrayLength).toLocaleString()
-    : "..."} ha
+    : "..."} ha left over.
 </h2>
 <!-- <p>[potentially visualisations]</p> -->
 
@@ -526,6 +590,7 @@
           metaData={tableMetadata}
           colourScale={"Off"}
           bind:sortState
+          sortedColumn={"unique"}
         />
       {/if}
     {/key}

@@ -27,13 +27,18 @@ const image = await geotiff.getImage(),
       bbox = image.getBoundingBox(),
       rasterLayers = parseMetadataCsv(metadataCsv),
       rasters = await image.readRasters();
+      console.log("RASTERS",rasters)
+      let transposed=[]
+
 
   const bitLayers = [];
 
   let layerIndex = 0;
-  const enrichedRasterLayers = rasterLayers.map((layer) => {
+
+  const enrichedRasterLayers = rasterLayers.map((layer, i) => {
     const band = rasters[Math.floor(layerIndex / 8)];
     const bit = layerIndex % 8;
+
     const result = new Uint8Array(width * height);
     let count = 0;
 
@@ -45,7 +50,7 @@ const image = await geotiff.getImage(),
     }
 
     bitLayers.push(result);
-    const enriched = { ...layer, area: count };
+    const enriched = { ...layer, area: count, data: result };
     layerIndex++;
     return enriched;
   });

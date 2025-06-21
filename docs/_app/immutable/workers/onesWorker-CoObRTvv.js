@@ -1,0 +1,1 @@
+self.onmessage=function(o){try{console.log("ones worker is working:",o.data);const{arrays:e,start:f,end:c}=o.data,i=e.length,a=c-f,r=new Uint8Array(a).fill(99);for(let s=0;s<a;s++){let n=-1,l=!1;for(let t=0;t<i;t++)if(e[t][s]===1){if(l){n=-1;break}l=!0,n=t}n!==-1&&(r[s]=n)}self.postMessage({result:r},[r.buffer])}catch(e){self.postMessage({error:e.message||"Unknown error"})}};
