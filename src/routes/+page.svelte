@@ -619,4 +619,7 @@ function findTheOnes(ba, active) {
   .os-map-container {
     height: 700px;
   }
+  :global(td.govuk-table__cell) {
+    padding-right: 20px;
+}
 </style>
