@@ -98,19 +98,20 @@
     minAndMaxValues[metric] = { min, max };
   }
 
-  localCopyOfData = localCopyOfData.map((row) => {
-    const rowWithNorms = { ...row };
+  // localCopyOfData = localCopyOfData.map((row) => {
+  //   const rowWithNorms = { ...row };
 
-    for (const metric of metrics) {
-      const { min, max } = minAndMaxValues[metric];
-      const value = row[metric];
-      const normalisedValue = (value - min) / (max - min);
+  //   for (const metric of metrics) {
+  //     const { min, max } = minAndMaxValues[metric];
+  //     const value = row[metric];
+  //     const normalisedValue = (value - min) / (max - min);
 
-      rowWithNorms[`${metric}__normalised`] = normalisedValue;
-    }
-
-    return rowWithNorms;
-  });
+  //     rowWithNorms[`${metric}__normalised`] = normalisedValue;
+  //   }
+// console.log("LOCAL COPY 2", rowWithNorms)
+//     return rowWithNorms;
+//   });
+console.log("LOCAL COPY", localCopyOfData)
 
   function normToColor(norm) {
     const hue = 120 * norm;
