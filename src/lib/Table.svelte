@@ -185,7 +185,7 @@ console.log("LOCAL COPY", localCopyOfData)
                   >
                 {:else}
                   <td class="govuk-table__cell govuk-table__cell--numeric"
-                    >{row[column.key].toLocaleString()} ha</td
+                    >{row[column.key]?.toLocaleString()} ha</td
                   >
                 {/if}
               {:else}
