@@ -6,11 +6,11 @@
   import { CheckBox } from "@communitiesuk/svelte-component-library";
   import Map from "$lib/map/Map.svelte";
   import OsMap from "$lib/map/OSMap.svelte";
-  // import OSstyle from "./Maptilerstyle.json";
   import proj4 from "proj4";
   import { base } from "$app/paths";
   import Table from "$lib/Table.svelte";
 
+  let done=$state(false);
   let ones
   let dataURL = $state();
   let occurences=$state();
@@ -191,6 +191,7 @@ function findTheOnes(ba, active) {
   // ✅ wait for all promises to complete
   return Promise.all(promises).then(() => {
     occurences=countOccurrences(finalArray)
+    done=true;
     console.log("✅ All workers done. Final array ready.",occurences);
   });
   }
@@ -438,7 +439,7 @@ function findTheOnes(ba, active) {
       return {
         name: layer.replace(".tif", "").replaceAll("_", " "),
         area: rasterLayers.find((d) => d.filename == layer).area,
-        unique: occurences?occurences[i]:0
+        unique: occurences && occurences[i]?occurences[i]:0
       };
     })
   );
@@ -581,6 +582,8 @@ function findTheOnes(ba, active) {
       <!-- {/if} -->
     {/await}
   </div>
+  {#if done}
+
   <div class="table">
     {#key tableData}
       {#if tableData}
@@ -595,6 +598,7 @@ function findTheOnes(ba, active) {
       {/if}
     {/key}
   </div>
+  {/if}
 </div>
 
 <!-- <h2>Selected area</h2>
