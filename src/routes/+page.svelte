@@ -10,11 +10,12 @@
   import { base } from "$app/paths";
   import Table from "$lib/Table.svelte";
 
-  let done=$state(false);
-  let ones
+  let done = $state(false);
+  let ones;
   let dataURL = $state();
-  let occurences=$state();
-  let width = $state(0),height = $state(0);
+  let occurences = $state();
+  let width = $state(0),
+    height = $state(0);
   let bbox = $state([]);
   let canvas = $state();
   let ctx = $state();
@@ -36,15 +37,22 @@
   // $inspect(blendedArray.length);
   const blendingProgress = writable(0);
   let geotiffFile = $state();
+  let csvFile = $state();
   $inspect(geotiffFile);
   let tiffLocation = $derived(
     geotiffFile?.length > 0 ? geotiffFile[0] : `${base}/data/output.tif`
   );
-  $inspect({ tiffLocation });
-  let metadataCsv = $state();
+  let csvLocation = $derived(
+    csvFile?.length > 0 ? csvFile[0] : `${base}/bitpacking_metadata.csv`
+  );
+
+  // let metadataCsv = $state();
+  // $inspect(metadataCsv);
   let geotiff = $state();
   $inspect(geotiff);
-
+  // let metadataRes = $state();
+  // $inspect(metadataRes);
+  $inspect({ tiffLocation, csvLocation, csvFile });
   // Workers
   let unpackWorker, blendWorker, onesWorker;
 
@@ -60,13 +68,11 @@
       { type: "module" }
     );
 
-
-
     unpackWorker.onmessage = (e) => {
-      const { bitLayers: bits, rasterLayers: layers } = e.data;
+      const { bitLayers: bits, rasterLayers: layers } = e?.data;
 
       if (!Array.isArray(bits) || !Array.isArray(layers)) {
-        console.error("Worker returned unexpected data:", e.data);
+        console.error("Worker returned unexpected data:", e?.data);
         return;
       }
 
@@ -111,92 +117,94 @@
   //   return arr.reduce((sum, val) => sum + val, 0);
   // }
 
-
-function countOccurrences(uint8Array) {
-  const counts = {};
-  for (let i = 0; i < uint8Array.length; i++) {
-    const value = uint8Array[i];
-    if (counts[value] === undefined) {
-      counts[value] = 1;
-    } else {
-      counts[value]++;
+  function countOccurrences(uint8Array) {
+    const counts = {};
+    for (let i = 0; i < uint8Array.length; i++) {
+      const value = uint8Array[i];
+      if (counts[value] === undefined) {
+        counts[value] = 1;
+      } else {
+        counts[value]++;
+      }
     }
+    return counts;
   }
-  return counts;
-}
-  
+
   // Trigger blending in worker
   function updateBlending() {
     if (!England) return;
     const active = rasterLayers.filter((l) => selected.includes(l.filename));
-    console.log("active",active)
+    console.log("active", active);
     const bitArrays = active.map((l) => l.data);
     blendingProgress.set(0);
-    console.log("bitarrays",bitArrays)//THIS IS WHERE I NEED TO DO THE SINGLE BLOCKER CALC...
+    console.log("bitarrays", bitArrays); //THIS IS WHERE I NEED TO DO THE SINGLE BLOCKER CALC...
     blendWorker.postMessage({ bitArrays, englandMask: England });
-    findTheOnes(bitArrays, active)
+    findTheOnes(bitArrays, active);
   }
 
+  function findTheOnes(ba, active) {
+    if (ba.length) {
+      const bitArrays = ba;
+      const NUM_WORKERS = 4;
+      const numArrays = 18;
+      const length = bitArrays[0].length;
 
+      const inputArrays = bitArrays;
+      const chunkSize = Math.ceil(length / NUM_WORKERS);
+      const workers = [];
+      const finalArray = new Uint8Array(length);
+      const promises = [];
 
-function findTheOnes(ba, active) {
-  if (ba.length){
-  const bitArrays = ba;
-  const NUM_WORKERS = 4;
-  const numArrays = 18;
-  const length = bitArrays[0].length;
+      for (let w = 0; w < NUM_WORKERS; w++) {
+        const worker = new Worker(
+          new URL("../lib/workers/onesWorker.js?worker", import.meta.url),
+          { type: "module" }
+        );
+        workers.push(worker);
 
-  const inputArrays = bitArrays;
-  const chunkSize = Math.ceil(length / NUM_WORKERS);
-  const workers = [];
-  const finalArray = new Uint8Array(length);
-  const promises = [];
+        const start = w * chunkSize;
+        const end = Math.min(start + chunkSize, length);
+        const chunkSlices = inputArrays.map((arr) => arr.slice(start, end));
 
-  for (let w = 0; w < NUM_WORKERS; w++) {
-    const worker = new Worker(new URL('../lib/workers/onesWorker.js?worker', import.meta.url), { type: 'module' });
-    workers.push(worker);
+        const p = new Promise((resolve, reject) => {
+          worker.onmessage = function (e) {
+            if (e.data.error) {
+              console.error(`Worker ${w} reported error:`, e.data.error);
+              reject(new Error(e.data.error));
+              return;
+            }
 
-    const start = w * chunkSize;
-    const end = Math.min(start + chunkSize, length);
-    const chunkSlices = inputArrays.map(arr => arr.slice(start, end));
+            finalArray.set(new Uint8Array(e.data.result), start);
+            resolve();
+          };
 
-    const p = new Promise((resolve, reject) => {
-      worker.onmessage = function (e) {
-        if (e.data.error) {
-          console.error(`Worker ${w} reported error:`, e.data.error);
-          reject(new Error(e.data.error));
-          return;
-        }
+          worker.onerror = function (err) {
+            console.error(`Worker ${w} failed:`, err.message);
+            reject(err);
+          };
 
-        finalArray.set(new Uint8Array(e.data.result), start);
-        resolve();
-      };
+          worker.postMessage(
+            {
+              arrays: chunkSlices,
+              start,
+              end,
+            },
+            chunkSlices.map((a) => a.buffer)
+          );
+        });
 
-      worker.onerror = function (err) {
-        console.error(`Worker ${w} failed:`, err.message);
-        reject(err);
-      };
+        // ✅ push promise into array
+        promises.push(p);
+      }
 
-      worker.postMessage({
-        arrays: chunkSlices,
-        start,
-        end
-      }, chunkSlices.map(a => a.buffer));
-    });
-
-    // ✅ push promise into array
-    promises.push(p);
+      // ✅ wait for all promises to complete
+      return Promise.all(promises).then(() => {
+        occurences = countOccurrences(finalArray);
+        done = true;
+        console.log("✅ All workers done. Final array ready.", occurences);
+      });
+    }
   }
-
-  // ✅ wait for all promises to complete
-  return Promise.all(promises).then(() => {
-    occurences=countOccurrences(finalArray)
-    done=true;
-    console.log("✅ All workers done. Final array ready.",occurences);
-  });
-  }
-}
-
 
   // Parse metadata CSV
   function parseMetadataCsv(csvText) {
@@ -220,8 +228,10 @@ function findTheOnes(ba, active) {
     height = image.getHeight();
     bbox = image.getBoundingBox();
     console.log(image, width, height, bbox[0]);
-    const metadataRes = await fetch("./bitpacking_metadata.csv");
-    metadataCsv = await metadataRes.text();
+    let metadataRes =
+      csvFile?.length > 0 ? csvLocation : await fetch(csvLocation);
+
+    let metadataCsv = await metadataRes.text();
 
     // console.log("SENDING UNPACK MESSAGE");
     if (metadataCsv) {
@@ -271,6 +281,21 @@ function findTheOnes(ba, active) {
     ctx = canvas.getContext("2d");
     imageData = ctx.createImageData(width, height);
   });
+
+  $effect(async () => {
+    let metadataRes =
+      csvFile?.length > 0 ? csvLocation : await fetch(csvLocation);
+
+    let metadataCsv = await metadataRes.text();
+
+    if (metadataCsv && tiffLocation) {
+      unpackWorker.postMessage({
+        url: tiffLocation,
+        metadataCsv: metadataCsv,
+      });
+    }
+  });
+
   // $inspect(selected, rasterLayers);
   $effect(() => {
     console.log(blendedArrayLength, blendedArray.length);
@@ -280,7 +305,7 @@ function findTheOnes(ba, active) {
       imageData.data[i * 4 + 0] = 0; // redValue; //R
       imageData.data[i * 4 + 1] = 0; // greenValue; //G
       imageData.data[i * 4 + 2] = 0; // blueValue; //B
-      imageData.data[i * 4 + 3] = value !== 0  ? 255 : 0; //Alpha
+      imageData.data[i * 4 + 3] = value !== 0 ? 255 : 0; //Alpha
     }
 
     if (canvas) {
@@ -435,19 +460,27 @@ function findTheOnes(ba, active) {
   );
 
   let tableData = $derived(
-    selected.map((layer,i) => {
+    selected.map((layer, i) => {
       return {
         name: layer.replace(".tif", "").replaceAll("_", " "),
         area: rasterLayers.find((d) => d.filename == layer).area,
-        unique: occurences && occurences[i]?occurences[i]:0
+        unique: occurences && occurences[i] ? occurences[i] : 0,
       };
     })
   );
 
   let tableMetadata = {
-    name: { explainer: "About name", label: "Name", shortLabel: "Name" },
-    area: { explainer: "about area", label: "Area", shortLabel: "Area" },
-    unique: {explainer: "hectares where this is the only barrier to development", label:"Uniquely this", shortLabel:"Uniquely this"}
+    name: { explainer: "Restriction name", label: "Name", shortLabel: "Name" },
+    area: {
+      explainer: "The total area in England covered by this restriction",
+      label: "Area",
+      shortLabel: "Area",
+    },
+    unique: {
+      explainer: "Hectares where this is the only barrier to development",
+      label: "Uniquely this",
+      shortLabel: "Uniquely this",
+    },
   };
 
   let sortState = $state({ column: "sortedColumn", order: "descending" });
@@ -484,9 +517,17 @@ function findTheOnes(ba, active) {
   <div class="output">
     <div>
       <details>
-        <summary>Upload a file (optional)</summary>
+        <summary>Use a local file (optional)</summary>
         <br />
-        <label for="file-upload">Upload a geotiff file:</label>
+        <label for="csv-file-upload">Use a local csv file:</label>
+        <input
+          bind:files={csvFile}
+          accept="text/csv"
+          id="csv-file-upload"
+          type="file"
+        />
+        <br />
+        <label for="file-upload">Use a local geotiff file:</label>
         <input
           bind:files={geotiffFile}
           accept="image/tiff"
@@ -583,21 +624,20 @@ function findTheOnes(ba, active) {
     {/await}
   </div>
   {#if done}
-
-  <div class="table">
-    {#key tableData}
-      {#if tableData}
-        <Table
-          caption={""}
-          data={tableData}
-          metaData={tableMetadata}
-          colourScale={"Off"}
-          bind:sortState
-          sortedColumn={"unique"}
-        />
-      {/if}
-    {/key}
-  </div>
+    <div class="table">
+      {#key tableData}
+        {#if tableData}
+          <Table
+            caption={""}
+            data={tableData}
+            metaData={tableMetadata}
+            colourScale={"Off"}
+            bind:sortState
+            sortedColumn={"unique"}
+          />
+        {/if}
+      {/key}
+    </div>
   {/if}
 </div>
 
@@ -625,5 +665,5 @@ function findTheOnes(ba, active) {
   }
   :global(td.govuk-table__cell) {
     padding-right: 20px;
-}
+  }
 </style>
