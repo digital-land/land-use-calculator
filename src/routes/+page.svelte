@@ -55,7 +55,7 @@
 
   let tiffLocation = $derived(
     //DERIVED 2
-    geotiffFile?.length > 0 ? geotiffFile[0] : `${base}/data/output.tif`
+    geotiffFile?.length > 0 ? geotiffFile[0] : `${base}/data/LAs/LA1.tif`
   );
   let csvLocation = $derived(
     //DERIVED 3
@@ -294,8 +294,6 @@
     if (uniqueArray) {
       for (let i = 0; i < uniqueArray.length; i++) {
         const valueUnique = uniqueArray[i];
-        // for (let i = 0; i < uniqueArray.length; i++) {
-        //   const valueUnique = uniqueArray[i];
 
         imageDataForUniques.data[i * 4 + 0] = 255; // redValue; //R
         imageDataForUniques.data[i * 4 + 1] = 0; // greenValue; //G
@@ -303,11 +301,6 @@
         imageDataForUniques.data[i * 4 + 3] = valueUnique !== 0 ? 255 : 0; //Alpha
       }
     }
-    //   imageDataForUniques.data[i * 4 + 0] = 255; // redValue; //R
-    //   imageDataForUniques.data[i * 4 + 1] = 0; // greenValue; //G
-    //   imageDataForUniques.data[i * 4 + 2] = 0; // blueValue; //B
-    //   imageDataForUniques.data[i * 4 + 3] = valueUnique !== 0 ? 255 : 0; //Alpha
-    // }
 
     if (canvas) {
       ctx.putImageData(imageData, 0, 0);
