@@ -1,7 +1,6 @@
 <script>
   let { dataURL, dataURLForUniques, bbox } = $props();
-  // $inspect({ bbox });
-  // $inspect(dataURL, dataURLForUniques);
+
   import { onMount } from "svelte";
   import { onDestroy } from "svelte";
   //import GeoTIFF from 'ol/source/GeoTIFF';
@@ -86,8 +85,6 @@
 
   $effect(() => {
     if (map) {
-      // console.log(map?.getLayers());
-
       map.removeLayer(tiffLayer);
       map.removeLayer(tiffLayerUnique);
     }
@@ -110,20 +107,12 @@
         }),
         opacity: 0.75,
       });
-      // console.log(dataURL, bbox);
+
       if (map) {
-        // console.log(map.getLayerGroup().getLayers());
         map.addLayer(tiffLayer);
         map.addLayer(tiffLayerUnique);
       }
     }
-
-    // if (dataURLForUniques && bbox) {
-    //   // console.log(dataURL, bbox);
-    //   if (map) {
-    //     console.log(map.getLayerGroup().getLayers());
-    //   }
-    // }
   });
 </script>
 

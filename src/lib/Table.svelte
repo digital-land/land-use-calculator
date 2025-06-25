@@ -40,7 +40,6 @@
     columns.push(columnObject);
   }
 
-  //   $inspect("columns array is ", columns);
 
   const metrics = columns
     .filter((column) => column.dataType === "number")
@@ -83,14 +82,6 @@
     sortFunction();
   }
 
-  //   $inspect(
-  //     sortState,
-  //     localCopyOfData[0],
-  //     typeof localCopyOfData[0][sortState["column"]]
-  //   );
-
-  // heat map
-
   // calculate the min and max of each metric
   const minAndMaxValues = {}; // create an empty object to store them in
   for (const metric of metrics) {
@@ -112,10 +103,10 @@
 
       rowWithNorms[`${metric}__normalised`] = normalisedValue;
     }
-    // console.log("LOCAL COPY 2", rowWithNorms);
+
     return rowWithNorms;
   });
-  //   console.log("LOCAL COPY", localCopyOfData);
+
 
   function normToColor(norm) {
     const hue = 120 * norm;

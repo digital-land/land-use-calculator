@@ -2,7 +2,7 @@ import { fromUrl, fromArrayBuffer, fromBlob  }  from 'geotiff';
 
 self.onmessage = async (event) => {
 
-  
+  console.log("geotiffWorker")
   const url = event.data.url;
 
   try {
@@ -13,7 +13,7 @@ self.onmessage = async (event) => {
     const tiff = await fromArrayBuffer(arrayBuffer);
     const image = await tiff.getImage();
     const rasterData = await image.readRasters();
-console.log("rasterData",rasterData)
+
     // Example: send back first band pixels and width/height
     self.postMessage({
       width: image.getWidth(),

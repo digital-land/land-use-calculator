@@ -36,41 +36,30 @@
   let startingPosition;
   let selectedRestriction = $state();
   let restrictionChanged = $state(false);
-
   let selectedRestrictionIndex = $derived(
     rasterLayers
       ?.map((d) => d.filename.replace(".tif", "").replaceAll("_", " "))
       .filter((d) => !d.includes("ENGLAND"))
       .indexOf(selectedRestriction)
   );
-  // $inspect(selectedRestrictionIndex);
+
   let uniqueArray = $state([]);
-  // $inspect(uniqueArray);
-  // let styleSheet = $state();
-  // let redValue = Math.random() * 255;
-  // let greenValue = Math.random() * 255;
-  // let blueValue = Math.random() * 255;
+
   let checkboxOptions = $state();
-  // $inspect(blendedArray.length);
+
   const blendingProgress = writable(0);
   let geotiffFile = $state();
   let csvFile = $state();
-  // $inspect(geotiffFile);
+
   let tiffLocation = $derived(
-    geotiffFile?.length > 0 ? geotiffFile[0] : `${base}/data/LAs/LA1.tif`
+    geotiffFile?.length > 0 ? geotiffFile[0] : `${base}/data/output.tif`
   );
   let csvLocation = $derived(
     csvFile?.length > 0 ? csvFile[0] : `${base}/bitpacking_metadata.csv`
   );
 
-  // let metadataCsv = $state();
-  // $inspect(metadataCsv);
   let geotiff = $state();
-  // $inspect(geotiff);
-  // let metadataRes = $state();
-  // $inspect(metadataRes);
-  $inspect({ tiffLocation, csvLocation, csvFile });
-  // Workers
+
   let unpackWorker, blendWorker, onesWorker;
 
   // Init workers on client
@@ -146,10 +135,8 @@
   function updateBlending() {
     if (!England) return;
     const active = rasterLayers.filter((l) => selected.includes(l.filename));
-    // console.log("active", active);
     const bitArrays = active.map((l) => l.data);
     blendingProgress.set(0);
-    // console.log("bitarrays", bitArrays); //THIS IS WHERE I NEED TO DO THE SINGLE BLOCKER CALC...
     blendWorker.postMessage({ bitArrays, englandMask: England });
     findTheOnes(bitArrays, active);
   }
@@ -230,26 +217,10 @@
       return Promise.all(promises).then(() => {
         occurences = countOccurrences(finalArray);
         done = true;
-        console.log(uniqueArray);
-
-        console.log("✅ All workers done. Final array ready.", occurences);
       });
     }
   }
 
-  // // Parse metadata CSV
-  // function parseMetadataCsv(csvText) {
-  //   const lines = csvText.trim().split("\n");
-  //   const headers = lines[0].split(",");
-  //   return lines.slice(1).map((line) => {
-  //     const values = line.split(",");
-  //     const row = {};
-  //     headers.forEach((h, i) => (row[h] = values[i]));
-  //     return row;
-  //   });
-  // }
-
-  // $inspect(rasters);
   $effect(async () => {
     geotiff =
       geotiffFile?.length > 0
@@ -259,13 +230,11 @@
     width = image.getWidth();
     height = image.getHeight();
     bbox = image.getBoundingBox();
-    // console.log(image, width, height, bbox[0]);
     let metadataRes =
       csvFile?.length > 0 ? csvLocation : await fetch(csvLocation);
 
     let metadataCsv = await metadataRes.text();
 
-    // console.log("SENDING UNPACK MESSAGE");
     if (metadataCsv) {
       unpackWorker.postMessage({
         url: tiffLocation,
@@ -300,9 +269,7 @@
     }
   });
 
-  // $inspect(selected, rasterLayers);
   $effect(() => {
-    // console.log(blendedArrayLength, blendedArray.length);
     for (let i = 0; i < blendedArray.length; i++) {
       const value = blendedArray[i];
 
@@ -349,7 +316,6 @@
     }
   });
 
-  // $inspect(checkboxOptions);
   let selectionsLength = $derived(selected.length);
   $effect(() => {
     selectionsLength = selected.length;
@@ -448,7 +414,6 @@
         <legend>Layers to turn on/off:</legend>
         <button
           onclick={() => {
-            console.log(selected);
             selected.length = 0;
             console.log(selected);
             updateBlending();
@@ -482,16 +447,6 @@
             </div>
           {/if}
         {/each}
-
-        <!-- 
-           <CheckBox
-          legend={""}
-          small={true}
-          name={"checkboxes"}
-          options={checkboxOptions}
-          bind:selectedValues={selected}
-        />    
--->
       </fieldset>
       {#if $blendingProgress < 100}
         <p>Blending... {$blendingProgress.toFixed(1)}%</p>
@@ -514,16 +469,9 @@
       {console.log("waiting")}
       <p>Generating the map...</p>
     {:then image}
-      {console.log("done waiting")}
-      <!-- {#if dataURL && bbox} -->
-      <!-- <Map onclick={logClick} mapHeight={700} {styleSheet} /> -->
-
       <div class="os-map-container">
-        <!-- {#key (dataURL, dataURLForUniques)} -->
         <OsMap {dataURL} {dataURLForUniques} {bbox} />
-        <!-- {/key} -->
       </div>
-      <!-- {/if} -->
     {/await}
   </div>
   {#if done}
@@ -545,15 +493,6 @@
     </div>
   {/if}
 </div>
-
-<!-- <h2>Selected area</h2>
-<details open>
-  <summary>Expand to adjust</summary>
-  <p>Clicked location is {clickedLocation}</p>
-  <p>Corresponding tile pixel coordinate: {tileAtClickedLocation}</p>
-  <p>Pixel covers the following GPS area: {tileArea}</p>
-  <p>Data at this location: {tileData}</p>
-</details> -->
 
 <style>
   .container {

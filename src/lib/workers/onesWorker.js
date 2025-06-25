@@ -1,7 +1,7 @@
 // worker.js
 self.onmessage = function (e) {
+  console.log("onsesWorker")
 try{
-  console.log("ones worker is working:", e.data)
   const { arrays, start, end } = e.data;
   const count = arrays.length;
   const length = end - start;
