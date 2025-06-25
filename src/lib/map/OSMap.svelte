@@ -7,9 +7,9 @@
   import WebGLTileLayer from "ol/layer/WebGLTile";
   import { VectorTile as VectorTileLayer, Image as ImageLayer } from "ol/layer";
   // import LayerGroup from 'ol/layer/Group.js';
-  import GeoTIFF from "geotiff";
+  // import GeoTIFF from "geotiff";
   import ImageStatic from "ol/source/ImageStatic";
-  let geotiffData = null; // to hold the raster data info
+  // let geotiffData = null; // to hold the raster data info
   import ImageCanvasSource from "ol/source/ImageCanvas";
 
   let mapElement;
@@ -18,6 +18,7 @@
   const serviceUrl = "https://api.os.uk/maps/vector/v1/vts";
   let worker;
   onMount(async () => {
+    console.log(22, bbox, map);
     proj4.defs(
       "EPSG:27700",
       "+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +towgs84=446.448,-125.157,542.06,0.15,0.247,0.842,-20.489 +units=m +no_defs"
@@ -85,6 +86,8 @@
 
   $effect(() => {
     if (map) {
+      console.log(90, bbox);
+
       map.removeLayer(tiffLayer);
       map.removeLayer(tiffLayerUnique);
     }
@@ -109,10 +112,20 @@
       });
 
       if (map) {
+        console.log(115);
         map.addLayer(tiffLayer);
         map.addLayer(tiffLayerUnique);
+        map.getView().fit(bbox, { duration: 1000 });
+        console.log(119);
       }
     }
+
+    // if (dataURLForUniques && bbox) {
+    //   // console.log(dataURL, bbox);
+    //   if (map) {
+    //     console.log(map.getLayerGroup().getLayers());
+    //   }
+    // }
   });
 </script>
 

@@ -34,10 +34,11 @@
   let blendedArray = $state([]);
   let blendedArrayLength = $state(0);
   let startingPosition;
-  let selectedRestriction = $state();
+  let selectedRestriction = $state("AONB");
   let restrictionChanged = $state(false);
 
-  let selectedRestrictionIndex = $derived( //DERIVED 1
+  let selectedRestrictionIndex = $derived(
+    //DERIVED 1
     rasterLayers
       ?.map((d) => d.filename.replace(".tif", "").replaceAll("_", " "))
       .filter((d) => !d.includes("ENGLAND"))
@@ -52,10 +53,12 @@
   let geotiffFile = $state();
   let csvFile = $state();
 
-  let tiffLocation = $derived( //DERIVED 2
+  let tiffLocation = $derived(
+    //DERIVED 2
     geotiffFile?.length > 0 ? geotiffFile[0] : `${base}/data/output.tif`
   );
-  let csvLocation = $derived( //DERIVED 3
+  let csvLocation = $derived(
+    //DERIVED 3
     csvFile?.length > 0 ? csvFile[0] : `${base}/bitpacking_metadata.csv`
   );
 
@@ -142,9 +145,10 @@
     findTheOnes(bitArrays, active);
   }
 
-  $effect(() => { //EFFECT 1
+  $effect(() => {
+    //EFFECT 1
     if (restrictionChanged) {
-      console.log("effect 1 - update blending")
+      console.log("effect 1 - update blending");
       restrictionChanged = !restrictionChanged;
       updateBlending();
     }
@@ -223,8 +227,9 @@
     }
   }
 
-  $effect(async () => { //EFFECT 2
-    console.log("effect 2 - create canvas from unpacked tiff")
+  $effect(async () => {
+    //EFFECT 2
+    console.log("effect 2 - create canvas from unpacked tiff");
     geotiff =
       geotiffFile?.length > 0
         ? await fromBlob(tiffLocation)
@@ -233,7 +238,8 @@
     width = image.getWidth();
     height = image.getHeight();
     bbox = image.getBoundingBox();
-    let metadataRes = csvFile?.length > 0 ? csvLocation : await fetch(csvLocation);
+    let metadataRes =
+      csvFile?.length > 0 ? csvLocation : await fetch(csvLocation);
 
     let metadataCsv = await metadataRes.text();
 
@@ -257,9 +263,11 @@
     imageDataForUniques = ctxForUniques.createImageData(width, height);
   });
 
-  $effect(async () => { //EFFECT 3
-    console.log("effect 3 - send url and metadata to unpackWorker")
-    let metadataRes = csvFile?.length > 0 ? csvLocation : await fetch(csvLocation);
+  $effect(async () => {
+    //EFFECT 3
+    console.log("effect 3 - send url and metadata to unpackWorker");
+    let metadataRes =
+      csvFile?.length > 0 ? csvLocation : await fetch(csvLocation);
 
     let metadataCsv = await metadataRes.text();
 
@@ -271,8 +279,9 @@
     }
   });
 
-  $effect(() => { //EFFECT 4
-    console.log("effect 4 - if blended array has changed, render it")
+  $effect(() => {
+    //EFFECT 4
+    console.log("effect 4 - if blended array has changed, render it");
     for (let i = 0; i < blendedArray.length; i++) {
       const value = blendedArray[i];
 
@@ -282,9 +291,18 @@
       imageData.data[i * 4 + 3] = value !== 0 ? 255 : 0; //Alpha
     }
 
-    // for (let i = 0; i < uniqueArray.length; i++) {
-    //   const valueUnique = uniqueArray[i];
+    if (uniqueArray) {
+      for (let i = 0; i < uniqueArray.length; i++) {
+        const valueUnique = uniqueArray[i];
+        // for (let i = 0; i < uniqueArray.length; i++) {
+        //   const valueUnique = uniqueArray[i];
 
+        imageDataForUniques.data[i * 4 + 0] = 255; // redValue; //R
+        imageDataForUniques.data[i * 4 + 1] = 0; // greenValue; //G
+        imageDataForUniques.data[i * 4 + 2] = 0; // blueValue; //B
+        imageDataForUniques.data[i * 4 + 3] = valueUnique !== 0 ? 255 : 0; //Alpha
+      }
+    }
     //   imageDataForUniques.data[i * 4 + 0] = 255; // redValue; //R
     //   imageDataForUniques.data[i * 4 + 1] = 0; // greenValue; //G
     //   imageDataForUniques.data[i * 4 + 2] = 0; // blueValue; //B
@@ -319,19 +337,22 @@
     }
   });
 
-  let selectionsLength = $derived(selected.length);//DERIVED 4
+  let selectionsLength = $derived(selected.length); //DERIVED 4
 
-  $effect(() => { //EFFECT 5
-    console.log("effect 5 - if the number of items selected changes, reblend")
+  $effect(() => {
+    //EFFECT 5
+    console.log("effect 5 - if the number of items selected changes, reblend");
     selectionsLength = selected.length;
     updateBlending();
   });
 
-  let englandArea = $derived( //DERIVED 5
+  let englandArea = $derived(
+    //DERIVED 5
     rasterLayers.find((e) => e.filename === "ENGLAND_100M.tif")?.area
   );
 
-  let tableData = $derived( //DERIVED 6
+  let tableData = $derived(
+    //DERIVED 6
     selected.map((layer, i) => {
       return {
         name: layer.replace(".tif", "").replaceAll("_", " "),
@@ -474,6 +495,16 @@
       {console.log("waiting")}
       <p>Generating the map...</p>
     {:then image}
+      {console.log("done waiting")}
+      {#if dataURL && uniqueArray && bbox}
+        <!-- <Map onclick={logClick} mapHeight={700} {styleSheet} /> -->
+
+        <div class="os-map-container">
+          <!-- {#key (dataURL, dataURLForUniques)} -->
+          <OsMap {dataURL} {dataURLForUniques} {bbox} />
+          <!-- {/key} -->
+        </div>
+      {/if}
       <div class="os-map-container">
         <OsMap {dataURL} {dataURLForUniques} {bbox} />
       </div>
