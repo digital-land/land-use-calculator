@@ -13,14 +13,19 @@
   let done = $state(false);
   let ones;
   let dataURL = $state();
+  let dataURLForUniques = $state();
   let occurences = $state();
+  // let finalArray = $state();
   let width = $state(0),
     height = $state(0);
   let bbox = $state([]);
   let canvas = $state();
+  let canvasForUniques = $state();
   let ctx = $state();
+  let ctxForUniques = $state();
   let image = $state();
   let imageData = $state();
+  let imageDataForUniques = $state();
   let rasterLayers = $state([]);
   let lookup = [];
   let bitLayers = $state([]);
@@ -29,6 +34,18 @@
   let blendedArray = $state([]);
   let blendedArrayLength = $state(0);
   let startingPosition;
+  let selectedRestriction = $state();
+  let restrictionChanged = $state(false);
+
+  let selectedRestrictionIndex = $derived(
+    rasterLayers
+      ?.map((d) => d.filename.replace(".tif", "").replaceAll("_", " "))
+      .filter((d) => !d.includes("ENGLAND"))
+      .indexOf(selectedRestriction)
+  );
+  // $inspect(selectedRestrictionIndex);
+  let uniqueArray = $state([]);
+  // $inspect(uniqueArray);
   // let styleSheet = $state();
   // let redValue = Math.random() * 255;
   // let greenValue = Math.random() * 255;
@@ -38,9 +55,9 @@
   const blendingProgress = writable(0);
   let geotiffFile = $state();
   let csvFile = $state();
-  $inspect(geotiffFile);
+  // $inspect(geotiffFile);
   let tiffLocation = $derived(
-    geotiffFile?.length > 0 ? geotiffFile[0] : `${base}/data/output.tif`
+    geotiffFile?.length > 0 ? geotiffFile[0] : `${base}/data/LAs/LA1.tif`
   );
   let csvLocation = $derived(
     csvFile?.length > 0 ? csvFile[0] : `${base}/bitpacking_metadata.csv`
@@ -49,7 +66,7 @@
   // let metadataCsv = $state();
   // $inspect(metadataCsv);
   let geotiff = $state();
-  $inspect(geotiff);
+  // $inspect(geotiff);
   // let metadataRes = $state();
   // $inspect(metadataRes);
   $inspect({ tiffLocation, csvLocation, csvFile });
@@ -112,11 +129,6 @@
     };
   }
 
-  // // Util: Count '1's
-  // function countOnes(arr) {
-  //   return arr.reduce((sum, val) => sum + val, 0);
-  // }
-
   function countOccurrences(uint8Array) {
     const counts = {};
     for (let i = 0; i < uint8Array.length; i++) {
@@ -134,13 +146,20 @@
   function updateBlending() {
     if (!England) return;
     const active = rasterLayers.filter((l) => selected.includes(l.filename));
-    console.log("active", active);
+    // console.log("active", active);
     const bitArrays = active.map((l) => l.data);
     blendingProgress.set(0);
-    console.log("bitarrays", bitArrays); //THIS IS WHERE I NEED TO DO THE SINGLE BLOCKER CALC...
+    // console.log("bitarrays", bitArrays); //THIS IS WHERE I NEED TO DO THE SINGLE BLOCKER CALC...
     blendWorker.postMessage({ bitArrays, englandMask: England });
     findTheOnes(bitArrays, active);
   }
+
+  $effect(() => {
+    if (restrictionChanged) {
+      restrictionChanged = !restrictionChanged;
+      updateBlending();
+    }
+  });
 
   function findTheOnes(ba, active) {
     if (ba.length) {
@@ -153,6 +172,7 @@
       const chunkSize = Math.ceil(length / NUM_WORKERS);
       const workers = [];
       const finalArray = new Uint8Array(length);
+      uniqueArray = new Uint8Array(length);
       const promises = [];
 
       for (let w = 0; w < NUM_WORKERS; w++) {
@@ -175,6 +195,15 @@
             }
 
             finalArray.set(new Uint8Array(e.data.result), start);
+            // if (selectedRestrictionIndex) {
+            uniqueArray.set(
+              new Uint8Array(e.data.result).map((d) =>
+                d == selectedRestrictionIndex ? 1 : 0
+              ),
+              start
+            );
+            // }
+
             resolve();
           };
 
@@ -201,22 +230,25 @@
       return Promise.all(promises).then(() => {
         occurences = countOccurrences(finalArray);
         done = true;
+        console.log(uniqueArray);
+
         console.log("✅ All workers done. Final array ready.", occurences);
       });
     }
   }
 
-  // Parse metadata CSV
-  function parseMetadataCsv(csvText) {
-    const lines = csvText.trim().split("\n");
-    const headers = lines[0].split(",");
-    return lines.slice(1).map((line) => {
-      const values = line.split(",");
-      const row = {};
-      headers.forEach((h, i) => (row[h] = values[i]));
-      return row;
-    });
-  }
+  // // Parse metadata CSV
+  // function parseMetadataCsv(csvText) {
+  //   const lines = csvText.trim().split("\n");
+  //   const headers = lines[0].split(",");
+  //   return lines.slice(1).map((line) => {
+  //     const values = line.split(",");
+  //     const row = {};
+  //     headers.forEach((h, i) => (row[h] = values[i]));
+  //     return row;
+  //   });
+  // }
+
   // $inspect(rasters);
   $effect(async () => {
     geotiff =
@@ -227,7 +259,7 @@
     width = image.getWidth();
     height = image.getHeight();
     bbox = image.getBoundingBox();
-    console.log(image, width, height, bbox[0]);
+    // console.log(image, width, height, bbox[0]);
     let metadataRes =
       csvFile?.length > 0 ? csvLocation : await fetch(csvLocation);
 
@@ -241,45 +273,17 @@
       });
     }
 
-    // console.log("sp", startingPosition);
-
-    // const lerp = (a, b, t) => (1 - t) * a + t * b;
-
-    // // Construct the WGS-84 forward and inverse affine matrices:
-    // const { ModelPixelScale: s, ModelTiepoint: t } = image.fileDirectory;
-    // console.log(s, t);
-    // let [sx, sy, sz] = s;
-    // let [px, py, k, gx, gy, gz] = t;
-    // sy = -sy; // WGS-84 tiles have a "flipped" y component
-    // pixelToGPS = [gx, sx, 0, gy, 0, sy];
-    // console.log(`pixel to GPS transform matrix:`, pixelToGPS);
-    // gpsToPixel = [-gx / sx, 1 / sx, 0, -gy / sy, 0, 1 / sy];
-    // console.log(`GPS to pixel transform matrix:`, gpsToPixel);
-
-    // // Convert a GPS coordinate to a pixel coordinate in our tile:
-    // const [gx1, gy1, gx2, gy2] = image.getBoundingBox();
-    // const lat = lerp(gy1, gy2, Math.random());
-    // const long = lerp(gx1, gx2, Math.random());
-
-    // console.log(
-    //   `Looking up GPS coordinate (${lat.toFixed(6)},${long.toFixed(6)})`
-    // );
-    // const [x, y] = transform(long, lat, gpsToPixel, true);
-    // console.log(`Corresponding tile pixel coordinate: [${x}][${y}]`);
-
-    // const gpsBBox = [
-    //   transform(x, y, pixelToGPS),
-    //   transform(x + 1, y + 1, pixelToGPS),
-    // ];
-
-    // console.log(`Pixel covers the following GPS area:`, gpsBBox);
-    // console.log("rasters", rasters);
-
     canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
     ctx = canvas.getContext("2d");
     imageData = ctx.createImageData(width, height);
+
+    canvasForUniques = document.createElement("canvas");
+    canvasForUniques.width = width;
+    canvasForUniques.height = height;
+    ctxForUniques = canvasForUniques.getContext("2d");
+    imageDataForUniques = ctxForUniques.createImageData(width, height);
   });
 
   $effect(async () => {
@@ -298,7 +302,7 @@
 
   // $inspect(selected, rasterLayers);
   $effect(() => {
-    console.log(blendedArrayLength, blendedArray.length);
+    // console.log(blendedArrayLength, blendedArray.length);
     for (let i = 0; i < blendedArray.length; i++) {
       const value = blendedArray[i];
 
@@ -308,6 +312,15 @@
       imageData.data[i * 4 + 3] = value !== 0 ? 255 : 0; //Alpha
     }
 
+    for (let i = 0; i < uniqueArray.length; i++) {
+      const valueUnique = uniqueArray[i];
+
+      imageDataForUniques.data[i * 4 + 0] = 255; // redValue; //R
+      imageDataForUniques.data[i * 4 + 1] = 0; // greenValue; //G
+      imageDataForUniques.data[i * 4 + 2] = 0; // blueValue; //B
+      imageDataForUniques.data[i * 4 + 3] = valueUnique !== 0 ? 255 : 0; //Alpha
+    }
+
     if (canvas) {
       ctx.putImageData(imageData, 0, 0);
 
@@ -315,123 +328,13 @@
       dataURL = canvas.toDataURL();
     }
 
-    // const apiKey = "";
+    if (canvasForUniques) {
+      ctxForUniques.putImageData(imageDataForUniques, 0, 0);
 
-    // // Define the projections
-    // const epsg3857 = "EPSG:3857";
-    // const wgs84 = "EPSG:4326";
+      // Convert canvas to data URL
+      dataURLForUniques = canvasForUniques.toDataURL();
+    }
 
-    // Define the bounding box in EPSG:3857 format
-    // const bbox3857 = [minX, minY, maxX, maxY];
-    // if (bbox[0]) {
-    //   // Convert the coordinates
-    //   const minLngLat = proj4(epsg3857, wgs84, [
-    //     parseInt(bbox[0]),
-    //     parseInt(bbox[1]),
-    //   ]);
-    //   const maxLngLat = proj4(epsg3857, wgs84, [
-    //     parseInt(bbox[2]),
-    //     parseInt(bbox[3]),
-    //   ]);
-
-    //   // Bounding box in LngLat format
-    //   const bboxLngLat = [
-    //     minLngLat[0],
-    //     minLngLat[1],
-    //     maxLngLat[0],
-    //     maxLngLat[1],
-    //   ];
-
-    //   console.log("Bounding box in LngLat format:", bboxLngLat);
-
-    //   styleSheet = {
-    //     version: 8,
-    //     sources: {
-    //       "geotiff-image":
-    //         dataURL && bbox
-    //           ? {
-    //               type: "image",
-    //               url: dataURL,
-    //               coordinates: [
-    //                 [bboxLngLat[0], bboxLngLat[3]], // top-left
-    //                 [bboxLngLat[2], bboxLngLat[3]], // top-right
-    //                 [bboxLngLat[2], bboxLngLat[1]], // bottom-right
-    //                 [bboxLngLat[0], bboxLngLat[1]], // bottom-left
-    //               ],
-    //             }
-    //           : {},
-    //       // "raster-tiles": {
-    //       //   type: "raster",
-    //       //   tiles: ["https://api.os.uk/maps/raster/v1/wmts?" + queryString],
-    //       //   tileSize: 256,
-    //       // },
-    //       // "raster-tiles": {
-    //       //   type: "raster",
-    //       //   tiles: [
-    //       //     "/api/maps/raster/v1/zxy/Light_3857/{z}/{x}/{y}.png?key=" + apiKey,
-    //       //   ],
-    //       //   tileSize: 256,
-    //       // },
-    //       labels: {
-    //         type: "raster",
-    //         tiles: [
-    //           "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
-    //         ],
-    //         tileSize: 256,
-    //         attribution:
-    //           "Labels © Esri — Source: Esri and the GIS User Community",
-    //       },
-    //       esri: {
-    //         type: "raster",
-    //         tiles: [
-    //           "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    //         ],
-    //         tileSize: 256,
-    //         attribution:
-    //           "Imagery © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community",
-    //       },
-    //     },
-    //     layers: [
-    //       {
-    //         id: "esri-imagery",
-    //         type: "raster",
-    //         source: "esri",
-    //       },
-    //       // {
-    //       //   id: "os-maps-wmts",
-    //       //   type: "raster",
-    //       //   source: "raster-tiles",
-    //       // },
-    //       // {
-    //       //   id: "os-maps-zxy",
-    //       //   type: "raster",
-    //       //   source: "raster-tiles",
-    //       // },
-    //       {
-    //         id: "geotiff-layer",
-    //         source: "geotiff-image",
-    //         type: "raster",
-    //         paint: { "raster-opacity": 1 },
-    //       },
-    //       {
-    //         id: "esri-labels",
-    //         type: "raster",
-    //         source: "labels",
-    //       },
-    //     ],
-    //     // projection: {
-    //     //   type: [
-    //     //     "interpolate",
-    //     //     ["linear"],
-    //     //     ["zoom"],
-    //     //     10,
-    //     //     "vertical-perspective",
-    //     //     12,
-    //     //     "mercator",
-    //     //   ],
-    //     // },
-    //   };
-    // }
     if (rasterLayers.length) {
       checkboxOptions = rasterLayers
         .filter((d) => d.filename !== "ENGLAND_100M.tif")
@@ -444,8 +347,6 @@
           };
         });
     }
-
-    // console.log(checkboxOptions);
   });
 
   // $inspect(checkboxOptions);
@@ -547,7 +448,9 @@
         <legend>Layers to turn on/off:</legend>
         <button
           onclick={() => {
+            console.log(selected);
             selected.length = 0;
+            console.log(selected);
             updateBlending();
             return (selected = selected);
           }}>all off</button
@@ -616,9 +519,9 @@
       <!-- <Map onclick={logClick} mapHeight={700} {styleSheet} /> -->
 
       <div class="os-map-container">
-        {#key tiffLocation}
-          <OsMap {dataURL} {bbox} {tiffLocation} />
-        {/key}
+        <!-- {#key (dataURL, dataURLForUniques)} -->
+        <OsMap {dataURL} {dataURLForUniques} {bbox} />
+        <!-- {/key} -->
       </div>
       <!-- {/if} -->
     {/await}
@@ -633,6 +536,8 @@
             metaData={tableMetadata}
             colourScale={"Off"}
             bind:sortState
+            bind:selectedRestriction
+            bind:restrictionChanged
             sortedColumn={"unique"}
           />
         {/if}
@@ -665,5 +570,8 @@
   }
   :global(td.govuk-table__cell) {
     padding-right: 20px;
+  }
+  summary {
+    cursor: pointer;
   }
 </style>
