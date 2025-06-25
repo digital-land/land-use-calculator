@@ -1,6 +1,7 @@
 // src/lib/workers/blendWorker.js
 
 self.onmessage = function (e) {
+  console.log("blendWorker")
   try{
   const { bitArrays, englandMask } = e.data;
   const length = englandMask.length;

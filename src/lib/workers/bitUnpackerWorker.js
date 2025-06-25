@@ -15,8 +15,9 @@ import { fromUrl, fromBlob } from "geotiff";
   }
   
 self.onmessage = async function (e) {
+console.log("bitUnpackWorker")
 
-  const { url, metadataCsv } = e.data;
+const { url, metadataCsv } = e.data;
 
 const geotiff = typeof url == 'string' ? await fromUrl(url) : await fromBlob(url);
 
@@ -27,7 +28,6 @@ const image = await geotiff.getImage(),
       bbox = image.getBoundingBox(),
       rasterLayers = parseMetadataCsv(metadataCsv),
       rasters = await image.readRasters();
-      // console.log("RASTERS",rasters)
       let transposed=[]
 
 
