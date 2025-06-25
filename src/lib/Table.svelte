@@ -6,11 +6,11 @@
     metaData = undefined,
     caption = undefined,
     colourScale = undefined,
-    sortState = $bindable({ column: "sortedColumn", order: "ascending" }),
+    sortState = $bindable({ column: "sortedColumn", order: "descending" }),
     selectedRestriction = $bindable(),
     restrictionChanged = $bindable(false),
   } = $props();
-
+  //   $inspect(sortState);
   let localCopyOfData = $state([...data]);
 
   function hasUniqueValues(array, key) {
@@ -151,9 +151,9 @@
                   onClickFunction={() => {
                     const newDirection =
                       sortState.column === column.key &&
-                      sortState.order === "ascending"
-                        ? "descending"
-                        : "ascending";
+                      sortState.order === "descending"
+                        ? "ascending"
+                        : "descending";
 
                     updateSortState(column.key, newDirection);
                     sortFunction();
