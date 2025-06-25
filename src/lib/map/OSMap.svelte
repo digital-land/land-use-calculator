@@ -1,11 +1,13 @@
 <script>
-  let { dataURL, bbox, tiffLocation } = $props();
-  // $inspect(dataURL);
+  let { dataURL, dataURLForUniques, bbox } = $props();
+  // $inspect({ bbox });
+  // $inspect(dataURL, dataURLForUniques);
   import { onMount } from "svelte";
   import { onDestroy } from "svelte";
   //import GeoTIFF from 'ol/source/GeoTIFF';
   import WebGLTileLayer from "ol/layer/WebGLTile";
   import { VectorTile as VectorTileLayer, Image as ImageLayer } from "ol/layer";
+  // import LayerGroup from 'ol/layer/Group.js';
   import GeoTIFF from "geotiff";
   import ImageStatic from "ol/source/ImageStatic";
   let geotiffData = null; // to hold the raster data info
@@ -80,14 +82,29 @@
     });
   });
 
-  
-  let tiffLayer;
+  let tiffLayer, tiffLayerUnique;
 
   $effect(() => {
-    if (dataURL && bbox) {
+    if (map) {
+      // console.log(map?.getLayers());
+
+      map.removeLayer(tiffLayer);
+      map.removeLayer(tiffLayerUnique);
+    }
+
+    if (dataURL && dataURLForUniques && bbox) {
       tiffLayer = new ImageLayer({
         source: new ImageStatic({
           url: dataURL,
+          imageExtent: bbox,
+          projection: "EPSG:27700",
+        }),
+        opacity: 0.25,
+      });
+
+      tiffLayerUnique = new ImageLayer({
+        source: new ImageStatic({
+          url: dataURLForUniques,
           imageExtent: bbox,
           projection: "EPSG:27700",
         }),
@@ -95,12 +112,18 @@
       });
       // console.log(dataURL, bbox);
       if (map) {
-        console.log(map.getLayerGroup().getLayers());
-        map.removeLayer(map.getLayers().array_[1]);
-        console.log(map.getLayerGroup().getLayers());
+        // console.log(map.getLayerGroup().getLayers());
         map.addLayer(tiffLayer);
+        map.addLayer(tiffLayerUnique);
       }
     }
+
+    // if (dataURLForUniques && bbox) {
+    //   // console.log(dataURL, bbox);
+    //   if (map) {
+    //     console.log(map.getLayerGroup().getLayers());
+    //   }
+    // }
   });
 </script>
 

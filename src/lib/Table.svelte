@@ -7,6 +7,8 @@
     caption = undefined,
     colourScale = undefined,
     sortState = $bindable({ column: "sortedColumn", order: "ascending" }),
+    selectedRestriction = $bindable(),
+    restrictionChanged = $bindable(false),
   } = $props();
 
   let localCopyOfData = $state([...data]);
@@ -38,7 +40,7 @@
     columns.push(columnObject);
   }
 
-  $inspect("columns array is ", columns);
+  //   $inspect("columns array is ", columns);
 
   const metrics = columns
     .filter((column) => column.dataType === "number")
@@ -52,30 +54,32 @@
   }
 
   function sortFunction() {
-    if (typeof localCopyOfData[0][sortState["column"]] === "number") {
-      if (sortState.order === "ascending") {
-        localCopyOfData.sort(
-          (a, b) => a[sortState.column] - b[sortState.column]
-        );
-      } else {
-        localCopyOfData.sort(
-          (a, b) => b[sortState.column] - a[sortState.column]
-        );
+    if (localCopyOfData[0]) {
+      if (typeof localCopyOfData[0][sortState["column"]] === "number") {
+        if (sortState.order === "ascending") {
+          localCopyOfData.sort(
+            (a, b) => a[sortState.column] - b[sortState.column]
+          );
+        } else {
+          localCopyOfData.sort(
+            (a, b) => b[sortState.column] - a[sortState.column]
+          );
+        }
       }
-    }
-    if (typeof localCopyOfData[0][sortState["column"]] === "string") {
-      if (sortState.order === "ascending") {
-        localCopyOfData.sort((a, b) =>
-          a[sortState["column"]].localeCompare(b[sortState["column"]])
-        );
-      } else {
-        localCopyOfData.sort((a, b) =>
-          b[sortState["column"]].localeCompare(a[sortState["column"]])
-        );
+      if (typeof localCopyOfData[0][sortState["column"]] === "string") {
+        if (sortState.order === "ascending") {
+          localCopyOfData.sort((a, b) =>
+            a[sortState["column"]].localeCompare(b[sortState["column"]])
+          );
+        } else {
+          localCopyOfData.sort((a, b) =>
+            b[sortState["column"]].localeCompare(a[sortState["column"]])
+          );
+        }
       }
     }
   }
-  if (sortState.column !== "sortedColumn") {
+  if (sortState?.column !== "sortedColumn") {
     sortFunction();
   }
 
@@ -98,20 +102,20 @@
     minAndMaxValues[metric] = { min, max };
   }
 
-    localCopyOfData = localCopyOfData.map((row) => {
-      const rowWithNorms = { ...row };
+  localCopyOfData = localCopyOfData.map((row) => {
+    const rowWithNorms = { ...row };
 
-      for (const metric of metrics) {
-        const { min, max } = minAndMaxValues[metric];
-        const value = row[metric];
-        const normalisedValue = (value - min) / (max - min);
+    for (const metric of metrics) {
+      const { min, max } = minAndMaxValues[metric];
+      const value = row[metric];
+      const normalisedValue = (value - min) / (max - min);
 
-        rowWithNorms[`${metric}__normalised`] = normalisedValue;
-      }
-  console.log("LOCAL COPY 2", rowWithNorms)
-      return rowWithNorms;
-    });
-console.log("LOCAL COPY", localCopyOfData)
+      rowWithNorms[`${metric}__normalised`] = normalisedValue;
+    }
+    // console.log("LOCAL COPY 2", rowWithNorms);
+    return rowWithNorms;
+  });
+  //   console.log("LOCAL COPY", localCopyOfData);
 
   function normToColor(norm) {
     const hue = 120 * norm;
@@ -171,7 +175,16 @@ console.log("LOCAL COPY", localCopyOfData)
       >
       <tbody class="govuk-table__body">
         {#each localCopyOfData as row}
-          <tr class="govuk-table__row">
+          <tr
+            class={"govuk-table__row" +
+              (selectedRestriction === row.name ? " selected" : "")}
+            onclick={() => {
+              selectedRestriction === row.name
+                ? (selectedRestriction = undefined)
+                : (selectedRestriction = row.name);
+              restrictionChanged = true;
+            }}
+          >
             {#each columns as column}
               {#if column.dataType === "number"}
                 {#if colourScale === "On"}
@@ -235,5 +248,9 @@ console.log("LOCAL COPY", localCopyOfData)
   .text-header {
     display: flex;
     color: #005ea5;
+  }
+
+  .selected {
+    background-color: pink;
   }
 </style>

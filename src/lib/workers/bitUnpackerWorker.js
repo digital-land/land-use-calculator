@@ -17,7 +17,7 @@ import { fromUrl, fromBlob } from "geotiff";
 self.onmessage = async function (e) {
 
   const { url, metadataCsv } = e.data;
-console.log(metadataCsv)
+
 const geotiff = typeof url == 'string' ? await fromUrl(url) : await fromBlob(url);
 
 try {
@@ -27,7 +27,7 @@ const image = await geotiff.getImage(),
       bbox = image.getBoundingBox(),
       rasterLayers = parseMetadataCsv(metadataCsv),
       rasters = await image.readRasters();
-      console.log("RASTERS",rasters)
+      // console.log("RASTERS",rasters)
       let transposed=[]
 
 
