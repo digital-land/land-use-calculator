@@ -36,7 +36,8 @@
   let startingPosition;
   let selectedRestriction = $state();
   let restrictionChanged = $state(false);
-  let selectedRestrictionIndex = $derived(
+
+  let selectedRestrictionIndex = $derived( //DERIVED 1
     rasterLayers
       ?.map((d) => d.filename.replace(".tif", "").replaceAll("_", " "))
       .filter((d) => !d.includes("ENGLAND"))
@@ -51,10 +52,10 @@
   let geotiffFile = $state();
   let csvFile = $state();
 
-  let tiffLocation = $derived(
+  let tiffLocation = $derived( //DERIVED 2
     geotiffFile?.length > 0 ? geotiffFile[0] : `${base}/data/output.tif`
   );
-  let csvLocation = $derived(
+  let csvLocation = $derived( //DERIVED 3
     csvFile?.length > 0 ? csvFile[0] : `${base}/bitpacking_metadata.csv`
   );
 
@@ -141,8 +142,9 @@
     findTheOnes(bitArrays, active);
   }
 
-  $effect(() => {
+  $effect(() => { //EFFECT 1
     if (restrictionChanged) {
+      console.log("effect 1 - update blending")
       restrictionChanged = !restrictionChanged;
       updateBlending();
     }
@@ -221,7 +223,8 @@
     }
   }
 
-  $effect(async () => {
+  $effect(async () => { //EFFECT 2
+    console.log("effect 2 - create canvas from unpacked tiff")
     geotiff =
       geotiffFile?.length > 0
         ? await fromBlob(tiffLocation)
@@ -230,8 +233,7 @@
     width = image.getWidth();
     height = image.getHeight();
     bbox = image.getBoundingBox();
-    let metadataRes =
-      csvFile?.length > 0 ? csvLocation : await fetch(csvLocation);
+    let metadataRes = csvFile?.length > 0 ? csvLocation : await fetch(csvLocation);
 
     let metadataCsv = await metadataRes.text();
 
@@ -255,9 +257,9 @@
     imageDataForUniques = ctxForUniques.createImageData(width, height);
   });
 
-  $effect(async () => {
-    let metadataRes =
-      csvFile?.length > 0 ? csvLocation : await fetch(csvLocation);
+  $effect(async () => { //EFFECT 3
+    console.log("effect 3 - send url and metadata to unpackWorker")
+    let metadataRes = csvFile?.length > 0 ? csvLocation : await fetch(csvLocation);
 
     let metadataCsv = await metadataRes.text();
 
@@ -269,7 +271,8 @@
     }
   });
 
-  $effect(() => {
+  $effect(() => { //EFFECT 4
+    console.log("effect 4 - if blended array has changed, render it")
     for (let i = 0; i < blendedArray.length; i++) {
       const value = blendedArray[i];
 
@@ -279,14 +282,14 @@
       imageData.data[i * 4 + 3] = value !== 0 ? 255 : 0; //Alpha
     }
 
-    for (let i = 0; i < uniqueArray.length; i++) {
-      const valueUnique = uniqueArray[i];
+    // for (let i = 0; i < uniqueArray.length; i++) {
+    //   const valueUnique = uniqueArray[i];
 
-      imageDataForUniques.data[i * 4 + 0] = 255; // redValue; //R
-      imageDataForUniques.data[i * 4 + 1] = 0; // greenValue; //G
-      imageDataForUniques.data[i * 4 + 2] = 0; // blueValue; //B
-      imageDataForUniques.data[i * 4 + 3] = valueUnique !== 0 ? 255 : 0; //Alpha
-    }
+    //   imageDataForUniques.data[i * 4 + 0] = 255; // redValue; //R
+    //   imageDataForUniques.data[i * 4 + 1] = 0; // greenValue; //G
+    //   imageDataForUniques.data[i * 4 + 2] = 0; // blueValue; //B
+    //   imageDataForUniques.data[i * 4 + 3] = valueUnique !== 0 ? 255 : 0; //Alpha
+    // }
 
     if (canvas) {
       ctx.putImageData(imageData, 0, 0);
@@ -316,17 +319,19 @@
     }
   });
 
-  let selectionsLength = $derived(selected.length);
-  $effect(() => {
+  let selectionsLength = $derived(selected.length);//DERIVED 4
+
+  $effect(() => { //EFFECT 5
+    console.log("effect 5 - if the number of items selected changes, reblend")
     selectionsLength = selected.length;
     updateBlending();
   });
 
-  let englandArea = $derived(
+  let englandArea = $derived( //DERIVED 5
     rasterLayers.find((e) => e.filename === "ENGLAND_100M.tif")?.area
   );
 
-  let tableData = $derived(
+  let tableData = $derived( //DERIVED 6
     selected.map((layer, i) => {
       return {
         name: layer.replace(".tif", "").replaceAll("_", " "),
