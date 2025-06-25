@@ -86,8 +86,6 @@
 
   $effect(() => {
     if (map) {
-      console.log(90, bbox);
-
       map.removeLayer(tiffLayer);
       map.removeLayer(tiffLayerUnique);
     }
@@ -112,11 +110,9 @@
       });
 
       if (map) {
-        console.log(115);
         map.addLayer(tiffLayer);
         map.addLayer(tiffLayerUnique);
         map.getView().fit(bbox, { duration: 1000 });
-        console.log(119);
       }
     }
 
