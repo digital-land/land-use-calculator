@@ -3,7 +3,10 @@
   import { fromUrl, fromBlob } from "geotiff";
   import { writable } from "svelte/store";
   import { browser } from "$app/environment";
-  import { CheckBox } from "@communitiesuk/svelte-component-library";
+  import {
+    CheckBox,
+    PhaseBanner,
+  } from "@communitiesuk/svelte-component-library";
   import Map from "$lib/map/Map.svelte";
   import OsMap from "$lib/map/OSMap.svelte";
   import proj4 from "proj4";
@@ -385,14 +388,20 @@
   );
 
   let tableMetadata = {
-    name: { explainer: "Restriction name", label: "Name", shortLabel: "Name" },
+    name: {
+      explainer: "Sort by restriction name",
+      label: "Name",
+      shortLabel: "Name",
+    },
     area: {
-      explainer: "The total area in England covered by this restriction",
+      explainer:
+        "Sort by the total area in England covered by this restriction",
       label: "Area",
       shortLabel: "Area",
     },
     unique: {
-      explainer: "Hectares where this is the only barrier to development",
+      explainer:
+        "Sort by hectares where this is the only barrier to development",
       label: "Uniquely this",
       shortLabel: "Uniquely this",
     },
@@ -419,7 +428,12 @@
 
 <!-- <h1>[Heading]</h1> -->
 <!-- <p>[Description]</p> -->
-<b>NOTE: THIS IS AN EXPERIMENTAL PRODUCT UNDER DEVELOPMENT</b>
+<!-- <b>NOTE: THIS IS AN EXPERIMENTAL PRODUCT UNDER DEVELOPMENT</b> -->
+<PhaseBanner
+  tagText={"Alpha"}
+  bannerText={"THIS IS AN EXPERIMENTAL PRODUCT UNDER DEVELOPMENT"}
+  linkText={""}
+/>
 <h2>
   The total area of land in England is {englandArea
     ? englandArea.toLocaleString()
@@ -479,10 +493,11 @@
           }}>all on</button
         >
 
-        {#each rasterLayers as layer (layer.filename)}
+        {#each rasterLayers as layer, i}
           {#if layer.filename !== "ENGLAND_100M.tif"}
             <div>
               <input
+                id={"checkbox-" + i}
                 name="checkbox"
                 type="checkbox"
                 bind:group={selected}
@@ -490,7 +505,7 @@
                 onchange={() => updateBlending()}
               />
 
-              <label for="checkbox">
+              <label for={"checkbox-" + i}>
                 {layer.filename.replace(".tif", "").replaceAll("_", " ")}
                 <!-- : {layer.area?.toLocaleString() ?? 0} ha -->
               </label>
@@ -527,6 +542,13 @@
   </div>
   {#if done}
     <div class="table">
+      <p>
+        Select a row in the table to see areas that are subject to this
+        restriction and no others, highlighted in <span
+          class="uniqueHighlightText">red</span
+        >
+        on the map.
+      </p>
       {#key tableData}
         {#if tableData}
           <Table
@@ -550,11 +572,22 @@
     display: grid;
     grid-template-columns: 20% 40% 40%;
     font-family: sans-serif;
+    max-height: 80vh;
+    overflow: scroll;
   }
-  .output,
-  .table {
+  .output {
     padding: 10px;
+    max-height: 700px;
+    overflow-y: auto;
+    overflow-x: scroll;
+    /* width: 100%; */
   }
+
+  .table {
+    padding: 0px 10px;
+    max-height: 700px;
+  }
+
   .os-map-container {
     height: 700px;
   }
@@ -563,5 +596,10 @@
   }
   summary {
     cursor: pointer;
+  }
+
+  .uniqueHighlightText {
+    font-weight: 700;
+    color: crimson;
   }
 </style>
