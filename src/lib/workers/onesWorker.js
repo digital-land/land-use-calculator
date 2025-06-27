@@ -1,11 +1,12 @@
 // worker.js
 self.onmessage = function (e) {
-  console.log("onsesWorker")
+  console.log("onsesWorker", e.data.end)
 try{
-  const { arrays, start, end } = e.data;
+  const { arrays, start, end, selectedRestrictionIndex } = e.data;
   const count = arrays.length;
   const length = end - start;
   const result = new Uint8Array(length).fill(99);
+  let uniqueResult;
 
   for (let i = 0; i < length; i++) {
     let foundIndex = -1;
@@ -27,8 +28,10 @@ try{
       result[i] = foundIndex
     }
   }
-
-  self.postMessage({ result }, [result.buffer]);
+uniqueResult = result.map((d) =>
+                d == selectedRestrictionIndex ? 1 : 0
+              )
+  self.postMessage({ result, uniqueResult }, [result.buffer]);
     } catch (err) {
     self.postMessage({ error: err.message || 'Unknown error' });
   }

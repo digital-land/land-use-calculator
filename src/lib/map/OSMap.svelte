@@ -14,11 +14,11 @@
 
   let mapElement;
   let map;
+  let tiffLayer, tiffLayerUnique;
   const apiKey = "oCUBI8DjgzTP5J8VptrnOAxYVeZc0cZ2";
   const serviceUrl = "https://api.os.uk/maps/vector/v1/vts";
-  let worker;
+  // let worker;
   onMount(async () => {
-    console.log(22, bbox, map);
     proj4.defs(
       "EPSG:27700",
       "+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +towgs84=446.448,-125.157,542.06,0.15,0.247,0.842,-20.489 +units=m +no_defs"
@@ -67,9 +67,27 @@
       })
     );
 
+    tiffLayer = new ImageLayer({
+      source: new ImageStatic({
+        url: dataURL,
+        imageExtent: bbox,
+        projection: "EPSG:27700",
+      }),
+      opacity: 0.25,
+    });
+
+    tiffLayerUnique = new ImageLayer({
+      source: new ImageStatic({
+        url: dataURLForUniques,
+        imageExtent: bbox,
+        projection: "EPSG:27700",
+      }),
+      opacity: 0.75,
+    });
+
     map = new ol.Map({
       target: mapElement,
-      layers: [vectorTileLayer],
+      layers: [vectorTileLayer, tiffLayer, tiffLayerUnique],
       view: new ol.View({
         projection: "EPSG:27700",
         extent: [-238375.0, 0.0, 900000.0, 1376256.0],
@@ -80,9 +98,10 @@
         zoom: 2,
       }),
     });
-  });
 
-  let tiffLayer, tiffLayerUnique;
+    //Zoom to the area
+    map.getView().fit(bbox, { duration: 1000 });
+  });
 
   $effect(() => {
     if (map) {
@@ -110,9 +129,9 @@
       });
 
       if (map) {
+        console.log("Adding the tiff layers");
         map.addLayer(tiffLayer);
         map.addLayer(tiffLayerUnique);
-        map.getView().fit(bbox, { duration: 1000 });
       }
     }
 

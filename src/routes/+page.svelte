@@ -1,5 +1,5 @@
 <script>
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import { fromUrl, fromBlob } from "geotiff";
   import { writable } from "svelte/store";
   import { browser } from "$app/environment";
@@ -36,18 +36,15 @@
   let startingPosition;
   let selectedRestriction = $state("AONB");
   let restrictionChanged = $state(false);
-
   let selectedRestrictionIndex = $derived(
     //DERIVED 1
-    rasterLayers
-      ?.map((d) => d.filename.replace(".tif", "").replaceAll("_", " "))
-      .filter((d) => !d.includes("ENGLAND"))
+    selected
+      ?.map((d) => d.replace(".tif", "").replaceAll("_", " "))
+      // .filter((d) => !d.includes("ENGLAND"))
       .indexOf(selectedRestriction)
   );
 
   let uniqueArray = $state([]);
-
-  let checkboxOptions = $state();
 
   const blendingProgress = writable(0);
   let geotiffFile = $state();
@@ -142,19 +139,19 @@
     const bitArrays = active.map((l) => l.data);
     blendingProgress.set(0);
     blendWorker.postMessage({ bitArrays, englandMask: England });
-    findTheOnes(bitArrays, active);
+    findTheOnes(bitArrays);
   }
 
   $effect(() => {
     //EFFECT 1
     if (restrictionChanged) {
-      console.log("effect 1 - update blending");
+      console.log("effect 1 - restriction changed - update blending");
       restrictionChanged = !restrictionChanged;
       updateBlending();
     }
   });
 
-  function findTheOnes(ba, active) {
+  function findTheOnes(ba) {
     if (ba.length) {
       const bitArrays = ba;
       const NUM_WORKERS = 4;
@@ -189,12 +186,7 @@
 
             finalArray.set(new Uint8Array(e.data.result), start);
             // if (selectedRestrictionIndex) {
-            uniqueArray.set(
-              new Uint8Array(e.data.result).map((d) =>
-                d == selectedRestrictionIndex ? 1 : 0
-              ),
-              start
-            );
+            uniqueArray.set(new Uint8Array(e.data.uniqueResult), start);
             // }
 
             resolve();
@@ -210,6 +202,7 @@
               arrays: chunkSlices,
               start,
               end,
+              selectedRestrictionIndex,
             },
             chunkSlices.map((a) => a.buffer)
           );
@@ -222,14 +215,16 @@
       // ✅ wait for all promises to complete
       return Promise.all(promises).then(() => {
         occurences = countOccurrences(finalArray);
+        // console.log(occurences, selectedRestrictionIndex);
         done = true;
+        updateDataURLForUniques();
       });
     }
   }
 
   $effect(async () => {
     //EFFECT 2
-    console.log("effect 2 - create canvas from unpacked tiff");
+    console.log("effect 2 - create canvases from unpacked tiff");
     geotiff =
       geotiffFile?.length > 0
         ? await fromBlob(tiffLocation)
@@ -263,7 +258,7 @@
     imageDataForUniques = ctxForUniques.createImageData(width, height);
   });
 
-  $effect(async () => {
+  $effect.pre(async () => {
     //EFFECT 3
     console.log("effect 3 - send url and metadata to unpackWorker");
     let metadataRes =
@@ -280,8 +275,9 @@
   });
 
   $effect(() => {
-    //EFFECT 4
-    console.log("effect 4 - if blended array has changed, render it");
+    //EFFECT 4a
+    console.log("effect 4a - if blended array has changed, render it");
+
     for (let i = 0; i < blendedArray.length; i++) {
       const value = blendedArray[i];
 
@@ -291,53 +287,86 @@
       imageData.data[i * 4 + 3] = value !== 0 ? 255 : 0; //Alpha
     }
 
-    if (uniqueArray) {
-      for (let i = 0; i < uniqueArray.length; i++) {
-        const valueUnique = uniqueArray[i];
-
-        imageDataForUniques.data[i * 4 + 0] = 255; // redValue; //R
-        imageDataForUniques.data[i * 4 + 1] = 0; // greenValue; //G
-        imageDataForUniques.data[i * 4 + 2] = 0; // blueValue; //B
-        imageDataForUniques.data[i * 4 + 3] = valueUnique !== 0 ? 255 : 0; //Alpha
-      }
-    }
-
     if (canvas) {
       ctx.putImageData(imageData, 0, 0);
 
       // Convert canvas to data URL
       dataURL = canvas.toDataURL();
     }
+  });
+  let renderUnique;
+  $effect.pre(() => {
+    //EFFECT 4b
+    console.log("effect 4b - if uniqueArray array has changed, render it");
+    // console.log(
+    //   "Still in effect 4 - blendedArrayLength is ",
+    //   blendedArrayLength,
+    //   " which tells us if blended array has changed"
+    // );
 
-    if (canvasForUniques) {
-      ctxForUniques.putImageData(imageDataForUniques, 0, 0);
+    //If we've lost the selection don't render anything
+    renderUnique = selected
+      .map((d) => d.replace(".tif", "").replaceAll("_", " "))
+      .includes(selectedRestriction);
+    tick().then(() => {
+      // if (uniqueArray) {
+      for (let i = 0; i < uniqueArray.length; i++) {
+        const valueUnique = renderUnique ? uniqueArray[i] : 0;
 
-      // Convert canvas to data URL
-      dataURLForUniques = canvasForUniques.toDataURL();
-    }
+        imageDataForUniques.data[i * 4 + 0] = 255; // redValue; //R
+        imageDataForUniques.data[i * 4 + 1] = 0; // greenValue; //G
+        imageDataForUniques.data[i * 4 + 2] = 0; // blueValue; //B
+        imageDataForUniques.data[i * 4 + 3] = valueUnique !== 0 ? 255 : 0; //Alpha
+      }
+      // }
 
-    if (rasterLayers.length) {
-      checkboxOptions = rasterLayers
-        .filter((d) => d.filename !== "ENGLAND_100M.tif")
-        .map((d) => {
-          return {
-            label: `${d.filename.replace(".tif", "").replaceAll("_", " ")}: ${
-              d.area?.toLocaleString() ?? 0
-            } ha`,
-            value: d.filename,
-          };
-        });
-    }
+      if (canvasForUniques) {
+        ctxForUniques.putImageData(imageDataForUniques, 0, 0);
+
+        // Convert canvas to data URL
+        dataURLForUniques = canvasForUniques.toDataURL();
+      }
+    });
   });
 
-  let selectionsLength = $derived(selected.length); //DERIVED 4
+  function updateDataURLForUniques() {
+    //If we've lost the selection don't render anything
+    console.log(
+      "this is the function that is updating the dataURL for uniques"
+    );
+    renderUnique = selected
+      .map((d) => d.replace(".tif", "").replaceAll("_", " "))
+      .includes(selectedRestriction);
 
-  $effect(() => {
-    //EFFECT 5
-    console.log("effect 5 - if the number of items selected changes, reblend");
-    selectionsLength = selected.length;
-    updateBlending();
-  });
+    tick().then(() => {
+      // if (uniqueArray) {
+      for (let i = 0; i < uniqueArray.length; i++) {
+        const valueUnique = renderUnique ? uniqueArray[i] : 0;
+
+        imageDataForUniques.data[i * 4 + 0] = 255; // redValue; //R
+        imageDataForUniques.data[i * 4 + 1] = 0; // greenValue; //G
+        imageDataForUniques.data[i * 4 + 2] = 0; // blueValue; //B
+        imageDataForUniques.data[i * 4 + 3] = valueUnique !== 0 ? 255 : 0; //Alpha
+      }
+      // }
+
+      if (canvasForUniques) {
+        ctxForUniques.putImageData(imageDataForUniques, 0, 0);
+
+        // Convert canvas to data URL
+        dataURLForUniques = canvasForUniques.toDataURL();
+      }
+    });
+  }
+
+  // let selectionsLength = $derived(selected.length); //DERIVED 4
+
+  // $effect(() => {
+  //   //EFFECT 5
+  //   console.log("effect 5 - if the number of items selected changes, reblend");
+  //   selectionsLength = selected.length;
+  //   updateBlending();
+  // });
 
   let englandArea = $derived(
     //DERIVED 5
@@ -434,7 +463,7 @@
         <button
           onclick={() => {
             selected.length = 0;
-            console.log(selected);
+            // console.log(selected);
             updateBlending();
             return (selected = selected);
           }}>all off</button
@@ -443,6 +472,7 @@
           onclick={() => {
             selected.length = 0;
             startingPosition.forEach((e) => selected.push(e));
+            // console.log(selected);
             updateBlending();
             return (selected = selected);
           }}>all on</button
@@ -484,24 +514,15 @@
     {/if}
   </div>
   <div>
-    {#await image}
-      {console.log("waiting")}
-      <p>Generating the map...</p>
-    {:then image}
-      {console.log("done waiting")}
-      {#if dataURL && uniqueArray && bbox}
-        <!-- <Map onclick={logClick} mapHeight={700} {styleSheet} /> -->
+    {#if dataURL && dataURLForUniques && bbox.length > 0}
+      {console.log("Rendering the map!")}
 
-        <div class="os-map-container">
-          <!-- {#key (dataURL, dataURLForUniques)} -->
-          <OsMap {dataURL} {dataURLForUniques} {bbox} />
-          <!-- {/key} -->
-        </div>
-      {/if}
       <div class="os-map-container">
-        <OsMap {dataURL} {dataURLForUniques} {bbox} />
+        {#key geotiffFile}
+          <OsMap {dataURL} {dataURLForUniques} {bbox} />
+        {/key}
       </div>
-    {/await}
+    {/if}
   </div>
   {#if done}
     <div class="table">
