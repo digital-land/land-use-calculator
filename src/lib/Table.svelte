@@ -40,7 +40,6 @@
     columns.push(columnObject);
   }
 
-
   const metrics = columns
     .filter((column) => column.dataType === "number")
     .map((column) => column.key);
@@ -106,7 +105,6 @@
 
     return rowWithNorms;
   });
-
 
   function normToColor(norm) {
     const hue = 120 * norm;
@@ -175,6 +173,16 @@
                 : (selectedRestriction = row.name);
               restrictionChanged = true;
             }}
+            onkeydown={(e) => {
+              console.log(e.code);
+              if (e.code == "Enter" || e.code == "Space") {
+                selectedRestriction === row.name
+                  ? (selectedRestriction = undefined)
+                  : (selectedRestriction = row.name);
+                restrictionChanged = true;
+              }
+            }}
+            tabindex="0"
           >
             {#each columns as column}
               {#if column.dataType === "number"}
