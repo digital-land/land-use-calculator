@@ -419,12 +419,13 @@
 
 <!-- <h1>[Heading]</h1> -->
 <!-- <p>[Description]</p> -->
+<b>NOTE: THIS IS AN EXPERIMENTAL PRODUCT UNDER DEVELOPMENT</b>
 <h2>
   The total area of land in England is {englandArea
     ? englandArea.toLocaleString()
     : "..."} ha. Removing areas with the selected restrictions there are {englandArea
     ? (englandArea - blendedArrayLength).toLocaleString()
-    : "..."} ha left over.
+    : "..."} ha.
 </h2>
 <!-- <p>[potentially visualisations]</p> -->
 
