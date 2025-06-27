@@ -144,12 +144,13 @@
   });
 </script>
 
-<div bind:this={mapElement} class="map-container"></div>
+<div bind:this={mapElement} class="map-container" tabindex="0"></div>
 
 <style>
   .map-container {
     width: fit-content;
-    height: 100%;
-    width: 100%;
+    height: calc(100% - 20px);
+    width: calc(100% - 20px);
+    padding: 10px;
   }
 </style>

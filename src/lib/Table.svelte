@@ -252,4 +252,8 @@
   .selected {
     background-color: pink;
   }
+
+  tr {
+    cursor: pointer;
+  }
 </style>
