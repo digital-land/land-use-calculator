@@ -49,7 +49,7 @@ const image = await geotiff.getImage(),
     }
 
     bitLayers.push(result);
-    const enriched = { ...layer, area: count, data: result };
+    const enriched = { ...layer, area: count, data: result , uniqueCounts:0};
     layerIndex++;
     return enriched;
   });

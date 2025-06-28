@@ -172,6 +172,7 @@ onMount(() => {
       // Only assign .data, don't compute .area again
       rasterLayers.forEach((layer, i) => {
         layer.data = bitLayers[i];
+        layer.uniqueCounts = 0
       });
 
       England = rasterLayers.find(
