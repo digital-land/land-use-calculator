@@ -15,7 +15,6 @@ import { fromUrl, fromBlob } from "geotiff";
   }
   
 self.onmessage = async function (e) {
-console.log("bitUnpackWorker")
 
 const { url, metadataCsv } = e.data;
 

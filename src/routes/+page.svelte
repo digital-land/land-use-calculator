@@ -9,13 +9,96 @@
   import proj4 from "proj4";
   import { base } from "$app/paths";
   import Table from "$lib/Table.svelte";
+  import { csvParse } from "d3-dsv";
+  import { A } from "ol/renderer/webgl/FlowLayer";
+
+  // onMount(()=>fetch(`${base}/data/LAs/LPA_lookup.csv`).then(res=>res.text()).then(text=>LALookup=csvParse(text)))
+  // let filesAvaliable=csvParse()
+let LALookup = [];
+let LADetails = $state([]);
+let count = 0;
+let uniquesByLA=[]
+
+onMount(() => {
+  fetch(`${base}/data/LAs/LPA_lookup.csv`)
+    .then((res) => res.text())
+    .then((text) => {
+      LALookup = csvParse(text);
+      return LALookup;
+    })
+    .then((json) => {
+      return fetch(`${base}/bitpacking_metadata.csv`)
+        .then((res) => res.text())
+        .then((metadataCSV) => {
+          const queue = [...json]; // copy array for processing
+
+          const unpackLAWorker = new Worker(
+            new URL("../lib/workers/bitUnpackerWorker.js?worker", import.meta.url),
+            { type: "module" }
+          );
+          const findUniquesWorker = new Worker(
+            new URL("../lib/workers/returnUniquesWorker.js?worker", import.meta.url),
+            { type: "module" }
+          );
+
+          findUniquesWorker.onmessage = e => {
+
+            if(["2","4","6","8"].includes(e.data.id))console.log("findUniquesSays", e)
+            let LA = LADetails.find(el=>el.id==e.data.id)
+          if(LA){
+            LA.uniquesArray=e.data.result
+            LA.occurrences=e.data.occurrences
+            Object.keys(e.data.occurrences).forEach(occ=>LA.layers[occ]?LA.layers[occ].uniqueCounts=e.data.occurrences[occ]:console.log("PROBLEM WITH LA.layers ", occ))
+          }
+          else{console.log("summut broke:",e)}
+            //LA.uniquesCounts=e.data.resultCounts
+          }
+          unpackLAWorker.onerror = (e) => {
+            console.error("Worker error:", e);
+            processNext(); // Skip and continue
+          };
+
+          unpackLAWorker.onmessage = (e) => {
+           const current = queue.shift(); // remove current item
+              if (!e?.data) {
+            console.warn("Worker returned no data", e, current.id);
+            
+            processNext(); // Continue even if no data
+
+            return;
+  }
+            const { bitLayers: bits, rasterLayers: layers } = e?.data;
+            findUniquesWorker.postMessage({bits: bits, id:current.id, rasters: layers})
+            LADetails.push({ id: current.id, name: current.LPA23NM, layers: layers, bits: bits  });
+            count++;
+            
+            processNext(); // Process next item
+          };
+
+          const processNext = () => {
+            if (queue.length === 0) return;
+            const next = queue[0];
+            unpackLAWorker.postMessage({
+              url: `${base}/data/LAs/LA${next.id}.tif`,
+              metadataCsv: metadataCSV,
+            });
+          };
+
+          processNext(); // Start the queue
+        });
+        
+    });
+
+    console.log("LADetails", LADetails);
+});
+
 
   let done = $state(false);
   let ones;
   let dataURL = $state();
   let dataURLForUniques = $state();
   let occurences = $state();
-  // let finalArray = $state();
+  let finalArray = $state();
   let width = $state(0),
     height = $state(0);
   let bbox = $state([]);
@@ -43,8 +126,8 @@
       // .filter((d) => !d.includes("ENGLAND"))
       .indexOf(selectedRestriction)
   );
-
   let uniqueArray = $state([]);
+
 
   const blendingProgress = writable(0);
   let geotiffFile = $state();
@@ -52,7 +135,7 @@
 
   let tiffLocation = $derived(
     //DERIVED 2
-    geotiffFile?.length > 0 ? geotiffFile[0] : `${base}/data/LAs/LA1.tif`
+    geotiffFile?.length > 0 ? geotiffFile[0] : `${base}/data/LAs/LA2.tif`
   );
   let csvLocation = $derived(
     //DERIVED 3
@@ -108,6 +191,7 @@
     unpackWorker.onerror = (e) => {
       console.log("ERROR", e);
     };
+
     blendWorker.onmessage = (e) => {
       if (e.data.progress !== undefined) {
         blendingProgress.set(e.data.progress);
@@ -161,7 +245,7 @@
       const inputArrays = bitArrays;
       const chunkSize = Math.ceil(length / NUM_WORKERS);
       const workers = [];
-      const finalArray = new Uint8Array(length);
+      finalArray = new Uint8Array(length);
       uniqueArray = new Uint8Array(length);
       const promises = [];
 
@@ -215,13 +299,12 @@
       // ✅ wait for all promises to complete
       return Promise.all(promises).then(() => {
         occurences = countOccurrences(finalArray);
-        // console.log(occurences, selectedRestrictionIndex);
         done = true;
         updateDataURLForUniques();
       });
     }
   }
-
+$inspect("finalArray",finalArray)
   $effect(async () => {
     //EFFECT 2
     console.log("effect 2 - create canvases from unpacked tiff");
@@ -424,10 +507,18 @@
     ? englandArea.toLocaleString()
     : "..."} ha. Removing areas with the selected restrictions there are {englandArea
     ? (englandArea - blendedArrayLength).toLocaleString()
-    : "..."} ha left over.
+    : "..."} ha.
 </h2>
 <!-- <p>[potentially visualisations]</p> -->
-
+{#if LADetails.length == LALookup.length}
+{console.log(LADetails)}
+<label for="area">Select an area
+<select name="area">
+{#each LADetails as LA}
+<option value = {LA.name}>{LA.name}</option>
+{/each}
+</select></label>
+{/if}
 <div class="container">
   <div class="output">
     <div>
@@ -528,9 +619,10 @@
     <div class="table">
       {#key tableData}
         {#if tableData}
+        {console.log("table data", tableData)}
           <Table
             caption={""}
-            data={tableData}
+            data={tableData.sort((a,b)=>+b.unique - +a.unique)}
             metaData={tableMetadata}
             colourScale={"Off"}
             bind:sortState
