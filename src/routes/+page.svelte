@@ -12,6 +12,8 @@
   import { csvParse } from "d3-dsv";
   import { A } from "ol/renderer/webgl/FlowLayer";
 
+  //WHILE WAITING https://opentdb.com/api.php?amount=1&category=24&difficulty=hard
+
   // onMount(()=>fetch(`${base}/data/LAs/LPA_lookup.csv`).then(res=>res.text()).then(text=>LALookup=csvParse(text)))
   // let filesAvaliable=csvParse()
 let LALookup = [];
@@ -48,7 +50,7 @@ onMount(() => {
           if(LA){
             LA.uniquesArray=e.data.result
             LA.occurrences=e.data.occurrences
-            Object.keys(e.data.occurrences).forEach(occ=>LA.layers[occ]?LA.layers[occ].uniqueCounts=e.data.occurrences[occ]:console.log("PROBLEM WITH LA.layers ", occ))
+            Object.keys(e.data.occurrences).forEach(occ=>occ!=99?LA.layers[occ].uniqueCounts=e.data.occurrences[occ]:0)//99 is the number for nowhere places
           }
           else{console.log("summut broke:",e)}
             //LA.uniquesCounts=e.data.resultCounts
@@ -135,7 +137,7 @@ onMount(() => {
 
   let tiffLocation = $derived(
     //DERIVED 2
-    geotiffFile?.length > 0 ? geotiffFile[0] : `${base}/data/LAs/LA2.tif`
+    geotiffFile?.length > 0 ? geotiffFile[0] : `${base}/data/LAs/LA1.tif`
   );
   let csvLocation = $derived(
     //DERIVED 3
@@ -458,7 +460,16 @@ $inspect("finalArray",finalArray)
   );
 
   let tableData = $derived(
-    //DERIVED 6
+
+    LADetails.length==LALookup.length && LADetails.find(e=>e.name==selectedArea)?
+    LADetails.find(e=>e.name==selectedArea).layers.map((layer, i) => {
+      return {
+        name: layer.filename.replace(".tif", "").replaceAll("_", " "),
+        area: layer.area,
+        unique: layer.uniqueCounts
+      };
+    // })
+  }):
     selected.map((layer, i) => {
       return {
         name: layer.replace(".tif", "").replaceAll("_", " "),
@@ -466,7 +477,8 @@ $inspect("finalArray",finalArray)
         unique: occurences && occurences[i] ? occurences[i] : 0,
       };
     })
-  );
+)
+  // );
 
   let tableMetadata = {
     name: { explainer: "Restriction name", label: "Name", shortLabel: "Name" },
@@ -483,6 +495,7 @@ $inspect("finalArray",finalArray)
   };
 
   let sortState = $state({ column: "sortedColumn", order: "descending" });
+  let selectedArea = $state()
 </script>
 
 <svelte:head>
@@ -503,8 +516,11 @@ $inspect("finalArray",finalArray)
 
 <!-- <h1>[Heading]</h1> -->
 <!-- <p>[Description]</p> -->
+ {#if tableData}
+  
+
 <h2>
-  The total area of land in England is {englandArea
+  The total area of land in {tableData.name} is {englandArea
     ? englandArea.toLocaleString()
     : "..."} ha. Removing areas with the selected restrictions there are {englandArea
     ? (englandArea - blendedArrayLength).toLocaleString()
@@ -514,7 +530,7 @@ $inspect("finalArray",finalArray)
 {#if LADetails.length == LALookup.length}
 {console.log(LADetails)}
 <label for="area">Select an area
-<select name="area">
+<select name="area" bind:value={selectedArea}>
 {#each LADetails as LA}
 <option value = {LA.name}>{LA.name}</option>
 {/each}
@@ -620,7 +636,6 @@ $inspect("finalArray",finalArray)
     <div class="table">
       {#key tableData}
         {#if tableData}
-        {console.log("table data", tableData)}
           <Table
             caption={""}
             data={tableData.sort((a,b)=>+b.unique - +a.unique)}
@@ -636,7 +651,7 @@ $inspect("finalArray",finalArray)
     </div>
   {/if}
 </div>
-
+ {/if}
 <style>
   .container {
     display: grid;
