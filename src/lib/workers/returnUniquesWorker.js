@@ -22,6 +22,23 @@ try{
   const length = arrays[0].length
   const result = new Uint8Array(length).fill(99);
 
+
+  let occupied = 0;
+
+  for (let i = 0; i < length; i++) {
+
+    for (let j = 0; j < count; j++) {
+      if (j!=7){
+      if (arrays[j][i]) {
+        occupied++;
+        break;
+      }
+    }
+    }
+
+  }
+
+
   for (let i = 0; i < length; i++) {
     let foundIndex = -1;
     let seenOne = false;
@@ -31,6 +48,7 @@ try{
       if (j!=7){ //!!!!!!!!!NOTE - THIS IS TO EXCLUDE THE ENGLAND LAYER AND SHOULD BE RECONSIDERED!!!!!!!!!!!!!!!!!
       const val = arrays[j][i];
       if (val === 1) {
+        // occupied[j]=1;
         if (seenOne) {
           foundIndex = -1;
           break;
@@ -47,7 +65,7 @@ try{
   }
 
 
-  self.postMessage({ result, id, count, length, occurrences: countOccurrences(result)}, [result.buffer]);
+  self.postMessage({ result, id, count, length, occupied, occurrences: countOccurrences(result)}, [result.buffer]);
     } catch (err) {
     self.postMessage({ error: err.message || 'Unknown error' , id: e.data.id});
   }

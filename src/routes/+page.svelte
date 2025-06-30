@@ -11,7 +11,8 @@
   import Table from "$lib/Table.svelte";
   import { csvParse } from "d3-dsv";
   import { A } from "ol/renderer/webgl/FlowLayer";
-
+  import Heading from "$lib/Heading.svelte"
+  import combineMatrices from "$lib/combineMatrices"
   //WHILE WAITING https://opentdb.com/api.php?amount=1&category=24&difficulty=hard
 
   // onMount(()=>fetch(`${base}/data/LAs/LPA_lookup.csv`).then(res=>res.text()).then(text=>LALookup=csvParse(text)))
@@ -43,14 +44,43 @@ onMount(() => {
             { type: "module" }
           );
 
-          findUniquesWorker.onmessage = e => {
 
+          const matrixWorker = new Worker(
+            new URL('../lib/workers/matrixWorker.js?worker', import.meta.url),
+            { type: "module" });
+
+            matrixWorker.onmessage = function (e) {
+              const matrix = e.data.matrix;
+              const id = e.data.id;
+              LADetails.find(el=>el.id==id).matrix=matrix
+            };
+
+            // Assume arr is an array of Uint8Arrays
+           
+          findUniquesWorker.onmessage = e => {
+          
             if(["2","4","6","8"].includes(e.data.id))console.log("findUniquesSays", e)
             let LA = LADetails.find(el=>el.id==e.data.id)
           if(LA){
             LA.uniquesArray=e.data.result
             LA.occurrences=e.data.occurrences
             Object.keys(e.data.occurrences).forEach(occ=>occ!=99?LA.layers[occ].uniqueCounts=e.data.occurrences[occ]:0)//99 is the number for nowhere places
+            LA.restricted=e.data.occupied
+            LA.area=LA.layers.find(e=>e.filename=="ENGLAND_100M.tif").area
+            LA.unrestricted=LA.area-LA.restricted
+            LA.singleRestriction=LA.layers.map(e=>e.uniqueCounts).reduce((a,b)=>a+b)
+            LA.mulipleRestrictions=LA.restricted-LA.singleRestriction
+            LA.layers.unshift({
+              area: LA.mulipleRestrictions,
+              filename: "Multiple restrictions",
+              uniqueCounts: LA.mulipleRestrictions
+            })
+            LA.layers.unshift({
+              area: LA.unrestricted,
+              filename: "Unrestricted",
+              uniqueCounts: LA.unrestricted
+            })
+
           }
           else{console.log("summut broke:",e)}
             //LA.uniquesCounts=e.data.resultCounts
@@ -73,7 +103,7 @@ onMount(() => {
             findUniquesWorker.postMessage({bits: bits, id:current.id, rasters: layers})
             LADetails.push({ id: current.id, name: current.LPA23NM, layers: layers, bits: bits  });
             count++;
-            
+            matrixWorker.postMessage({data:bits, id:current.id});
             processNext(); // Process next item
           };
 
@@ -90,8 +120,8 @@ onMount(() => {
         });
         
     });
+//LADetails.sort((a,b)=>a.unrestricted-b.unrestricted)
 
-    console.log("LADetails", LADetails);
 });
 
 
@@ -232,7 +262,7 @@ onMount(() => {
   $effect(() => {
     //EFFECT 1
     if (restrictionChanged) {
-      console.log("effect 1 - restriction changed - update blending");
+     // console.log("effect 1 - restriction changed - update blending");
       restrictionChanged = !restrictionChanged;
       updateBlending();
     }
@@ -307,10 +337,10 @@ onMount(() => {
       });
     }
   }
-$inspect("finalArray",finalArray)
+//$inspect("finalArray",finalArray)
   $effect(async () => {
     //EFFECT 2
-    console.log("effect 2 - create canvases from unpacked tiff");
+    //console.log("effect 2 - create canvases from unpacked tiff");
     geotiff =
       geotiffFile?.length > 0
         ? await fromBlob(tiffLocation)
@@ -319,6 +349,7 @@ $inspect("finalArray",finalArray)
     width = image.getWidth();
     height = image.getHeight();
     bbox = image.getBoundingBox();
+    console.log("IMAGE META",image.getFileDirectory(), image.getGeoKeys());
     let metadataRes =
       csvFile?.length > 0 ? csvLocation : await fetch(csvLocation);
 
@@ -346,7 +377,7 @@ $inspect("finalArray",finalArray)
 
   $effect.pre(async () => {
     //EFFECT 3
-    console.log("effect 3 - send url and metadata to unpackWorker");
+    //console.log("effect 3 - send url and metadata to unpackWorker");
     let metadataRes =
       csvFile?.length > 0 ? csvLocation : await fetch(csvLocation);
 
@@ -362,7 +393,7 @@ $inspect("finalArray",finalArray)
 
   $effect(() => {
     //EFFECT 4a
-    console.log("effect 4a - if blended array has changed, render it");
+    //console.log("effect 4a - if blended array has changed, render it");
 
     for (let i = 0; i < blendedArray.length; i++) {
       const value = blendedArray[i];
@@ -383,7 +414,7 @@ $inspect("finalArray",finalArray)
   let renderUnique;
   $effect.pre(() => {
     //EFFECT 4b
-    console.log("effect 4b - if uniqueArray array has changed, render it");
+    //console.log("effect 4b - if uniqueArray array has changed, render it");
     // console.log(
     //   "Still in effect 4 - blendedArrayLength is ",
     //   blendedArrayLength,
@@ -417,9 +448,7 @@ $inspect("finalArray",finalArray)
 
   function updateDataURLForUniques() {
     //If we've lost the selection don't render anything
-    console.log(
-      "this is the function that is updating the dataURL for uniques"
-    );
+    //console.log(      "this is the function that is updating the dataURL for uniques"    );
     renderUnique = selected
       .map((d) => d.replace(".tif", "").replaceAll("_", " "))
       .includes(selectedRestriction);
@@ -461,7 +490,7 @@ $inspect("finalArray",finalArray)
 
   let tableData = $derived(
 
-    LADetails.length==LALookup.length && LADetails.find(e=>e.name==selectedArea)?
+    LADetails && LADetails.length==LALookup.length && LADetails.find(e=>e.name==selectedArea)?
     LADetails.find(e=>e.name==selectedArea).layers.map((layer, i) => {
       return {
         name: layer.filename.replace(".tif", "").replaceAll("_", " "),
@@ -483,12 +512,12 @@ $inspect("finalArray",finalArray)
   let tableMetadata = {
     name: { explainer: "Restriction name", label: "Name", shortLabel: "Name" },
     area: {
-      explainer: "The total area in England covered by this restriction",
+      explainer: "The total area covered by this restriction",
       label: "Area",
       shortLabel: "Area",
     },
     unique: {
-      explainer: "Hectares where this is the only barrier to development",
+      explainer: "Hectares where this is the only restriction from the list",
       label: "Uniquely this",
       shortLabel: "Uniquely this",
     },
@@ -516,25 +545,23 @@ $inspect("finalArray",finalArray)
 
 <!-- <h1>[Heading]</h1> -->
 <!-- <p>[Description]</p> -->
- {#if tableData}
-  
+{#key tableData}
+{#if tableData}
 
-<h2>
-  The total area of land in {tableData.name} is {englandArea
-    ? englandArea.toLocaleString()
-    : "..."} ha. Removing areas with the selected restrictions there are {englandArea
-    ? (englandArea - blendedArrayLength).toLocaleString()
-    : "..."} ha.
-</h2>
+{#if blendedArrayLength}
+<Heading {tableData} {blendedArrayLength} {selectedArea}/>
 <!-- <p>[potentially visualisations]</p> -->
+ {/if}
 {#if LADetails.length == LALookup.length}
-{console.log(LADetails)}
 <label for="area">Select an area
-<select name="area" bind:value={selectedArea}>
+<select name="area" bind:value={selectedArea} onchange={()=>tiffLocation = (`${base}/data/LAs/LA${LADetails.find(e=>e.name==selectedArea).id}.tif`)}>
 {#each LADetails as LA}
 <option value = {LA.name}>{LA.name}</option>
 {/each}
-</select></label>
+</select></label> 
+<button onclick={console.log(LADetails)}>See all LAs in console</button>
+<button onclick={()=>console.log(combineMatrices(LADetails))}>See a matrix of all combos in the console</button>
+<br><br><br>
 {/if}
 <div class="container">
   <div class="output">
@@ -561,7 +588,7 @@ $inspect("finalArray",finalArray)
     </div>
     {#if rasterLayers.length}
       <p>
-        England total: {rasterLayers
+        Area total: {rasterLayers
           .find((e) => e.filename === "ENGLAND_100M.tif")
           ?.area.toLocaleString()} ha
       </p>
@@ -611,7 +638,7 @@ $inspect("finalArray",finalArray)
       {:else}
         <p>
           <b
-            >English land outside selected categories:
+            >Land outside selected categories:
             {(
               rasterLayers.find((e) => e.filename === "ENGLAND_100M.tif")
                 ?.area - blendedArrayLength
@@ -623,7 +650,7 @@ $inspect("finalArray",finalArray)
   </div>
   <div>
     {#if dataURL && dataURLForUniques && bbox.length > 0}
-      {console.log("Rendering the map!")}
+      <!-- {console.log("Rendering the map!")} -->
 
       <div class="os-map-container">
         {#key geotiffFile}
@@ -634,8 +661,7 @@ $inspect("finalArray",finalArray)
   </div>
   {#if done}
     <div class="table">
-      {#key tableData}
-        {#if tableData}
+
           <Table
             caption={""}
             data={tableData.sort((a,b)=>+b.unique - +a.unique)}
@@ -646,12 +672,32 @@ $inspect("finalArray",finalArray)
             bind:restrictionChanged
             sortedColumn={"unique"}
           />
-        {/if}
-      {/key}
+
+      
     </div>
   {/if}
 </div>
- {/if}
+{#key LADetails}
+{#if LADetails.length}
+<table><tbody>
+  <tr>
+    <td>LPA</td>
+  {#each LADetails[0].layers as layer}
+  <td>{layer.filename.replace(".tif","").replaceAll("_", " ")}</td>
+  {/each}
+  </tr>
+  {#each LADetails as row, i}
+  <tr>
+    <td>{row.name}</td>
+    {#each row.layers as layer}
+    <td>{layer.uniqueCounts}</td>
+    {/each}
+  </tr>
+  {/each}
+</tbody></table>
+{/if}{/key}
+
+ {/if}{/key}
 <style>
   .container {
     display: grid;
