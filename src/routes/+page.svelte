@@ -158,7 +158,7 @@
     if (ba.length) {
       const bitArrays = ba;
       const NUM_WORKERS = 4;
-      const numArrays = 18;
+      // const numArrays = 18;
       const length = bitArrays[0].length;
 
       const inputArrays = bitArrays;
@@ -245,6 +245,9 @@
       unpackWorker.postMessage({
         url: tiffLocation,
         metadataCsv: metadataCsv,
+        width: width,
+        height: height,
+        rasters: await image.readRasters(),
       });
     }
 
@@ -261,23 +264,23 @@
     imageDataForUniques = ctxForUniques.createImageData(width, height);
   });
 
-  $effect.pre(async () => {
-    //EFFECT 3
-    console.log("effect 3 - send url and metadata to unpackWorker");
-    let metadataRes =
-      csvFile?.length > 0 ? csvLocation : await fetch(csvLocation);
+  // $effect(async () => {
+  //   //EFFECT 3
+  //   console.log("effect 3 - send url and metadata to unpackWorker");
+  //   metadataRes =
+  //     csvFile?.length > 0 ? csvLocation : await fetch(csvLocation);
 
-    let metadataCsv = await metadataRes.text();
+  //   let metadataCsv = await metadataRes.text();
 
-    if (metadataCsv && tiffLocation) {
-      unpackWorker.postMessage({
-        url: tiffLocation,
-        metadataCsv: metadataCsv,
-      });
-    }
-  });
+  //   if (metadataCsv && tiffLocation) {
+  //     unpackWorker.postMessage({
+  //       url: tiffLocation,
+  //       metadataCsv: metadataCsv,
+  //     });
+  //   }
+  // });
 
-  $effect(() => {
+  $effect.pre(() => {
     //EFFECT 4a
     console.log("effect 4a - if blended array has changed, render it");
 
@@ -311,6 +314,7 @@
     renderUnique = selected
       .map((d) => d.replace(".tif", "").replaceAll("_", " "))
       .includes(selectedRestriction);
+
     tick().then(() => {
       // if (uniqueArray) {
       for (let i = 0; i < uniqueArray.length; i++) {

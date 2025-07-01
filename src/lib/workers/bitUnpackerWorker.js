@@ -17,17 +17,17 @@ import { fromUrl, fromBlob } from "geotiff";
 self.onmessage = async function (e) {
 console.log("bitUnpackWorker")
 
-const { url, metadataCsv } = e.data;
+const { url, metadataCsv, height, width, rasters } = e.data;
 
 const geotiff = typeof url == 'string' ? await fromUrl(url) : await fromBlob(url);
 
 try {
-const image = await geotiff.getImage(),
-      width = image.getWidth(),
-      height = image.getHeight(),
-      bbox = image.getBoundingBox(),
-      rasterLayers = parseMetadataCsv(metadataCsv),
-      rasters = await image.readRasters();
+// const image = await geotiff.getImage(),
+//       width = image.getWidth(),
+//       height = image.getHeight(),
+      // bbox = image.getBoundingBox(),
+      const rasterLayers = parseMetadataCsv(metadataCsv)
+      // rasters = await image.readRasters();
       let transposed=[]
 
 

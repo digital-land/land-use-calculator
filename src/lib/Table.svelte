@@ -174,7 +174,7 @@
               restrictionChanged = true;
             }}
             onkeydown={(e) => {
-              console.log(e.code);
+              //   console.log(e.code);
               if (e.code == "Enter" || e.code == "Space") {
                 selectedRestriction === row.name
                   ? (selectedRestriction = undefined)
