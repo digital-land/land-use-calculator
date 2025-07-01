@@ -105,6 +105,7 @@
 
   $effect(() => {
     if (map) {
+      console.log("Removing the tiff layers");
       map.removeLayer(tiffLayer);
       map.removeLayer(tiffLayerUnique);
     }
@@ -134,13 +135,6 @@
         map.addLayer(tiffLayerUnique);
       }
     }
-
-    // if (dataURLForUniques && bbox) {
-    //   // console.log(dataURL, bbox);
-    //   if (map) {
-    //     console.log(map.getLayerGroup().getLayers());
-    //   }
-    // }
   });
 </script>
 
