@@ -11,6 +11,7 @@
   import ImageStatic from "ol/source/ImageStatic";
   // let geotiffData = null; // to hold the raster data info
   import ImageCanvasSource from "ol/source/ImageCanvas";
+  import * as topojson from "topojson-client";
 
   let mapElement;
   let map;
@@ -67,6 +68,23 @@
       })
     );
 
+    const geoJsonVectorSource = new ol.source.Vector({
+      url: "local-planning-authority.geojson",
+      format: new ol.format.GeoJSON({
+        dataProjection: "EPSG:4326", // projection of the GeoJSON file
+        featureProjection: "EPSG:27700", // projection of the map
+      }),
+    });
+
+    const geoJsonVectorLayer = new ol.layer.Vector({
+      source: geoJsonVectorSource,
+      style: {
+        "stroke-color": "teal",
+        "stroke-width": 1.5,
+        "fill-color": "rgba(0,123,0,0)",
+      },
+    });
+
     tiffLayer = new ImageLayer({
       source: new ImageStatic({
         url: dataURL,
@@ -87,7 +105,7 @@
 
     map = new ol.Map({
       target: mapElement,
-      layers: [vectorTileLayer, tiffLayer, tiffLayerUnique],
+      layers: [vectorTileLayer, geoJsonVectorLayer, tiffLayer, tiffLayerUnique],
       view: new ol.View({
         projection: "EPSG:27700",
         extent: [-238375.0, 0.0, 900000.0, 1376256.0],
@@ -99,8 +117,52 @@
       }),
     });
 
+    // fetch("local-planning-authority.json")
+    //   .then((response) => response.json())
+    //   .then((topoData) => {
+    //     // Convert TopoJSON to GeoJSON (pick the object you want)
+    //     const geojsonObject = topojson.feature(
+    //       topoData,
+    //       topoData.objects["local-planning-authority"]
+    //     ); // <-- adjust this
+
+    //     // Read and reproject GeoJSON features
+    //     const features = new ol.format.GeoJSON({
+    //       dataProjection: "EPSG:4326",
+    //       featureProjection: "EPSG:27700",
+    //     }).readFeatures(geojsonObject);
+
+    //     // Add features to vector source
+    //     const vectorSource = new ol.source.Vector({
+    //       features: features,
+    //     });
+
+    //     const vectorLayer = new ol.layer.Vector({
+    //       source: vectorSource,
+    //       style: {
+    //         "stroke-color": "teal",
+    //         "stroke-width": 1.5,
+    //         "fill-color": "rgba(0,123,0,0.2)",
+    //       },
+    //       // opacity: 0.3,
+    //     });
+
+    //     map.addLayer(vectorLayer);
+    //   });
+
     //Zoom to the area
     map.getView().fit(bbox, { duration: 1000 });
+
+    map.on("singleclick", function (evt) {
+      map.forEachFeatureAtPixel(evt.pixel, function (feature, layer) {
+        const props = feature.getProperties();
+
+        console.log("Feature clicked:", props);
+        map.getView().fit(props.geometry.extent_, { duration: 1000 });
+
+        return true; // stop after first match
+      });
+    });
   });
 
   $effect(() => {
