@@ -6,7 +6,7 @@
     metaData = undefined,
     caption = undefined,
     colourScale = undefined,
-    sortState = $bindable({ column: "sortedColumn", order: "descending" }),
+    sortState = $bindable({ column: "unique", order: "descending" }),
     selectedRestriction = $bindable(),
     restrictionChanged = $bindable(false),
   } = $props();
@@ -249,11 +249,24 @@
     color: #005ea5;
   }
 
-  .selected {
+  /* .selected {
     background-color: pink;
+  } */
+  .selected td:nth-child(2) {
+    background-color: pink;
+  }
+
+  .selected td:nth-child(3) {
+    background-color: crimson;
+    color: white;
+    font-weight: 700;
   }
 
   tr {
     cursor: pointer;
+  }
+
+  tr:not(.selected) td:not(:nth-child(1)) {
+    background-color: whitesmoke;
   }
 </style>
