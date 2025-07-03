@@ -1,6 +1,8 @@
 # Land Use Calculator
 
-This is an app to test out possibilities for rendering and investigating home-cooked GeoTIFF files in the browser and provide estimated answers to knotty problems
+This is an app to test out possibilities for rendering and investigating home-cooked GeoTIFF files in the browser and provide estimated answers to knotty problems.
+
+This builds upon the previous [land-calculator](https://digital-land.github.io/land-calculator/) prototype ([code](https://github.com/digital-land/land-calculator)) which looked at the same problem working by subtracting polygons.
 
 ## Developing
 
