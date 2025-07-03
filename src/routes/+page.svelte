@@ -17,6 +17,7 @@
   let ones;
   let dataURL = $state();
   let dataURLForUniques = $state();
+  let dataURLForSelectedArea = $state();
   let occurences = $state();
   // let finalArray = $state();
   let width = $state(0),
@@ -24,14 +25,18 @@
   let bbox = $state([]);
   let canvas = $state();
   let canvasForUniques = $state();
+  let canvasForSelectedArea = $state();
   let ctx = $state();
   let ctxForUniques = $state();
+  let ctxForSelectedArea = $state();
   let image = $state();
   let imageData = $state();
   let imageDataForUniques = $state();
+  let imageDataForSelectedArea = $state();
   let rasterLayers = $state([]);
   let lookup = [];
   let bitLayers = $state([]);
+  let currentBitArrays = $state();
   let England;
   let selected = $state([]);
   let blendedArray = $state([]);
@@ -121,7 +126,7 @@
       }
     };
   }
-
+  $inspect(bitLayers, startingPosition);
   function countOccurrences(uint8Array) {
     const counts = {};
     for (let i = 0; i < uint8Array.length; i++) {
@@ -140,6 +145,7 @@
     if (!England) return;
     const active = rasterLayers.filter((l) => selected.includes(l.filename));
     const bitArrays = active.map((l) => l.data);
+    currentBitArrays = bitArrays;
     blendingProgress.set(0);
     blendWorker.postMessage({ bitArrays, englandMask: England });
     findTheOnes(bitArrays);
@@ -262,6 +268,15 @@
     canvasForUniques.height = height;
     ctxForUniques = canvasForUniques.getContext("2d");
     imageDataForUniques = ctxForUniques.createImageData(width, height);
+
+    canvasForSelectedArea = document.createElement("canvas");
+    canvasForSelectedArea.width = width;
+    canvasForSelectedArea.height = height;
+    ctxForSelectedArea = canvasForSelectedArea.getContext("2d");
+    imageDataForSelectedArea = ctxForSelectedArea.createImageData(
+      width,
+      height
+    );
   });
 
   // $effect(async () => {
@@ -316,7 +331,6 @@
       .includes(selectedRestriction);
 
     tick().then(() => {
-      // if (uniqueArray) {
       for (let i = 0; i < uniqueArray.length; i++) {
         const valueUnique = renderUnique ? uniqueArray[i] : 0;
 
@@ -325,13 +339,31 @@
         imageDataForUniques.data[i * 4 + 2] = 0; // blueValue; //B
         imageDataForUniques.data[i * 4 + 3] = valueUnique !== 0 ? 255 : 0; //Alpha
       }
-      // }
 
       if (canvasForUniques) {
         ctxForUniques.putImageData(imageDataForUniques, 0, 0);
 
         // Convert canvas to data URL
         dataURLForUniques = canvasForUniques.toDataURL();
+      }
+
+      for (let i = 0; i < uniqueArray.length; i++) {
+        const valueSelectedArea = renderUnique
+          ? currentBitArrays[selectedRestrictionIndex][i]
+          : 0;
+
+        imageDataForSelectedArea.data[i * 4 + 0] = 255; // redValue; //R
+        imageDataForSelectedArea.data[i * 4 + 1] = 0; // greenValue; //G
+        imageDataForSelectedArea.data[i * 4 + 2] = 0; // blueValue; //B
+        imageDataForSelectedArea.data[i * 4 + 3] =
+          valueSelectedArea !== 0 ? 255 : 0; //Alpha
+      }
+
+      if (canvasForSelectedArea) {
+        ctxForSelectedArea.putImageData(imageDataForSelectedArea, 0, 0);
+
+        // Convert canvas to data URL
+        dataURLForSelectedArea = canvasForSelectedArea.toDataURL();
       }
     });
   });
@@ -346,7 +378,6 @@
       .includes(selectedRestriction);
 
     tick().then(() => {
-      // if (uniqueArray) {
       for (let i = 0; i < uniqueArray.length; i++) {
         const valueUnique = renderUnique ? uniqueArray[i] : 0;
 
@@ -355,13 +386,35 @@
         imageDataForUniques.data[i * 4 + 2] = 0; // blueValue; //B
         imageDataForUniques.data[i * 4 + 3] = valueUnique !== 0 ? 255 : 0; //Alpha
       }
-      // }
 
       if (canvasForUniques) {
         ctxForUniques.putImageData(imageDataForUniques, 0, 0);
 
         // Convert canvas to data URL
         dataURLForUniques = canvasForUniques.toDataURL();
+      }
+
+      for (
+        let i = 0;
+        i < currentBitArrays[selectedRestrictionIndex].length;
+        i++
+      ) {
+        const valueSelectedArea = renderUnique
+          ? currentBitArrays[selectedRestrictionIndex][i]
+          : 0;
+
+        imageDataForSelectedArea.data[i * 4 + 0] = 255; // redValue; //R
+        imageDataForSelectedArea.data[i * 4 + 1] = 0; // greenValue; //G
+        imageDataForSelectedArea.data[i * 4 + 2] = 0; // blueValue; //B
+        imageDataForSelectedArea.data[i * 4 + 3] =
+          valueSelectedArea !== 0 ? 255 : 0; //Alpha
+      }
+
+      if (canvasForSelectedArea) {
+        ctxForSelectedArea.putImageData(imageDataForSelectedArea, 0, 0);
+
+        // Convert canvas to data URL
+        dataURLForSelectedArea = canvasForSelectedArea.toDataURL();
       }
     });
   }
@@ -411,7 +464,7 @@
     },
   };
 
-  let sortState = $state({ column: "sortedColumn", order: "descending" });
+  let sortState = $state({ column: "unique", order: "descending" });
 </script>
 
 <svelte:head>
@@ -539,7 +592,12 @@
 
       <div class="os-map-container">
         {#key geotiffFile}
-          <OsMap {dataURL} {dataURLForUniques} {bbox} />
+          <OsMap
+            {dataURL}
+            {dataURLForUniques}
+            {dataURLForSelectedArea}
+            {bbox}
+          />
         {/key}
       </div>
     {/if}

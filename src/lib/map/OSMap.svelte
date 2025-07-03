@@ -1,5 +1,5 @@
 <script>
-  let { dataURL, dataURLForUniques, bbox } = $props();
+  let { dataURL, dataURLForUniques, dataURLForSelectedArea, bbox } = $props();
 
   import { onMount } from "svelte";
   import { onDestroy } from "svelte";
@@ -15,7 +15,7 @@
 
   let mapElement;
   let map;
-  let tiffLayer, tiffLayerUnique;
+  let tiffLayer, tiffLayerUnique, tiffLayerSelectedArea;
   const apiKey = "oCUBI8DjgzTP5J8VptrnOAxYVeZc0cZ2";
   const serviceUrl = "https://api.os.uk/maps/vector/v1/vts";
   // let worker;
@@ -94,18 +94,33 @@
       opacity: 0.25,
     });
 
+    tiffLayerSelectedArea = new ImageLayer({
+      source: new ImageStatic({
+        url: dataURLForSelectedArea,
+        imageExtent: bbox,
+        projection: "EPSG:27700",
+      }),
+      opacity: 0.25,
+    });
+
     tiffLayerUnique = new ImageLayer({
       source: new ImageStatic({
         url: dataURLForUniques,
         imageExtent: bbox,
         projection: "EPSG:27700",
       }),
-      opacity: 0.75,
+      opacity: 0.5,
     });
 
     map = new ol.Map({
       target: mapElement,
-      layers: [vectorTileLayer, geoJsonVectorLayer, tiffLayer, tiffLayerUnique],
+      layers: [
+        vectorTileLayer,
+        geoJsonVectorLayer,
+        tiffLayer,
+        tiffLayerUnique,
+        tiffLayerSelectedArea,
+      ],
       view: new ol.View({
         projection: "EPSG:27700",
         extent: [-238375.0, 0.0, 900000.0, 1376256.0],
@@ -169,13 +184,23 @@
     if (map) {
       console.log("Removing the tiff layers");
       map.removeLayer(tiffLayer);
+      map.removeLayer(tiffLayerSelectedArea);
       map.removeLayer(tiffLayerUnique);
     }
 
-    if (dataURL && dataURLForUniques && bbox) {
+    if (dataURL && dataURLForSelectedArea && dataURLForUniques && bbox) {
       tiffLayer = new ImageLayer({
         source: new ImageStatic({
           url: dataURL,
+          imageExtent: bbox,
+          projection: "EPSG:27700",
+        }),
+        opacity: 0.25,
+      });
+
+      tiffLayerSelectedArea = new ImageLayer({
+        source: new ImageStatic({
+          url: dataURLForSelectedArea,
           imageExtent: bbox,
           projection: "EPSG:27700",
         }),
@@ -194,6 +219,7 @@
       if (map) {
         console.log("Adding the tiff layers");
         map.addLayer(tiffLayer);
+        map.addLayer(tiffLayerSelectedArea);
         map.addLayer(tiffLayerUnique);
       }
     }
