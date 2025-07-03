@@ -12,6 +12,8 @@
   import proj4 from "proj4";
   import { base } from "$app/paths";
   import Table from "$lib/Table.svelte";
+  import { csvParse } from "d3-dsv";
+import LALookup from "$lib/LALookup.js"
 
   let done = $state(false);
   let ones;
@@ -44,6 +46,7 @@
   let startingPosition;
   let selectedRestriction = $state("AONB");
   let restrictionChanged = $state(false);
+    let selectedArea = $state()
   let selectedRestrictionIndex = $derived(
     //DERIVED 1
     selected
@@ -58,9 +61,10 @@
   let geotiffFile = $state();
   let csvFile = $state();
 
-  let tiffLocation = $derived(
+  let tiffLocation = $state(
     //DERIVED 2
-    geotiffFile?.length > 0 ? geotiffFile[0] : `${base}/data/LAs/LA1.tif`
+    //geotiffFile?.length > 0 ? geotiffFile[0] : 
+    `${base}/data/LAs/LA1.tif`
   );
   let csvLocation = $derived(
     //DERIVED 3
@@ -233,7 +237,8 @@
 
   $effect(async () => {
     //EFFECT 2
-    console.log("effect 2 - create canvases from unpacked tiff");
+    console.log("effect 2 - create canvases from unpacked tiff", tiffLocation);
+    tiffLocation=tiffLocation;
     geotiff =
       geotiffFile?.length > 0
         ? await fromBlob(tiffLocation)
@@ -317,8 +322,10 @@
   });
   let renderUnique;
   $effect.pre(() => {
+    
     //EFFECT 4b
-    console.log("effect 4b - if uniqueArray array has changed, render it");
+    console.log( "effect 4b - if uniqueArray array has changed, render it");
+   // tiffLocation=tiffLocation;
     // console.log(
     //   "Still in effect 4 - blendedArrayLength is ",
     //   blendedArrayLength,
@@ -464,7 +471,10 @@
     },
   };
 
-  let sortState = $state({ column: "unique", order: "descending" });
+  let sortState = $state({ column: "sortedColumn", order: "descending" });
+
+
+  //onchange={()=>tiffLocation = (`${base}/data/LAs/LA${LADetails.find(e=>e.name==selectedArea).id}.tif`)}
 </script>
 
 <svelte:head>
@@ -499,6 +509,12 @@
     : "..."} ha.
 </h2>
 <!-- <p>[potentially visualisations]</p> -->
+<label for="area">Select an area
+<select name="area" bind:value={selectedArea} onchange={()=>tiffLocation = (`${base}/data/LAs/LA${selectedArea}.tif`)}>
+{#each LALookup as LA, i}
+<option value = {LA.id}>{LA.LPA23NM}</option>
+{/each}
+</select></label> 
 
 <div class="container">
   <div class="output">
@@ -615,7 +631,7 @@
         {#if tableData}
           <Table
             caption={""}
-            data={tableData}
+            data={tableData.sort((a,b)=>+b.unique - +a.unique)}
             metaData={tableMetadata}
             colourScale={"Off"}
             bind:sortState
