@@ -13,7 +13,7 @@
   import { base } from "$app/paths";
   import Table from "$lib/Table.svelte";
   import { csvParse } from "d3-dsv";
-import LALookup from "$lib/LALookup.js"
+  import LALookup from "$lib/LALookup.js";
 
   let done = $state(false);
   let ones;
@@ -46,7 +46,13 @@ import LALookup from "$lib/LALookup.js"
   let startingPosition;
   let selectedRestriction = $state("AONB");
   let restrictionChanged = $state(false);
-    let selectedArea = $state()
+  let selectedAreaName = $state();
+  let selectedArea = $derived(
+    LALookup.find((d) => d.LPA23NM == selectedAreaName)
+      ? LALookup.find((d) => d.LPA23NM == selectedAreaName).id
+      : undefined
+  );
+
   let selectedRestrictionIndex = $derived(
     //DERIVED 1
     selected
@@ -61,10 +67,13 @@ import LALookup from "$lib/LALookup.js"
   let geotiffFile = $state();
   let csvFile = $state();
 
-  let tiffLocation = $state(
+  let tiffLocation = $derived(
     //DERIVED 2
-    //geotiffFile?.length > 0 ? geotiffFile[0] : 
-    `${base}/data/LAs/LA1.tif`
+    geotiffFile?.length > 0
+      ? geotiffFile[0]
+      : selectedArea
+        ? `${base}/data/LAs/LA${selectedArea}.tif`
+        : `${base}/data/LAs/LA1.tif`
   );
   let csvLocation = $derived(
     //DERIVED 3
@@ -72,6 +81,12 @@ import LALookup from "$lib/LALookup.js"
   );
 
   let geotiff = $state();
+
+  // Define RGBA colors in little-endian format (most systems are little-endian)
+  const UNIQUE_ON_COLOR = 0xff0000ff; // Red with full opacity (R=255, G=0, B=0, A=255)
+  const UNIQUE_OFF_COLOR = 0x000000ff; // Red with 0 alpha (R=255, G=0, B=0, A=0)
+  const TOTAL_ON_COLOR = 0xff000000;
+  const TOTAL_OFF_COLOR = 0x00000000;
 
   let unpackWorker, blendWorker, onesWorker;
 
@@ -120,6 +135,7 @@ import LALookup from "$lib/LALookup.js"
     unpackWorker.onerror = (e) => {
       console.log("ERROR", e);
     };
+
     blendWorker.onmessage = (e) => {
       if (e.data.progress !== undefined) {
         blendingProgress.set(e.data.progress);
@@ -130,7 +146,7 @@ import LALookup from "$lib/LALookup.js"
       }
     };
   }
-  $inspect(bitLayers, startingPosition);
+
   function countOccurrences(uint8Array) {
     const counts = {};
     for (let i = 0; i < uint8Array.length; i++) {
@@ -146,13 +162,17 @@ import LALookup from "$lib/LALookup.js"
 
   // Trigger blending in worker
   function updateBlending() {
+    console.time("Blendworker");
     if (!England) return;
     const active = rasterLayers.filter((l) => selected.includes(l.filename));
     const bitArrays = active.map((l) => l.data);
     currentBitArrays = bitArrays;
     blendingProgress.set(0);
     blendWorker.postMessage({ bitArrays, englandMask: England });
+    console.timeEnd("Blendworker");
+    console.time("Find the ones");
     findTheOnes(bitArrays);
+    console.timeEnd("Find the ones");
   }
 
   $effect(() => {
@@ -238,7 +258,8 @@ import LALookup from "$lib/LALookup.js"
   $effect(async () => {
     //EFFECT 2
     console.log("effect 2 - create canvases from unpacked tiff", tiffLocation);
-    tiffLocation=tiffLocation;
+
+    tiffLocation = tiffLocation;
     geotiff =
       geotiffFile?.length > 0
         ? await fromBlob(tiffLocation)
@@ -265,19 +286,23 @@ import LALookup from "$lib/LALookup.js"
     canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
-    ctx = canvas.getContext("2d");
+    ctx = canvas.getContext("2d", { willReadFrequently: true });
     imageData = ctx.createImageData(width, height);
 
     canvasForUniques = document.createElement("canvas");
     canvasForUniques.width = width;
     canvasForUniques.height = height;
-    ctxForUniques = canvasForUniques.getContext("2d");
+    ctxForUniques = canvasForUniques.getContext("2d", {
+      willReadFrequently: true,
+    });
     imageDataForUniques = ctxForUniques.createImageData(width, height);
 
     canvasForSelectedArea = document.createElement("canvas");
     canvasForSelectedArea.width = width;
     canvasForSelectedArea.height = height;
-    ctxForSelectedArea = canvasForSelectedArea.getContext("2d");
+    ctxForSelectedArea = canvasForSelectedArea.getContext("2d", {
+      willReadFrequently: true,
+    });
     imageDataForSelectedArea = ctxForSelectedArea.createImageData(
       width,
       height
@@ -300,72 +325,62 @@ import LALookup from "$lib/LALookup.js"
   //   }
   // });
 
-  $effect.pre(() => {
+  $effect(() => {
     //EFFECT 4a
     console.log("effect 4a - if blended array has changed, render it");
+    if (imageData) {
+      const totalPixels = new Uint32Array(imageData.data.buffer);
+      for (let i = 0; i < blendedArray.length; i++) {
+        const value = blendedArray[i];
 
-    for (let i = 0; i < blendedArray.length; i++) {
-      const value = blendedArray[i];
+        totalPixels[i] = value !== 0 ? TOTAL_ON_COLOR : TOTAL_OFF_COLOR;
+      }
 
-      imageData.data[i * 4 + 0] = 0; // redValue; //R
-      imageData.data[i * 4 + 1] = 0; // greenValue; //G
-      imageData.data[i * 4 + 2] = 0; // blueValue; //B
-      imageData.data[i * 4 + 3] = value !== 0 ? 255 : 0; //Alpha
-    }
+      if (canvas) {
+        ctx.putImageData(imageData, 0, 0);
 
-    if (canvas) {
-      ctx.putImageData(imageData, 0, 0);
-
-      // Convert canvas to data URL
-      dataURL = canvas.toDataURL();
+        // Convert canvas to data URL
+        dataURL = canvas.toDataURL();
+      }
     }
   });
   let renderUnique;
   $effect.pre(() => {
-    
     //EFFECT 4b
-    console.log( "effect 4b - if uniqueArray array has changed, render it");
-   // tiffLocation=tiffLocation;
-    // console.log(
-    //   "Still in effect 4 - blendedArrayLength is ",
-    //   blendedArrayLength,
-    //   " which tells us if blended array has changed"
-    // );
+    console.log("effect 4b - if uniqueArray array has changed, render it");
 
+    console.time("uniqueURLSeffect");
     //If we've lost the selection don't render anything
     renderUnique = selected
       .map((d) => d.replace(".tif", "").replaceAll("_", " "))
       .includes(selectedRestriction);
 
     tick().then(() => {
+      const pixels = new Uint32Array(imageDataForUniques?.data.buffer);
+
       for (let i = 0; i < uniqueArray.length; i++) {
         const valueUnique = renderUnique ? uniqueArray[i] : 0;
-
-        imageDataForUniques.data[i * 4 + 0] = 255; // redValue; //R
-        imageDataForUniques.data[i * 4 + 1] = 0; // greenValue; //G
-        imageDataForUniques.data[i * 4 + 2] = 0; // blueValue; //B
-        imageDataForUniques.data[i * 4 + 3] = valueUnique !== 0 ? 255 : 0; //Alpha
+        pixels[i] = valueUnique !== 0 ? UNIQUE_ON_COLOR : UNIQUE_OFF_COLOR;
       }
 
+      // Draw to canvas
       if (canvasForUniques) {
         ctxForUniques.putImageData(imageDataForUniques, 0, 0);
 
-        // Convert canvas to data URL
+        // Only convert to Data URL if needed (since it's expensive)
         dataURLForUniques = canvasForUniques.toDataURL();
       }
 
-      for (let i = 0; i < uniqueArray.length; i++) {
+      const areaPixels = new Uint32Array(imageDataForSelectedArea?.data.buffer);
+
+      for (let i = 0; i < blendedArray.length; i++) {
         const valueSelectedArea = renderUnique
           ? currentBitArrays[selectedRestrictionIndex][i]
           : 0;
 
-        imageDataForSelectedArea.data[i * 4 + 0] = 255; // redValue; //R
-        imageDataForSelectedArea.data[i * 4 + 1] = 0; // greenValue; //G
-        imageDataForSelectedArea.data[i * 4 + 2] = 0; // blueValue; //B
-        imageDataForSelectedArea.data[i * 4 + 3] =
-          valueSelectedArea !== 0 ? 255 : 0; //Alpha
+        areaPixels[i] =
+          valueSelectedArea !== 0 ? UNIQUE_ON_COLOR : UNIQUE_OFF_COLOR;
       }
-
       if (canvasForSelectedArea) {
         ctxForSelectedArea.putImageData(imageDataForSelectedArea, 0, 0);
 
@@ -373,6 +388,7 @@ import LALookup from "$lib/LALookup.js"
         dataURLForSelectedArea = canvasForSelectedArea.toDataURL();
       }
     });
+    console.timeEnd("uniqueURLSeffect");
   });
 
   function updateDataURLForUniques() {
@@ -380,50 +396,47 @@ import LALookup from "$lib/LALookup.js"
     console.log(
       "this is the function that is updating the dataURL for uniques"
     );
+    console.time("uniqueURLSfunction");
     renderUnique = selected
       .map((d) => d.replace(".tif", "").replaceAll("_", " "))
       .includes(selectedRestriction);
 
     tick().then(() => {
+      console.time("functiontick");
+      const pixels = new Uint32Array(imageDataForUniques.data.buffer);
+
       for (let i = 0; i < uniqueArray.length; i++) {
         const valueUnique = renderUnique ? uniqueArray[i] : 0;
-
-        imageDataForUniques.data[i * 4 + 0] = 255; // redValue; //R
-        imageDataForUniques.data[i * 4 + 1] = 0; // greenValue; //G
-        imageDataForUniques.data[i * 4 + 2] = 0; // blueValue; //B
-        imageDataForUniques.data[i * 4 + 3] = valueUnique !== 0 ? 255 : 0; //Alpha
+        pixels[i] = valueUnique !== 0 ? UNIQUE_ON_COLOR : UNIQUE_OFF_COLOR;
       }
 
+      // Draw to canvas
       if (canvasForUniques) {
         ctxForUniques.putImageData(imageDataForUniques, 0, 0);
 
-        // Convert canvas to data URL
+        // Only convert to Data URL if needed (since it's expensive)
         dataURLForUniques = canvasForUniques.toDataURL();
       }
 
-      for (
-        let i = 0;
-        i < currentBitArrays[selectedRestrictionIndex].length;
-        i++
-      ) {
+      const areaPixels = new Uint32Array(imageDataForSelectedArea.data.buffer);
+
+      for (let i = 0; i < blendedArray.length; i++) {
         const valueSelectedArea = renderUnique
           ? currentBitArrays[selectedRestrictionIndex][i]
           : 0;
 
-        imageDataForSelectedArea.data[i * 4 + 0] = 255; // redValue; //R
-        imageDataForSelectedArea.data[i * 4 + 1] = 0; // greenValue; //G
-        imageDataForSelectedArea.data[i * 4 + 2] = 0; // blueValue; //B
-        imageDataForSelectedArea.data[i * 4 + 3] =
-          valueSelectedArea !== 0 ? 255 : 0; //Alpha
+        areaPixels[i] =
+          valueSelectedArea !== 0 ? UNIQUE_ON_COLOR : UNIQUE_OFF_COLOR;
       }
-
       if (canvasForSelectedArea) {
         ctxForSelectedArea.putImageData(imageDataForSelectedArea, 0, 0);
 
         // Convert canvas to data URL
         dataURLForSelectedArea = canvasForSelectedArea.toDataURL();
       }
+      console.timeEnd("functiontick");
     });
+    console.timeEnd("uniqueURLSfunction");
   }
 
   // let selectionsLength = $derived(selected.length); //DERIVED 4
@@ -442,6 +455,7 @@ import LALookup from "$lib/LALookup.js"
 
   let tableData = $derived(
     //DERIVED 6
+    // if (englandArea && blendedArrayLength) {
     selected.map((layer, i) => {
       return {
         name: layer.replace(".tif", "").replaceAll("_", " "),
@@ -449,7 +463,22 @@ import LALookup from "$lib/LALookup.js"
         unique: occurences && occurences[i] ? occurences[i] : 0,
       };
     })
+    // .push({
+    //   name: "Unrestricted land",
+    //   area: englandArea - blendedArrayLength,
+    //   unique: englandArea - blendedArrayLength,
+    // });
+    // }
   );
+
+  // $effect(() => {
+  //   tableData.push({
+  //     name: "Unrestricted land",
+  //     area: (englandArea - blendedArrayLength).toLocaleString(),
+  //     unique: "-",
+  //   });
+  // });
+  // $inspect(tableData);
 
   let tableMetadata = {
     name: {
@@ -471,8 +500,33 @@ import LALookup from "$lib/LALookup.js"
     },
   };
 
-  let sortState = $state({ column: "sortedColumn", order: "descending" });
+  let sortState = $state({ column: "unique", order: "descending" });
 
+  // $effect.pre(() => {
+  //   //Effect 6
+  //   console.log("effect 6 - updating the canvases");
+  //   if (canvas) {
+  //     ctx.putImageData(imageData, 0, 0);
+
+  //     // Convert canvas to data URL
+  //     dataURL = canvas.toDataURL();
+  //   }
+
+  //   if (canvasForSelectedArea) {
+  //     ctxForSelectedArea.putImageData(imageDataForSelectedArea, 0, 0);
+
+  //     // Convert canvas to data URL
+  //     dataURLForSelectedArea = canvasForSelectedArea.toDataURL();
+  //   }
+
+  //   // Draw to canvas
+  //   if (canvasForUniques) {
+  //     ctxForUniques.putImageData(imageDataForUniques, 0, 0);
+
+  //     // Only convert to Data URL if needed (since it's expensive)
+  //     dataURLForUniques = canvasForUniques.toDataURL();
+  //   }
+  // });
 
   //onchange={()=>tiffLocation = (`${base}/data/LAs/LA${LADetails.find(e=>e.name==selectedArea).id}.tif`)}
 </script>
@@ -502,19 +556,22 @@ import LALookup from "$lib/LALookup.js"
   linkText={""}
 />
 <h2>
-  The total area of land in England is {englandArea
-    ? englandArea.toLocaleString()
-    : "..."} ha. Removing areas with the selected restrictions there are {englandArea
+  The total area of land in {LALookup.find((d) => d.id == selectedArea)
+    ?.LPA23NM ?? "England"} is
+  {englandArea ? englandArea.toLocaleString() : "..."} ha. Removing areas with the
+  selected restrictions there are {englandArea
     ? (englandArea - blendedArrayLength).toLocaleString()
     : "..."} ha.
 </h2>
 <!-- <p>[potentially visualisations]</p> -->
-<label for="area">Select an area
-<select name="area" bind:value={selectedArea} onchange={()=>tiffLocation = (`${base}/data/LAs/LA${selectedArea}.tif`)}>
-{#each LALookup as LA, i}
-<option value = {LA.id}>{LA.LPA23NM}</option>
-{/each}
-</select></label> 
+<label for="area"
+  >Select an area
+  <select name="area" bind:value={selectedArea}>
+    {#each LALookup.sort((a, b) => a.LPA23NM.localeCompare(b.LPA23NM)) as LA, i}
+      <option value={LA.id}>{LA.LPA23NM}</option>
+    {/each}
+  </select></label
+>
 
 <div class="container">
   <div class="output">
@@ -541,9 +598,8 @@ import LALookup from "$lib/LALookup.js"
     </div>
     {#if rasterLayers.length}
       <p>
-        England total: {rasterLayers
-          .find((e) => e.filename === "ENGLAND_100M.tif")
-          ?.area.toLocaleString()} ha
+        {LALookup[selectedArea - 1]?.LPA23NM ?? "England"} total:
+        {englandArea ? englandArea.toLocaleString() : "..."} ha.
       </p>
 
       <fieldset>
@@ -592,7 +648,7 @@ import LALookup from "$lib/LALookup.js"
       {:else}
         <p>
           <b
-            >English land outside selected categories:
+            >Land outside selected categories:
             {(
               rasterLayers.find((e) => e.filename === "ENGLAND_100M.tif")
                 ?.area - blendedArrayLength
@@ -603,7 +659,7 @@ import LALookup from "$lib/LALookup.js"
     {/if}
   </div>
   <div>
-    {#if dataURL && dataURLForUniques && bbox.length > 0}
+    {#if dataURL && dataURLForSelectedArea && dataURLForUniques && bbox.length > 0}
       {console.log("Rendering the map!")}
 
       <div class="os-map-container">
@@ -613,6 +669,7 @@ import LALookup from "$lib/LALookup.js"
             {dataURLForUniques}
             {dataURLForSelectedArea}
             {bbox}
+            bind:selectedAreaName
           />
         {/key}
       </div>
@@ -631,7 +688,7 @@ import LALookup from "$lib/LALookup.js"
         {#if tableData}
           <Table
             caption={""}
-            data={tableData.sort((a,b)=>+b.unique - +a.unique)}
+            data={tableData.sort((a, b) => +b.unique - +a.unique)}
             metaData={tableMetadata}
             colourScale={"Off"}
             bind:sortState
