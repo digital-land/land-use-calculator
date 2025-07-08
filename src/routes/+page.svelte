@@ -25,41 +25,25 @@
   let width = $state(0),
     height = $state(0);
   let bbox = $state([]);
-  let canvas = $state();
-  let canvasForUniques = $state();
-  let canvasForSelectedArea = $state();
-  let ctx = $state();
-  let ctxForUniques = $state();
-  let ctxForSelectedArea = $state();
+  // let canvas = $state();
+  // let canvasForUniques = $state();
+  // let canvasForSelectedArea = $state();
+  // let ctx = $state();
+  // let ctxForUniques = $state();
+  // let ctxForSelectedArea = $state();
   let image = $state();
-  let imageData = $state();
-  let imageDataForUniques = $state();
-  let imageDataForSelectedArea = $state();
+  // let imageData = $state();
+  // let imageDataForUniques = $state();
+  // let imageDataForSelectedArea = $state();
   let rasterLayers = $state([]);
   let lookup = [];
   let bitLayers = $state([]);
   let currentBitArrays = $state();
   let England;
-  let selected = $state([]);
+  // let selected = $state([]);
   let blendedArray = $state([]);
   let blendedArrayLength = $state(0);
   let startingPosition;
-  let selectedRestriction = $state("AONB");
-  let restrictionChanged = $state(false);
-  let selectedAreaName = $state();
-  let selectedArea = $derived(
-    LALookup.find((d) => d.LPA23NM == selectedAreaName)
-      ? LALookup.find((d) => d.LPA23NM == selectedAreaName).id
-      : undefined
-  );
-
-  let selectedRestrictionIndex = $derived(
-    //DERIVED 1
-    selected
-      ?.map((d) => d.replace(".tif", "").replaceAll("_", " "))
-      // .filter((d) => !d.includes("ENGLAND"))
-      .indexOf(selectedRestriction)
-  );
 
   let uniqueArray = $state([]);
 
@@ -67,44 +51,30 @@
   let geotiffFile = $state();
   let csvFile = $state();
 
-  let tiffLocation = $derived(
-    //DERIVED 2
-    geotiffFile?.length > 0
-      ? geotiffFile[0]
-      : selectedArea
-        ? `${base}/data/LAs/LA${selectedArea}.tif`
-        : `${base}/data/LAs/LA1.tif`
-  );
   let csvLocation = $derived(
     //DERIVED 3
     csvFile?.length > 0 ? csvFile[0] : `${base}/bitpacking_metadata.csv`
   );
 
   let geotiff = $state();
+  let enrichedLayers = $state([]);
 
-  // Define RGBA colors in little-endian format (most systems are little-endian)
-  const UNIQUE_ON_COLOR = 0xff0000ff; // Red with full opacity (R=255, G=0, B=0, A=255)
-  const UNIQUE_OFF_COLOR = 0x000000ff; // Red with 0 alpha (R=255, G=0, B=0, A=0)
-  const TOTAL_ON_COLOR = 0xff000000;
-  const TOTAL_OFF_COLOR = 0x00000000;
+  let unpackWorker;
 
-  let unpackWorker, blendWorker, onesWorker;
-
-  // Init workers on client
-  if (browser) {
+  onMount(async () => {
     unpackWorker = new Worker(
-      new URL("../lib/workers/bitUnpackerWorker.js?worker", import.meta.url),
+      new URL("../lib/workers/bitUnpackerWorker.js", import.meta.url),
       { type: "module" }
     );
 
-    blendWorker = new Worker(
-      new URL("../lib/workers/blendWorker.js?worker", import.meta.url),
-      { type: "module" }
-    );
+    // blendWorker = new Worker(
+    //   new URL("../lib/workers/blendWorker.js?worker", import.meta.url),
+    //   { type: "module" }
+    // );
 
     unpackWorker.onmessage = (e) => {
       const { bitLayers: bits, rasterLayers: layers } = e?.data;
-
+      console.log(bits, layers);
       if (!Array.isArray(bits) || !Array.isArray(layers)) {
         console.error("Worker returned unexpected data:", e?.data);
         return;
@@ -121,14 +91,14 @@
       England = rasterLayers.find(
         (l) => l.filename === "ENGLAND_100M.tif"
       )?.data;
-      selected = rasterLayers
-        .map((e) => e.filename)
-        .filter((e) => e != "ENGLAND_100M.tif");
+      // selected = rasterLayers
+      //   .map((e) => e.filename)
+      //   .filter((e) => e != "ENGLAND_100M.tif");
 
       startingPosition = rasterLayers
         .map((e) => e.filename)
         .filter((e) => e != "ENGLAND_100M.tif");
-      updateBlending();
+      // updateBlending();
       //findTheOnes();
     };
 
@@ -136,399 +106,43 @@
       console.log("ERROR", e);
     };
 
-    blendWorker.onmessage = (e) => {
-      if (e.data.progress !== undefined) {
-        blendingProgress.set(e.data.progress);
-      } else if (e.data.type === "done") {
-        blendedArrayLength = e.data.activeCount;
-        blendedArray = e.data.result;
-        blendingProgress.set(100);
+    const simpleWorker = new Worker(
+      new URL("$lib/workers/simpleUnpackWorker.js", import.meta.url),
+      { type: "module" }
+    );
+
+    simpleWorker.onmessage = (e) => {
+      if (e.data.error) {
+        message = `Worker error: ${e.data.error}`;
+        return;
       }
+
+      console.log("Processed data:", e.data);
+      enrichedLayers = e.data.rasterLayers;
+      message = `Processed ${enrichedLayers.length} layers.`;
     };
-  }
 
-  function countOccurrences(uint8Array) {
-    const counts = {};
-    for (let i = 0; i < uint8Array.length; i++) {
-      const value = uint8Array[i];
-      if (counts[value] === undefined) {
-        counts[value] = 1;
-      } else {
-        counts[value]++;
-      }
-    }
-    return counts;
-  }
+    simpleWorker.onerror = (e) => {
+      console.error("Worker error:", e);
+      message = `Error: ${e.message}`;
+    };
 
-  // Trigger blending in worker
-  function updateBlending() {
-    console.time("Blendworker");
-    if (!England) return;
-    const active = rasterLayers.filter((l) => selected.includes(l.filename));
-    const bitArrays = active.map((l) => l.data);
-    currentBitArrays = bitArrays;
-    blendingProgress.set(0);
-    blendWorker.postMessage({ bitArrays, englandMask: England });
-    console.timeEnd("Blendworker");
-    console.time("Find the ones");
-    findTheOnes(bitArrays);
-    console.timeEnd("Find the ones");
-  }
+    try {
+      const response = await fetch(csvLocation);
+      if (!response.ok) throw new Error("Failed to fetch CSV");
+      const metadataCsv = await response.text();
+      console.log(metadataCsv);
 
-  $effect(() => {
-    //EFFECT 1
-    if (restrictionChanged) {
-      console.log("effect 1 - restriction changed - update blending");
-      restrictionChanged = !restrictionChanged;
-      updateBlending();
-    }
-  });
-
-  function findTheOnes(ba) {
-    if (ba.length) {
-      const bitArrays = ba;
-      const NUM_WORKERS = 4;
-      // const numArrays = 18;
-      const length = bitArrays[0].length;
-
-      const inputArrays = bitArrays;
-      const chunkSize = Math.ceil(length / NUM_WORKERS);
-      const workers = [];
-      const finalArray = new Uint8Array(length);
-      uniqueArray = new Uint8Array(length);
-      const promises = [];
-
-      for (let w = 0; w < NUM_WORKERS; w++) {
-        const worker = new Worker(
-          new URL("../lib/workers/onesWorker.js?worker", import.meta.url),
-          { type: "module" }
-        );
-        workers.push(worker);
-
-        const start = w * chunkSize;
-        const end = Math.min(start + chunkSize, length);
-        const chunkSlices = inputArrays.map((arr) => arr.slice(start, end));
-
-        const p = new Promise((resolve, reject) => {
-          worker.onmessage = function (e) {
-            if (e.data.error) {
-              console.error(`Worker ${w} reported error:`, e.data.error);
-              reject(new Error(e.data.error));
-              return;
-            }
-
-            finalArray.set(new Uint8Array(e.data.result), start);
-            // if (selectedRestrictionIndex) {
-            uniqueArray.set(new Uint8Array(e.data.uniqueResult), start);
-            // }
-
-            resolve();
-          };
-
-          worker.onerror = function (err) {
-            console.error(`Worker ${w} failed:`, err.message);
-            reject(err);
-          };
-
-          worker.postMessage(
-            {
-              arrays: chunkSlices,
-              start,
-              end,
-              selectedRestrictionIndex,
-            },
-            chunkSlices.map((a) => a.buffer)
-          );
-        });
-
-        // ✅ push promise into array
-        promises.push(p);
-      }
-
-      // ✅ wait for all promises to complete
-      return Promise.all(promises).then(() => {
-        occurences = countOccurrences(finalArray);
-        // console.log(occurences, selectedRestrictionIndex);
-        done = true;
-        updateDataURLForUniques();
+      simpleWorker.postMessage({
+        metadataCsv,
+        base,
       });
-    }
-  }
-
-  $effect(async () => {
-    //EFFECT 2
-    console.log("effect 2 - create canvases from unpacked tiff", tiffLocation);
-
-    tiffLocation = tiffLocation;
-    geotiff =
-      geotiffFile?.length > 0
-        ? await fromBlob(tiffLocation)
-        : await fromUrl(tiffLocation);
-    image = await geotiff.getImage();
-    width = image.getWidth();
-    height = image.getHeight();
-    bbox = image.getBoundingBox();
-    let metadataRes =
-      csvFile?.length > 0 ? csvLocation : await fetch(csvLocation);
-
-    let metadataCsv = await metadataRes.text();
-
-    if (metadataCsv) {
-      unpackWorker.postMessage({
-        url: tiffLocation,
-        metadataCsv: metadataCsv,
-        width: width,
-        height: height,
-        rasters: await image.readRasters(),
-      });
-    }
-
-    canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    ctx = canvas.getContext("2d", { willReadFrequently: true });
-    imageData = ctx.createImageData(width, height);
-
-    canvasForUniques = document.createElement("canvas");
-    canvasForUniques.width = width;
-    canvasForUniques.height = height;
-    ctxForUniques = canvasForUniques.getContext("2d", {
-      willReadFrequently: true,
-    });
-    imageDataForUniques = ctxForUniques.createImageData(width, height);
-
-    canvasForSelectedArea = document.createElement("canvas");
-    canvasForSelectedArea.width = width;
-    canvasForSelectedArea.height = height;
-    ctxForSelectedArea = canvasForSelectedArea.getContext("2d", {
-      willReadFrequently: true,
-    });
-    imageDataForSelectedArea = ctxForSelectedArea.createImageData(
-      width,
-      height
-    );
-  });
-
-  // $effect(async () => {
-  //   //EFFECT 3
-  //   console.log("effect 3 - send url and metadata to unpackWorker");
-  //   metadataRes =
-  //     csvFile?.length > 0 ? csvLocation : await fetch(csvLocation);
-
-  //   let metadataCsv = await metadataRes.text();
-
-  //   if (metadataCsv && tiffLocation) {
-  //     unpackWorker.postMessage({
-  //       url: tiffLocation,
-  //       metadataCsv: metadataCsv,
-  //     });
-  //   }
-  // });
-
-  $effect(() => {
-    //EFFECT 4a
-    console.log("effect 4a - if blended array has changed, render it");
-    if (imageData) {
-      const totalPixels = new Uint32Array(imageData.data.buffer);
-      for (let i = 0; i < blendedArray.length; i++) {
-        const value = blendedArray[i];
-
-        totalPixels[i] = value !== 0 ? TOTAL_ON_COLOR : TOTAL_OFF_COLOR;
-      }
-
-      if (canvas) {
-        ctx.putImageData(imageData, 0, 0);
-
-        // Convert canvas to data URL
-        dataURL = canvas.toDataURL();
-      }
+    } catch (err) {
+      message = `CSV Load Error: ${err.message}`;
     }
   });
-  let renderUnique;
-  $effect.pre(() => {
-    //EFFECT 4b
-    console.log("effect 4b - if uniqueArray array has changed, render it");
 
-    console.time("uniqueURLSeffect");
-    //If we've lost the selection don't render anything
-    renderUnique = selected
-      .map((d) => d.replace(".tif", "").replaceAll("_", " "))
-      .includes(selectedRestriction);
-
-    tick().then(() => {
-      const pixels = new Uint32Array(imageDataForUniques?.data.buffer);
-
-      for (let i = 0; i < uniqueArray.length; i++) {
-        const valueUnique = renderUnique ? uniqueArray[i] : 0;
-        pixels[i] = valueUnique !== 0 ? UNIQUE_ON_COLOR : UNIQUE_OFF_COLOR;
-      }
-
-      // Draw to canvas
-      if (canvasForUniques) {
-        ctxForUniques.putImageData(imageDataForUniques, 0, 0);
-
-        // Only convert to Data URL if needed (since it's expensive)
-        dataURLForUniques = canvasForUniques.toDataURL();
-      }
-
-      const areaPixels = new Uint32Array(imageDataForSelectedArea?.data.buffer);
-
-      for (let i = 0; i < blendedArray.length; i++) {
-        const valueSelectedArea = renderUnique
-          ? currentBitArrays[selectedRestrictionIndex][i]
-          : 0;
-
-        areaPixels[i] =
-          valueSelectedArea !== 0 ? UNIQUE_ON_COLOR : UNIQUE_OFF_COLOR;
-      }
-      if (canvasForSelectedArea) {
-        ctxForSelectedArea.putImageData(imageDataForSelectedArea, 0, 0);
-
-        // Convert canvas to data URL
-        dataURLForSelectedArea = canvasForSelectedArea.toDataURL();
-      }
-    });
-    console.timeEnd("uniqueURLSeffect");
-  });
-
-  function updateDataURLForUniques() {
-    //If we've lost the selection don't render anything
-    console.log(
-      "this is the function that is updating the dataURL for uniques"
-    );
-    console.time("uniqueURLSfunction");
-    renderUnique = selected
-      .map((d) => d.replace(".tif", "").replaceAll("_", " "))
-      .includes(selectedRestriction);
-
-    tick().then(() => {
-      console.time("functiontick");
-      const pixels = new Uint32Array(imageDataForUniques.data.buffer);
-
-      for (let i = 0; i < uniqueArray.length; i++) {
-        const valueUnique = renderUnique ? uniqueArray[i] : 0;
-        pixels[i] = valueUnique !== 0 ? UNIQUE_ON_COLOR : UNIQUE_OFF_COLOR;
-      }
-
-      // Draw to canvas
-      if (canvasForUniques) {
-        ctxForUniques.putImageData(imageDataForUniques, 0, 0);
-
-        // Only convert to Data URL if needed (since it's expensive)
-        dataURLForUniques = canvasForUniques.toDataURL();
-      }
-
-      const areaPixels = new Uint32Array(imageDataForSelectedArea.data.buffer);
-
-      for (let i = 0; i < blendedArray.length; i++) {
-        const valueSelectedArea = renderUnique
-          ? currentBitArrays[selectedRestrictionIndex][i]
-          : 0;
-
-        areaPixels[i] =
-          valueSelectedArea !== 0 ? UNIQUE_ON_COLOR : UNIQUE_OFF_COLOR;
-      }
-      if (canvasForSelectedArea) {
-        ctxForSelectedArea.putImageData(imageDataForSelectedArea, 0, 0);
-
-        // Convert canvas to data URL
-        dataURLForSelectedArea = canvasForSelectedArea.toDataURL();
-      }
-      console.timeEnd("functiontick");
-    });
-    console.timeEnd("uniqueURLSfunction");
-  }
-
-  // let selectionsLength = $derived(selected.length); //DERIVED 4
-
-  // $effect(() => {
-  //   //EFFECT 5
-  //   console.log("effect 5 - if the number of items selected changes, reblend");
-  //   selectionsLength = selected.length;
-  //   updateBlending();
-  // });
-
-  let englandArea = $derived(
-    //DERIVED 5
-    rasterLayers.find((e) => e.filename === "ENGLAND_100M.tif")?.area
-  );
-
-  let tableData = $derived(
-    //DERIVED 6
-    // if (englandArea && blendedArrayLength) {
-    selected.map((layer, i) => {
-      return {
-        name: layer.replace(".tif", "").replaceAll("_", " "),
-        area: rasterLayers.find((d) => d.filename == layer).area,
-        unique: occurences && occurences[i] ? occurences[i] : 0,
-      };
-    })
-    // .push({
-    //   name: "Unrestricted land",
-    //   area: englandArea - blendedArrayLength,
-    //   unique: englandArea - blendedArrayLength,
-    // });
-    // }
-  );
-
-  // $effect(() => {
-  //   tableData.push({
-  //     name: "Unrestricted land",
-  //     area: (englandArea - blendedArrayLength).toLocaleString(),
-  //     unique: "-",
-  //   });
-  // });
-  // $inspect(tableData);
-
-  let tableMetadata = {
-    name: {
-      explainer: "Sort by restriction name",
-      label: "Name",
-      shortLabel: "Name",
-    },
-    area: {
-      explainer:
-        "Sort by the total area in England covered by this restriction",
-      label: "Area",
-      shortLabel: "Area",
-    },
-    unique: {
-      explainer:
-        "Sort by hectares where this is the only barrier to development",
-      label: "Uniquely this",
-      shortLabel: "Uniquely this",
-    },
-  };
-
-  let sortState = $state({ column: "unique", order: "descending" });
-
-  // $effect.pre(() => {
-  //   //Effect 6
-  //   console.log("effect 6 - updating the canvases");
-  //   if (canvas) {
-  //     ctx.putImageData(imageData, 0, 0);
-
-  //     // Convert canvas to data URL
-  //     dataURL = canvas.toDataURL();
-  //   }
-
-  //   if (canvasForSelectedArea) {
-  //     ctxForSelectedArea.putImageData(imageDataForSelectedArea, 0, 0);
-
-  //     // Convert canvas to data URL
-  //     dataURLForSelectedArea = canvasForSelectedArea.toDataURL();
-  //   }
-
-  //   // Draw to canvas
-  //   if (canvasForUniques) {
-  //     ctxForUniques.putImageData(imageDataForUniques, 0, 0);
-
-  //     // Only convert to Data URL if needed (since it's expensive)
-  //     dataURLForUniques = canvasForUniques.toDataURL();
-  //   }
-  // });
-
-  //onchange={()=>tiffLocation = (`${base}/data/LAs/LA${LADetails.find(e=>e.name==selectedArea).id}.tif`)}
+  let message = $state("Waiting...");
 </script>
 
 <svelte:head>
@@ -547,31 +161,35 @@
   ></script>
 </svelte:head>
 
-<!-- <h1>[Heading]</h1> -->
-<!-- <p>[Description]</p> -->
-<!-- <b>NOTE: THIS IS AN EXPERIMENTAL PRODUCT UNDER DEVELOPMENT</b> -->
 <PhaseBanner
   tagText={"Alpha"}
   bannerText={"THIS IS AN EXPERIMENTAL PRODUCT UNDER DEVELOPMENT"}
   linkText={""}
 />
-<h2>
-  The total area of land in {LALookup.find((d) => d.id == selectedArea)
-    ?.LPA23NM ?? "England"} is
+<!-- <h2>
+  The total area of land in ... is
   {englandArea ? englandArea.toLocaleString() : "..."} ha. Removing areas with the
   selected restrictions there are {englandArea
     ? (englandArea - blendedArrayLength).toLocaleString()
     : "..."} ha.
-</h2>
+</h2> -->
+<p>{message}</p>
+{#if enrichedLayers.length}
+  <ul>
+    {#each enrichedLayers as layer}
+      <li>{layer.filename} - area: {layer.area}</li>
+    {/each}
+  </ul>
+{/if}
 <!-- <p>[potentially visualisations]</p> -->
-<label for="area"
+<!-- <label for="area"
   >Select an area
   <select name="area" bind:value={selectedArea}>
     {#each LALookup.sort((a, b) => a.LPA23NM.localeCompare(b.LPA23NM)) as LA, i}
       <option value={LA.id}>{LA.LPA23NM}</option>
     {/each}
   </select></label
->
+> -->
 
 <div class="container">
   <div class="output">
@@ -597,14 +215,14 @@
       </details>
     </div>
     {#if rasterLayers.length}
-      <p>
+      <!-- <p>
         {LALookup[selectedArea - 1]?.LPA23NM ?? "England"} total:
         {englandArea ? englandArea.toLocaleString() : "..."} ha.
-      </p>
+      </p> -->
 
       <fieldset>
         <legend>Layers to turn on/off:</legend>
-        <button
+        <!-- <button
           onclick={() => {
             selected.length = 0;
             // console.log(selected);
@@ -620,7 +238,7 @@
             updateBlending();
             return (selected = selected);
           }}>all on</button
-        >
+        > -->
 
         {#each rasterLayers as layer, i}
           {#if layer.filename !== "ENGLAND_100M.tif"}
@@ -629,9 +247,7 @@
                 id={"checkbox-" + i}
                 name="checkbox"
                 type="checkbox"
-                bind:group={selected}
                 value={layer.filename}
-                onchange={() => updateBlending()}
               />
 
               <label for={"checkbox-" + i}>
@@ -663,7 +279,7 @@
       {console.log("Rendering the map!")}
 
       <div class="os-map-container">
-        {#key geotiffFile}
+        <!-- {#key geotiffFile}
           <OsMap
             {dataURL}
             {dataURLForUniques}
@@ -671,35 +287,10 @@
             {bbox}
             bind:selectedAreaName
           />
-        {/key}
+        {/key} -->
       </div>
     {/if}
   </div>
-  {#if done}
-    <div class="table">
-      <p>
-        Select a row in the table to see areas that are subject to this
-        restriction and no others, highlighted in <span
-          class="uniqueHighlightText">red</span
-        >
-        on the map.
-      </p>
-      {#key tableData}
-        {#if tableData}
-          <Table
-            caption={""}
-            data={tableData.sort((a, b) => +b.unique - +a.unique)}
-            metaData={tableMetadata}
-            colourScale={"Off"}
-            bind:sortState
-            bind:selectedRestriction
-            bind:restrictionChanged
-            sortedColumn={"unique"}
-          />
-        {/if}
-      {/key}
-    </div>
-  {/if}
 </div>
 
 <style>

@@ -5,6 +5,7 @@ self.onmessage = function (e) {
   try{
   const { bitArrays, englandMask } = e.data;
   const length = englandMask.length;
+  console.log(length)
   const result = new Uint8Array(length);
   let activeCount = 0;
 
