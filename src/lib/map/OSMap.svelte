@@ -1,5 +1,11 @@
 <script>
-  let { dataURL, dataURLForUniques, dataURLForSelectedArea, bbox } = $props();
+  let {
+    dataURL,
+    dataURLForUniques,
+    dataURLForSelectedArea,
+    bbox,
+    selectedAreaName = $bindable(),
+  } = $props();
 
   import { onMount } from "svelte";
   import { onDestroy } from "svelte";
@@ -173,6 +179,8 @@
         const props = feature.getProperties();
 
         console.log("Feature clicked:", props);
+        selectedAreaName = props.name;
+
         map.getView().fit(props.geometry.extent_, { duration: 1000 });
 
         return true; // stop after first match
@@ -182,13 +190,11 @@
 
   $effect(() => {
     if (map) {
-      console.log("Removing the tiff layers");
+      console.log("Removing the total tiff layer");
       map.removeLayer(tiffLayer);
-      map.removeLayer(tiffLayerSelectedArea);
-      map.removeLayer(tiffLayerUnique);
     }
 
-    if (dataURL && dataURLForSelectedArea && dataURLForUniques && bbox) {
+    if (dataURL && bbox) {
       tiffLayer = new ImageLayer({
         source: new ImageStatic({
           url: dataURL,
@@ -198,6 +204,24 @@
         opacity: 0.25,
       });
 
+      if (map) {
+        console.log("Adding the total tiff layer");
+        map.addLayer(tiffLayer);
+
+        map.getView().fit(bbox, { duration: 1000 });
+      }
+    }
+  });
+
+  $effect(() => {
+    if (map) {
+      console.log("Removing the selected tiff layers");
+
+      map.removeLayer(tiffLayerSelectedArea);
+      map.removeLayer(tiffLayerUnique);
+    }
+
+    if (dataURLForSelectedArea && dataURLForUniques && bbox) {
       tiffLayerSelectedArea = new ImageLayer({
         source: new ImageStatic({
           url: dataURLForSelectedArea,
@@ -217,10 +241,11 @@
       });
 
       if (map) {
-        console.log("Adding the tiff layers");
-        map.addLayer(tiffLayer);
+        console.log("Adding the selected tiff layers");
+
         map.addLayer(tiffLayerSelectedArea);
         map.addLayer(tiffLayerUnique);
+        map.getView().fit(bbox, { duration: 1000 });
       }
     }
   });
