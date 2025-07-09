@@ -21,32 +21,46 @@
   let dataURLForUniques = $state();
   let dataURLForSelectedArea = $state();
   let occurences = $state();
+  $inspect(occurences);
   // let finalArray = $state();
   let width = $state(0),
     height = $state(0);
   let bbox = $state([]);
-  // let canvas = $state();
+  $inspect(bbox);
+  let canvas = $state();
   // let canvasForUniques = $state();
   // let canvasForSelectedArea = $state();
-  // let ctx = $state();
+  let ctx = $state();
   // let ctxForUniques = $state();
   // let ctxForSelectedArea = $state();
   let image = $state();
-  // let imageData = $state();
+  let imageData = $state();
   // let imageDataForUniques = $state();
   // let imageDataForSelectedArea = $state();
   let rasterLayers = $state([]);
   let lookup = [];
   let bitLayers = $state([]);
+  $inspect(bitLayers);
   let currentBitArrays = $state();
-  let England;
+  let England = $state();
+  let englandLength = $derived(England?.length);
+
+  let enrichedLayers = $state([]);
+
+  let englandArea = $derived(
+    enrichedLayers?.find((d) => d.filename == "ENGLAND_100M.tif")?.area
+  );
+  $inspect(englandArea);
+
   // let selected = $state([]);
   let blendedArray = $state([]);
+  $inspect(blendedArray);
   let blendedArrayLength = $state(0);
+  let selected = $state([]);
   let startingPosition;
 
   let uniqueArray = $state([]);
-
+  let selectedRestrictionIndex = 0;
   const blendingProgress = writable(0);
   let geotiffFile = $state();
   let csvFile = $state();
@@ -57,54 +71,54 @@
   );
 
   let geotiff = $state();
-  let enrichedLayers = $state([]);
 
-  let unpackWorker;
+  // let unpackWorker;
+  let blendWorker;
 
   onMount(async () => {
-    unpackWorker = new Worker(
-      new URL("../lib/workers/bitUnpackerWorker.js", import.meta.url),
-      { type: "module" }
-    );
+    // unpackWorker = new Worker(
+    //   new URL("../lib/workers/bitUnpackerWorker.js", import.meta.url),
+    //   { type: "module" }
+    // );
 
     // blendWorker = new Worker(
     //   new URL("../lib/workers/blendWorker.js?worker", import.meta.url),
     //   { type: "module" }
     // );
 
-    unpackWorker.onmessage = (e) => {
-      const { bitLayers: bits, rasterLayers: layers } = e?.data;
-      console.log(bits, layers);
-      if (!Array.isArray(bits) || !Array.isArray(layers)) {
-        console.error("Worker returned unexpected data:", e?.data);
-        return;
-      }
+    // unpackWorker.onmessage = (e) => {
+    //   const { bitLayers: bits, rasterLayers: layers } = e?.data;
+    //   console.log(bits, layers);
+    //   if (!Array.isArray(bits) || !Array.isArray(layers)) {
+    //     console.error("Worker returned unexpected data:", e?.data);
+    //     return;
+    //   }
 
-      bitLayers = bits;
-      rasterLayers = layers;
+    //   bitLayers = bits;
+    //   rasterLayers = layers;
 
-      // Only assign .data, don't compute .area again
-      rasterLayers.forEach((layer, i) => {
-        layer.data = bitLayers[i];
-      });
+    //   // Only assign .data, don't compute .area again
+    //   rasterLayers.forEach((layer, i) => {
+    //     layer.data = bitLayers[i];
+    //   });
 
-      England = rasterLayers.find(
-        (l) => l.filename === "ENGLAND_100M.tif"
-      )?.data;
-      // selected = rasterLayers
-      //   .map((e) => e.filename)
-      //   .filter((e) => e != "ENGLAND_100M.tif");
+    //   England = rasterLayers.find(
+    //     (l) => l.filename === "ENGLAND_100M.tif"
+    //   )?.data;
+    //   // selected = rasterLayers
+    //   //   .map((e) => e.filename)
+    //   //   .filter((e) => e != "ENGLAND_100M.tif");
 
-      startingPosition = rasterLayers
-        .map((e) => e.filename)
-        .filter((e) => e != "ENGLAND_100M.tif");
-      // updateBlending();
-      //findTheOnes();
-    };
+    //   startingPosition = rasterLayers
+    //     .map((e) => e.filename)
+    //     .filter((e) => e != "ENGLAND_100M.tif");
+    //   // updateBlending();
+    //   //findTheOnes();
+    // };
 
-    unpackWorker.onerror = (e) => {
-      console.log("ERROR", e);
-    };
+    // unpackWorker.onerror = (e) => {
+    //   console.log("ERROR", e);
+    // };
 
     const simpleWorker = new Worker(
       new URL("$lib/workers/simpleUnpackWorker.js", import.meta.url),
@@ -118,8 +132,26 @@
       }
 
       console.log("Processed data:", e.data);
+      bitLayers = e.data.bitLayers;
       enrichedLayers = e.data.rasterLayers;
+      height = e.data.height;
+      width = e.data.width;
+      bbox = e.data.bbox;
       message = `Processed ${enrichedLayers.length} layers.`;
+
+      England = enrichedLayers.find(
+        (l) => l.filename === "ENGLAND_100M.tif"
+      )?.data;
+      //Filter out England to get 'selected', and do again to get starting position if needed
+      selected = enrichedLayers
+        .map((e) => e.filename)
+        .filter((e) => e != "ENGLAND_100M.tif");
+
+      startingPosition = enrichedLayers
+        .map((e) => e.filename)
+        .filter((e) => e != "ENGLAND_100M.tif");
+
+      //Make bitArrays a copy of bitLayers but with England filtered out - I think easiest is to use enrichedLayers
     };
 
     simpleWorker.onerror = (e) => {
@@ -142,7 +174,264 @@
     }
   });
 
-  let message = $state("Waiting...");
+  $effect(() => {
+    if (englandArea) {
+      const blendWorker = new Worker(
+        new URL("$lib/workers/blendWorker.js", import.meta.url),
+        { type: "module" }
+      );
+
+      // Select the active layers
+      const active = enrichedLayers.filter((l) =>
+        selected.includes(l.filename)
+      );
+
+      // Ensure Uint8Arrays
+      const duplicateBitLayers = active.map((l) => new Uint8Array(l.data));
+
+      // Get the raw buffers
+      const buffers = duplicateBitLayers.map((arr) => arr.buffer);
+
+      // Post to the worker (transferring buffers)
+      blendWorker.postMessage(
+        {
+          bitArrays: buffers, // ✅ send raw ArrayBuffers
+          englandLength, // e.g. 37371060
+        },
+        buffers // ✅ transfer buffers (zero-copy)
+      );
+
+      // Listen for messages
+      blendWorker.onmessage = (e) => {
+        if (e.data.progress !== undefined) {
+          blendingProgress.set(e.data.progress);
+        } else if (e.data.type === "done") {
+          blendedArrayLength = e.data.activeCount;
+          blendedArray = new Uint8Array(e.data.result); // ✅ re-wrap transferred buffer
+          blendingProgress.set(100);
+          console.log("Blending complete:", blendedArrayLength);
+        } else if (e.data.error) {
+          console.error("Blend worker error:", e.data.error);
+        }
+
+        canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        ctx = canvas.getContext("2d");
+        imageData = ctx.createImageData(width, height);
+
+        for (let i = 0; i < blendedArray.length; i++) {
+          const value = blendedArray[i];
+
+          imageData.data[i * 4 + 0] = 0; // redValue; //R
+          imageData.data[i * 4 + 1] = 0; // greenValue; //G
+          imageData.data[i * 4 + 2] = 0; // blueValue; //B
+          imageData.data[i * 4 + 3] = value !== 0 ? 255 : 0; //Alpha
+        }
+
+        if (canvas) {
+          ctx.putImageData(imageData, 0, 0);
+
+          // Convert canvas to data URL
+          dataURL = canvas.toDataURL();
+        }
+      };
+
+      // findTheOnes(
+      //   enrichedLayers
+      //     .filter((l) => selected.includes(l.filename))
+      //     .map((l) => l.data)
+      // ).then(({ finalArray, uniqueArray, occurrences }) => {
+      //   console.log("Done processing.");
+      //   console.log("Final result:", finalArray);
+      //   console.log("Selected mask:", uniqueArray);
+      //   console.log("Occurrences:", occurrences);
+      // });
+    }
+  });
+
+  function countOccurrences(uint8Array) {
+    const counts = {};
+    for (let i = 0; i < uint8Array.length; i++) {
+      const value = uint8Array[i];
+      if (counts[value] === undefined) {
+        counts[value] = 1;
+      } else {
+        counts[value]++;
+      }
+    }
+    return counts;
+  }
+
+  // function findTheOnes(ba) {
+  //   if (ba.length) {
+  //     const bitArrays = ba;
+  //     const NUM_WORKERS = 4;
+  //     // const numArrays = 18;
+  //     const length = bitArrays[0].length;
+
+  //     const inputArrays = bitArrays;
+  //     const chunkSize = Math.ceil(length / NUM_WORKERS);
+  //     const workers = [];
+  //     const finalArray = new Uint8Array(length);
+  //     uniqueArray = new Uint8Array(length);
+  //     const promises = [];
+
+  //     for (let w = 0; w < NUM_WORKERS; w++) {
+  //       const worker = new Worker(
+  //         new URL("../lib/workers/onesWorker.js?worker", import.meta.url),
+  //         { type: "module" }
+  //       );
+  //       workers.push(worker);
+
+  //       const start = w * chunkSize;
+  //       const end = Math.min(start + chunkSize, length);
+  //       const chunkSlices = inputArrays.map((arr) => arr.slice(start, end));
+
+  //       const p = new Promise((resolve, reject) => {
+  //         worker.onmessage = function (e) {
+  //           if (e.data.error) {
+  //             console.error(`Worker ${w} reported error:`, e.data.error);
+  //             reject(new Error(e.data.error));
+  //             return;
+  //           }
+
+  //           finalArray.set(new Uint8Array(e.data.result), start);
+  //           // if (selectedRestrictionIndex) {
+  //           uniqueArray.set(new Uint8Array(e.data.uniqueResult), start);
+  //           // }
+
+  //           resolve();
+  //         };
+
+  //         worker.onerror = function (err) {
+  //           console.error(`Worker ${w} failed:`, err.message);
+  //           reject(err);
+  //         };
+
+  //         worker.postMessage(
+  //           {
+  //             arrays: chunkSlices,
+  //             start,
+  //             end,
+  //             selectedRestrictionIndex,
+  //           },
+  //           chunkSlices.map((a) => a.buffer)
+  //         );
+  //       });
+
+  //       // ✅ push promise into array
+  //       promises.push(p);
+  //     }
+
+  //     // ✅ wait for all promises to complete
+  //     return Promise.all(promises).then(() => {
+  //       occurences = countOccurrences(finalArray);
+  //       // console.log(occurences, selectedRestrictionIndex);
+  //       done = true;
+  //     });
+  //   }
+  // }
+
+  function findTheOnes(bitArrays) {
+    if (!bitArrays.length) return;
+
+    const NUM_WORKERS = 4;
+    const length = bitArrays[0].length;
+    const chunkSize = Math.ceil(length / NUM_WORKERS);
+
+    const finalArray = new Uint8Array(length);
+    const uniqueArray = new Uint8Array(length);
+    const promises = [];
+
+    for (let w = 0; w < NUM_WORKERS; w++) {
+      const worker = new Worker(
+        new URL("../lib/workers/onesWorker.js?worker", import.meta.url),
+        { type: "module" }
+      );
+
+      const start = w * chunkSize;
+      const end = Math.min(start + chunkSize, length);
+
+      const chunkSlices = bitArrays.map((arr) => arr.slice(start, end));
+
+      const p = new Promise((resolve, reject) => {
+        worker.onmessage = function (e) {
+          if (e.data.error) {
+            console.error(`Worker ${w} reported error:`, e.data.error);
+            reject(new Error(e.data.error));
+            return;
+          }
+
+          const { result, uniqueResult } = e.data;
+
+          // Ensure these are Uint8Arrays
+          const resultArray = new Uint8Array(result);
+          const uniqueResultArray = new Uint8Array(uniqueResult);
+
+          finalArray.set(resultArray, start);
+          uniqueArray.set(uniqueResultArray, start);
+
+          resolve();
+        };
+
+        worker.onerror = function (err) {
+          console.error(`Worker ${w} failed:`, err.message);
+          reject(err);
+        };
+
+        worker.postMessage(
+          {
+            arrays: chunkSlices,
+            start,
+            end,
+            selectedRestrictionIndex,
+          },
+          [...chunkSlices.map((a) => a.buffer)] // Transfer input buffers
+        );
+      });
+
+      promises.push(p);
+    }
+
+    return Promise.all(promises).then(() => {
+      const occurrences = countOccurrences(finalArray);
+      const done = true;
+
+      return {
+        finalArray,
+        uniqueArray,
+        occurrences,
+        done,
+      };
+    });
+  }
+
+  let message = $state("Processing layers...");
+
+  // $effect(async () => {
+  //   canvas = document.createElement("canvas");
+  //   canvas.width = width;
+  //   canvas.height = height;
+  //   ctx = canvas.getContext("2d");
+  //   imageData = ctx.createImageData(width, height);
+
+  //   for (let i = 0; i < blendedArray.length; i++) {
+  //     const value = blendedArray[i];
+
+  //     imageData.data[i * 4 + 0] = 0; // redValue; //R
+  //     imageData.data[i * 4 + 1] = 0; // greenValue; //G
+  //     imageData.data[i * 4 + 2] = 0; // blueValue; //B
+  //     imageData.data[i * 4 + 3] = value !== 0 ? 255 : 0; //Alpha
+  //   }
+
+  //   if (canvas) {
+  //     ctx.putImageData(imageData, 0, 0);
+
+  //     // Convert canvas to data URL
+  //     dataURL = canvas.toDataURL();
+  //   }
+  // });
 </script>
 
 <svelte:head>
@@ -174,12 +463,22 @@
     : "..."} ha.
 </h2> -->
 <p>{message}</p>
+
 {#if enrichedLayers.length}
   <ul>
     {#each enrichedLayers as layer}
-      <li>{layer.filename} - area: {layer.area}</li>
+      <li>{layer.filename} - area: {layer.area.toLocaleString()} ha</li>
     {/each}
   </ul>
+{/if}
+{#if $blendingProgress < 100}
+  <p>Blending... {$blendingProgress.toFixed(1)}%</p>
+  <progress max="100" value={$blendingProgress}></progress>
+{:else}
+  <p>
+    Blending done, total area in England is {englandArea.toLocaleString()} ha, of
+    which {(englandArea - blendedArrayLength).toLocaleString()} ha is unrestricted
+  </p>
 {/if}
 <!-- <p>[potentially visualisations]</p> -->
 <!-- <label for="area"
@@ -190,6 +489,11 @@
     {/each}
   </select></label
 > -->
+<div class="os-map-container">
+  {#if dataURL && bbox}
+    <OsMap {dataURL} {bbox} />
+  {/if}
+</div>
 
 <div class="container">
   <div class="output">
