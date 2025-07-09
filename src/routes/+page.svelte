@@ -28,15 +28,20 @@
   let bbox = $state([]);
   $inspect(bbox);
   let canvas = $state();
-  // let canvasForUniques = $state();
-  // let canvasForSelectedArea = $state();
+  let canvasForUniques = $state();
+  let canvasForSelectedArea = $state();
   let ctx = $state();
-  // let ctxForUniques = $state();
-  // let ctxForSelectedArea = $state();
+  let ctxForUniques = $state();
+  let ctxForSelectedArea = $state();
   let image = $state();
   let imageData = $state();
-  // let imageDataForUniques = $state();
-  // let imageDataForSelectedArea = $state();
+  let imageDataForUniques = $state();
+  let imageDataForSelectedArea = $state();
+  // Define RGBA colors in little-endian format (most systems are little-endian)
+  const UNIQUE_ON_COLOR = 0xff0000ff; // Red with full opacity (R=255, G=0, B=0, A=255)
+  const UNIQUE_OFF_COLOR = 0x000000ff; // Red with 0 alpha (R=255, G=0, B=0, A=0)
+  const TOTAL_ON_COLOR = 0xff000000;
+  const TOTAL_OFF_COLOR = 0x00000000;
   let rasterLayers = $state([]);
   let lookup = [];
   let bitLayers = $state([]);
@@ -237,16 +242,71 @@
         }
       };
 
-      // findTheOnes(
-      //   enrichedLayers
-      //     .filter((l) => selected.includes(l.filename))
-      //     .map((l) => l.data)
-      // ).then(({ finalArray, uniqueArray, occurrences }) => {
-      //   console.log("Done processing.");
-      //   console.log("Final result:", finalArray);
-      //   console.log("Selected mask:", uniqueArray);
-      //   console.log("Occurrences:", occurrences);
-      // });
+      findTheOnes(
+        enrichedLayers
+          .filter((l) => selected.includes(l.filename))
+          .map((l) => l.data)
+      ).then(({ finalArray, uniqueArray, occurrences }) => {
+        console.log("Done processing.");
+        console.log("Final result:", finalArray);
+        console.log("Selected mask:", uniqueArray);
+        console.log("Occurrences:", occurrences);
+
+        canvasForUniques = document.createElement("canvas");
+        canvasForUniques.width = width;
+        canvasForUniques.height = height;
+        ctxForUniques = canvasForUniques.getContext("2d", {
+          willReadFrequently: true,
+        });
+        imageDataForUniques = ctxForUniques.createImageData(width, height);
+
+        canvasForSelectedArea = document.createElement("canvas");
+        canvasForSelectedArea.width = width;
+        canvasForSelectedArea.height = height;
+        ctxForSelectedArea = canvasForSelectedArea.getContext("2d", {
+          willReadFrequently: true,
+        });
+        imageDataForSelectedArea = ctxForSelectedArea.createImageData(
+          width,
+          height
+        );
+
+        const renderUnique = true;
+
+        const pixels = new Uint32Array(imageDataForUniques?.data.buffer);
+
+        for (let i = 0; i < uniqueArray.length; i++) {
+          const valueUnique = renderUnique ? uniqueArray[i] : 0;
+          pixels[i] = valueUnique !== 0 ? UNIQUE_ON_COLOR : UNIQUE_OFF_COLOR;
+        }
+
+        // Draw to canvas
+        if (canvasForUniques) {
+          ctxForUniques.putImageData(imageDataForUniques, 0, 0);
+
+          // Only convert to Data URL if needed (since it's expensive)
+          dataURLForUniques = canvasForUniques.toDataURL();
+        }
+
+        const areaPixels = new Uint32Array(
+          imageDataForSelectedArea?.data.buffer
+        );
+
+        for (let i = 0; i < blendedArray.length; i++) {
+          const valueSelectedArea = renderUnique
+            ? currentBitArrays[selectedRestrictionIndex][i]
+            : 0;
+
+          areaPixels[i] =
+            valueSelectedArea !== 0 ? UNIQUE_ON_COLOR : UNIQUE_OFF_COLOR;
+        }
+        if (canvasForSelectedArea) {
+          ctxForSelectedArea.putImageData(imageDataForSelectedArea, 0, 0);
+
+          // Convert canvas to data URL
+          dataURLForSelectedArea = canvasForSelectedArea.toDataURL();
+        }
+      });
     }
   });
 
@@ -491,7 +551,7 @@
 > -->
 <div class="os-map-container">
   {#if dataURL && bbox}
-    <OsMap {dataURL} {bbox} />
+    <OsMap {dataURL} {dataURLForUniques} {dataURLForSelectedArea} {bbox} />
   {/if}
 </div>
 

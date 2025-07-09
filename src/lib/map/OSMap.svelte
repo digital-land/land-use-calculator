@@ -179,9 +179,11 @@
         const props = feature.getProperties();
 
         console.log("Feature clicked:", props);
-        selectedAreaName = props.name;
+        if (props.name) {
+          selectedAreaName = props.name;
 
-        map.getView().fit(props.geometry.extent_, { duration: 1000 });
+          map.getView().fit(props.geometry?.extent_, { duration: 1000 });
+        }
 
         return true; // stop after first match
       });
