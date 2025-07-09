@@ -20,6 +20,7 @@ self.onmessage = async function (e) {
     const bitLayers = [];
 
     let layerIndex = 0;
+    let width, height, bbox;
 
     const enrichedRasterLayers = await Promise.all(
       rasterLayers.map(async (layer) => {
@@ -30,8 +31,9 @@ self.onmessage = async function (e) {
         const blob = await response.blob();
         const geotiff = await fromBlob(blob);
         const image = await geotiff.getImage();
-        const width = image.getWidth();
-        const height = image.getHeight();
+        width = image.getWidth();
+        height = image.getHeight();
+        bbox = image.getBoundingBox();
         const rasters = await image.readRasters();
 
         const result = new Uint8Array(width * height);
@@ -57,7 +59,7 @@ self.onmessage = async function (e) {
       })
     );
 
-    self.postMessage({ bitLayers, rasterLayers: enrichedRasterLayers });
+    self.postMessage({ bitLayers, rasterLayers: enrichedRasterLayers, width, height, bbox });
   } catch (error) {
     self.postMessage({ error: error.message });
   }
