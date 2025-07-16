@@ -17,6 +17,7 @@ self.onmessage = async function (e) {
 
   try {
     const rasterLayers = parseMetadataCsv(metadataCsv);
+    console.log(rasterLayers)
     const bitLayers = [];
 
     let layerIndex = 0;
