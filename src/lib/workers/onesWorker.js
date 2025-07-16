@@ -5,7 +5,7 @@ self.onmessage = function (e) {
     const length = end - start;
 
     const result = new Uint8Array(length).fill(99);
-    const uniqueResult = new Uint8Array(length);
+    const uniqueResult = new Uint8Array(length).fill(99);
 
     for (let i = 0; i < length; i++) {
       let foundIndex = -1;

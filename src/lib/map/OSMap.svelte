@@ -18,6 +18,7 @@
   // let geotiffData = null; // to hold the raster data info
   import ImageCanvasSource from "ol/source/ImageCanvas";
   import * as topojson from "topojson-client";
+  import { Style, Stroke, Fill } from "ol/style";
 
   let mapElement;
   let map;
@@ -84,10 +85,19 @@
 
     const geoJsonVectorLayer = new ol.layer.Vector({
       source: geoJsonVectorSource,
-      style: {
-        "stroke-color": "teal",
-        "stroke-width": 1.5,
-        "fill-color": "rgba(0,123,0,0)",
+      style: (feature, resolution) => {
+        // Set line width based on 'resolution' which is the inverse of zoom level
+        const width = resolution < 1 ? 3 : resolution < 5 ? 2 : 1; // fallback
+
+        return new Style({
+          stroke: new Stroke({
+            color: "teal",
+            width: width,
+          }),
+          fill: new Fill({
+            color: "rgba(0,123,0,0)",
+          }),
+        });
       },
     });
 
