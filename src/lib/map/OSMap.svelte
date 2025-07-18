@@ -107,7 +107,7 @@
         imageExtent: bbox,
         projection: "EPSG:27700",
       }),
-      opacity: 0.25,
+      opacity: 0.35,
     });
 
     tiffLayerSelectedArea = new ImageLayer({
@@ -213,7 +213,7 @@
           imageExtent: bbox,
           projection: "EPSG:27700",
         }),
-        opacity: 0.25,
+        opacity: 0.35,
       });
 
       if (map) {

@@ -1,0 +1,51 @@
+﻿Level,Tier,Category,Data_layer,filename
+2,Physically restricted,Automatic exclusion,All data layers,Automatic_exclusion.tif
+3,Physically restricted,Automatic exclusion,Bodies of water,Bodies_of_water.tif
+2,Physically restricted,Built infrastructure constraints,All data layers,Built_infrastructure_constraints.tif
+3,Physically restricted,Built infrastructure constraints,Built up areas,Built_up_areas.tif
+3,Physically restricted,Built infrastructure constraints,National Grid infrastructure,National_Grid_infrastructure.tif
+3,Physically restricted,Built infrastructure constraints,Current rail network,Current_rail_network.tif
+3,Physically restricted,Built infrastructure constraints,Current major roads,Current_major_roads.tif
+2,Development restricted,Wildlife sites of national and international importance ,All data layers,Wildlife_sites_of_national_and_international_importance_.tif
+3,Development restricted,Wildlife sites of national and international importance ,Ramsar,Ramsar.tif
+3,Development restricted,Wildlife sites of national and international importance ,Special areas of conservation,Special_areas_of_conservation.tif
+3,Development restricted,Wildlife sites of national and international importance ,Special protection areas,Special_protection_areas.tif
+3,Development restricted,Wildlife sites of national and international importance ,Sites of Special Scientific Interest,Sites_of_Special_Scientific_Interest.tif
+2,Development restricted,Heritage constraint,All data layers,Heritage_constraint.tif
+3,Development restricted,Heritage constraint,Registered parks and gardens,Registered_parks_and_gardens.tif
+3,Development restricted,Heritage constraint,Registered battlefields,Registered_battlefields.tif
+3,Development restricted,Heritage constraint,Scheduled monuments,Scheduled_monuments.tif
+3,Development restricted,Heritage constraint,World Heritage Sites,World_Heritage_Sites.tif
+3,Development restricted,Heritage constraint,World Heritage Buffer Zones,World_Heritage_Buffer_Zones.tif
+2,Development restricted,Greenbelt,All data layers,Greenbelt.tif
+3,Development restricted,Greenbelt,All greenbelt,All_greenbelt.tif
+2,Development limited,Protected landscapes,All data layers,Protected_landscapes.tif
+3,Development limited,Protected landscapes,national parks,national_parks.tif
+2,Development limited,Wildlife sites ,All data layers,Wildlife_sites_.tif
+3,Development limited,Wildlife sites ,National nature reserves,National_nature_reserves.tif
+3,Development limited,Wildlife sites ,Local nature reserves,Local_nature_reserves.tif
+2,Development limited,Conservation areas,All data layers,Conservation_areas.tif
+3,Development limited,Conservation areas,All Conservation areas,All_Conservation_areas.tif
+2,Development limited,Planned infrastructure sites,All data layers,Planned_infrastructure_sites.tif
+3,Development limited,Planned infrastructure sites,Nationally Significant Infrastructure Projects,Nationally_Significant_Infrastructure_Projects.tif
+3,Development limited,Planned infrastructure sites,HS2,HS2.tif
+2,Development avoided,Flood risk ,All data layers,Flood_risk_.tif
+3,Development avoided,Flood risk ,Flood zone 2,Flood_zone_2.tif
+3,Development avoided,Flood risk ,Flood zone 3,Flood_zone_3.tif
+2,Infrastructure limited,Connectivity,All data layers,Connectivity.tif
+3,Infrastructure limited,Connectivity,within KM of BUA,within_KM_of_BUA.tif
+2,Ownership,Organisation,All data layers,Organisation.tif
+3,Ownership,Organisation,Developer,Developer.tif
+3,Ownership,Organisation,Non-developer company,Non-developer_company.tif
+3,Ownership,Organisation,Housing association,Housing_association.tif
+3,Ownership,Organisation,Public trust or society,Public_trust_or_society.tif
+3,Ownership,Organisation,University,University.tif
+3,Ownership,Organisation,Crown,Crown.tif
+3,Ownership,Organisation,Church,Church.tif
+3,Ownership,Organisation,Local government,Local_government.tif
+3,Ownership,Organisation,Central government,Central_government.tif
+2,Ownership,Private,All data layers,Private.tif
+3,Ownership,Private,Private individual,Private_individual.tif
+2,Ownership,Unregistered,All data layers,Unregistered.tif
+3,Ownership,Unregistered,Unregistered 5ha or more,Unregistered_5ha_or_more.tif
+,,,,ENGLAND_100M.tif

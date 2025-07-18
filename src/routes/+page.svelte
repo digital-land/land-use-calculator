@@ -7,9 +7,9 @@
   import {
     CheckBox,
     PhaseBanner,
-    FilterPanel,
   } from "@communitiesuk/svelte-component-library";
   import Map from "$lib/map/Map.svelte";
+  import FilterPanel from "$lib/FilterPanel.svelte";
   import OsMap from "$lib/map/OSMap.svelte";
   import proj4 from "proj4";
   import { base } from "$app/paths";
@@ -103,36 +103,77 @@
   let sortState = $state({ column: "unique", order: "descending" });
 
   let startingPosition = $state();
-  let filterSections = $derived([
-    {
-      id: "categories",
-      type: "checkboxes",
-      title: "Categories",
-      ga4Section: "categories_filter",
-      ga4IndexSection: 1,
-      ga4IndexSectionCount: 2,
-      name: "categories[]",
-      legend: "Select categories",
-      options: startingPosition?.slice(0, 3)?.map((layer) => {
-        return { value: layer, label: layer };
-      }),
-      // selectedValues: startingPosition, //If we want all selected initially
-    },
-    {
-      id: "second-categories",
-      type: "checkboxes",
-      title: "Second set of Categories",
-      ga4Section: "second_categories_filter",
-      ga4IndexSection: 2,
-      ga4IndexSectionCount: 3,
-      name: "second_categories[]",
-      legend: "",
-      options: startingPosition?.slice(3)?.map((layer) => {
-        return { value: layer, label: layer };
-      }),
-      // selectedValues: startingPosition, //If we want all selected initially
-    },
-  ]);
+  $inspect(
+    [...new Set(startingPosition?.map((d) => d.Tier))]?.map((section, i) => {
+      const thisSectionData = startingPosition?.filter(
+        (d) => d.Tier == section
+      );
+      return {
+        tier: section,
+        sections: [...new Set(thisSectionData?.map((d) => d.Category))]?.map(
+          (category, j) => {
+            return {
+              id: `categories${i}-${j}`,
+              type: "checkboxes",
+              title: category,
+              ga4Section: "categories_filter",
+              ga4IndexSection: 1,
+              ga4IndexSectionCount: 2,
+              name: `categories${i}-${j}[]`,
+              legend: "",
+              openByDefault: false,
+              options: thisSectionData
+                .filter((d) => d.Category == category)
+                ?.map((layer) => {
+                  return {
+                    value: layer.filename,
+                    label: layer.Data_layer,
+                    exclusive: layer.Level == 2 ? true : false,
+                  };
+                }),
+            };
+          }
+        ),
+        // selectedValues: startingPosition, //If we want all selected initially
+      };
+    })
+  );
+
+  let filterSections = $derived(
+    [...new Set(startingPosition?.map((d) => d.Tier))]?.map((section, i) => {
+      const thisSectionData = startingPosition?.filter(
+        (d) => d.Tier == section
+      );
+      return {
+        tier: section,
+        sections: [...new Set(thisSectionData?.map((d) => d.Category))]?.map(
+          (category, j) => {
+            return {
+              id: `categories${section.replaceAll(" ", "_")}-${j}`,
+              type: "checkboxes",
+              title: category,
+              ga4Section: "categories_filter",
+              ga4IndexSection: 1,
+              ga4IndexSectionCount: 2,
+              name: `categories${i}-${j}[]`,
+              legend: "",
+              openByDefault: false,
+              options: thisSectionData
+                .filter((d) => d.Category == category)
+                ?.map((layer) => {
+                  return {
+                    value: layer.filename,
+                    label: layer.Data_layer,
+                    exclusive: layer.Level == 2 ? true : false,
+                  };
+                }),
+            };
+          }
+        ),
+        // selectedValues: startingPosition, //If we want all selected initially
+      };
+    })
+  );
 
   let uniqueArray = $state([]);
   // let selectedRestrictionIndex = 0;
@@ -169,9 +210,10 @@
 
         console.log("Parsed CSV:", csvText);
 
-        startingPosition = parseMetadataCsv(csvText)
-          .filter((d) => d.filename !== "ENGLAND_100M.tif")
-          .map((d) => d.filename);
+        startingPosition = parseMetadataCsv(csvText).filter(
+          (d) => d.filename !== "ENGLAND_100M.tif"
+        );
+        // .map((d) => d.filename);
         console.log(startingPosition);
       }
 
@@ -204,7 +246,7 @@
 
   let csvLocation = $derived(
     //DERIVED 3
-    csvFile?.length > 0 ? csvFile[0] : `${base}/bitpacking_metadata.csv`
+    csvFile?.length > 0 ? csvFile[0] : `${base}/ultimate_land_metadata.csv`
   );
 
   function parseMetadataCsv(csvText) {
@@ -295,7 +337,7 @@
       }
 
       console.log("Processed data:", e.data);
-      bitLayers = e.data.bitLayers;
+      bitLayers = e.data.rasterLayers.map((layer) => layer.data);
       enrichedLayers = e.data.rasterLayers;
       height = e.data.height;
       width = e.data.width;
@@ -328,9 +370,10 @@
       const metadataCsv = await response.text();
       console.log(metadataCsv);
 
-      startingPosition = parseMetadataCsv(metadataCsv)
-        .filter((d) => d.filename !== "ENGLAND_100M.tif")
-        .map((d) => d.filename);
+      startingPosition = parseMetadataCsv(metadataCsv).filter(
+        (d) => d.filename !== "ENGLAND_100M.tif"
+      );
+      // .map((d) => d.filename);
 
       simpleWorker.postMessage({
         metadataCsv,
