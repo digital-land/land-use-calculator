@@ -1,16 +1,18 @@
 import { fromBlob } from 'geotiff';
 
-function parseMetadataCsv(csvText) {
-  const lines = csvText.trim().split('\n');
-  const headers = lines[0].split(',');
+  function parseMetadataCsv(csvText) {
+    const lines = csvText.trim().split("\n");
+    const headers = lines[0].trim().split(",");
 
-  return lines.slice(1).map((line) => {
-    const values = line.split(',');
-    const row = {};
-    headers.forEach((h, i) => (row[h] = values[i]));
-    return row;
-  });
-}
+    return lines.slice(1).map((line) => {
+      // console.log(line);
+      const values = line.split(",");
+      const row = {};
+      headers.forEach((h, i) => (row[h] = values[i].replace("\r", "")));
+      // console.log(row);
+      return row;
+    });
+  }
 
 self.onmessage = async function (e) {
   const { metadataCsv, base } = e.data;
@@ -25,7 +27,7 @@ self.onmessage = async function (e) {
 
     const enrichedRasterLayers = await Promise.all(
       rasterLayers.map(async (layer) => {
-        const url = `${base}/data/filters/${layer.filename}`;
+        const url = `${base}/data/ALL_LAYERS/${layer.filename}`;
         const response = await fetch(url);
         if (!response.ok) throw new Error(`Failed to load ${url}`);
 
@@ -60,7 +62,10 @@ self.onmessage = async function (e) {
       })
     );
 
-    self.postMessage({ bitLayers, rasterLayers: enrichedRasterLayers, width, height, bbox });
+    self.postMessage(
+  { rasterLayers: enrichedRasterLayers, width, height, bbox },
+  enrichedRasterLayers.map(layer => layer.data.buffer)
+);
   } catch (error) {
     self.postMessage({ error: error.message });
   }
