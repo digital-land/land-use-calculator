@@ -1,4 +1,4 @@
-import { fromBlob } from 'geotiff';
+import { fromArrayBuffer } from 'geotiff';
 
 //   function parseMetadataCsv(csvText) {
 //     const lines = csvText.trim().split("\n");
@@ -15,7 +15,7 @@ import { fromBlob } from 'geotiff';
 //   }
 
 self.onmessage = async function (e) {
-  const { layersToUnpack, base } = e.data;
+  const { layersToUnpack } = e.data;
 console.log('starting to unpack')
   try {
     const rasterLayers = layersToUnpack;
@@ -27,12 +27,12 @@ console.log('starting to unpack')
 
     const enrichedRasterLayers = await Promise.all(
       rasterLayers.map(async (layer) => {
-        const url = `${base}/data/ALL_LAYERS/${layer.filename}`;
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`Failed to load ${url}`);
+        // const url = `${base}/data/ALL_LAYERS/${layer.filename}`;
+        // const response = await fetch(url);
+        // if (!response.ok) throw new Error(`Failed to load ${url}`);
 
-        const blob = await response.blob();
-        const geotiff = await fromBlob(blob);
+        // const blob = await response.blob();
+        const geotiff = await fromArrayBuffer(layer.arrayBuffer);
         const image = await geotiff.getImage();
         width = image.getWidth();
         height = image.getHeight();

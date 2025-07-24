@@ -141,6 +141,12 @@
               scope="col"
               class={`govuk-table__header ${column.dataType === "number" ? "govuk-table__header--numeric" : ""}`}
               title={metaData[column.key].explainer}
+              aria-sort={sortState.column !== column.key
+                ? "none"
+                : sortState.column === column.key &&
+                    sortState.order === "descending"
+                  ? "descending"
+                  : "ascending"}
             >
               <div class="header">
                 <Button
@@ -213,9 +219,9 @@
 
 <style>
   .table-container {
-    max-height: 85vh;
+    /* max-height: 85vh;
     overflow-y: auto;
-    overflow-x: scroll;
+    overflow-x: scroll; */
     width: 100%;
   }
 
@@ -268,5 +274,18 @@
 
   tr:not(.selected) td:not(:nth-child(1)) {
     background-color: whitesmoke;
+  }
+
+  :global([aria-sort="ascending"].govuk-table__header .top-triangle) {
+    fill: #222;
+  }
+  :global([aria-sort="ascending"].govuk-table__header .bottom-triangle) {
+    fill: #bcbcbd;
+  }
+  :global([aria-sort="descending"].govuk-table__header .top-triangle) {
+    fill: #bcbcbd;
+  }
+  :global([aria-sort="descending"].govuk-table__header .bottom-triangle) {
+    fill: #222;
   }
 </style>

@@ -10,6 +10,8 @@
   } from "@communitiesuk/svelte-component-library";
   import Map from "$lib/map/Map.svelte";
   import FilterPanel from "$lib/FilterPanel.svelte";
+  import Button from "$lib/Button.svelte";
+  import Details from "$lib/Details.svelte";
   import OsMap from "$lib/map/OSMap.svelte";
   import proj4 from "proj4";
   import { base } from "$app/paths";
@@ -30,7 +32,7 @@
   let width = $state(0),
     height = $state(0);
   let bbox = $state([]);
-  $inspect(bbox);
+  $inspect({ width, height, bbox });
   let canvas = $state();
   let canvasForUniques = $state();
   let canvasForSelectedArea = $state();
@@ -54,27 +56,29 @@
   $inspect(bitLayers);
   let currentBitArrays = $state();
   $inspect({ currentBitArrays });
-  let England = $state();
-  let englandLength = $derived(England?.length);
+  // let England = $state();
+  // let englandLength = $derived(England?.length);
 
   let enrichedLayers = $state([]);
 
-  let englandArea = $derived(
-    enrichedLayers?.find((d) => d.filename == "ENGLAND_100M.tif")?.area
-  );
-  $inspect(englandArea);
+  // let englandArea = $derived(
+  //   enrichedLayers?.find((d) => d.filename == "ENGLAND_100M.tif")?.area
+  // );
+  // $inspect(englandArea);
 
   let blendedArray = $state([]);
-  $inspect(blendedArray);
+  // $inspect(blendedArray);
   let blendedArrayLength = $state(0);
   let selected = $state([]);
   let tableData = $derived(
     //DERIVED 6
     // if (englandArea && blendedArrayLength) {
-    selected.map((layer, i) => {
+    selected?.map((layer, i) => {
       return {
         name: layer.replace(".tif", "").replaceAll("_", " "),
-        area: enrichedLayers?.find((d) => d.filename == layer).area,
+        area: enrichedLayers?.find((d) => d.filename == layer)?.area
+          ? enrichedLayers?.find((d) => d.filename == layer)?.area
+          : "-",
         unique: occurrences && occurrences[i] ? occurrences[i] : "-",
       };
     })
@@ -129,6 +133,7 @@
                     value: layer.filename,
                     label: layer.Data_layer,
                     exclusive: layer.Level == 2 ? true : false,
+                    checked: layer.initially_checked === "y" ? true : false,
                   };
                 }),
             };
@@ -165,6 +170,7 @@
                     value: layer.filename,
                     label: layer.Data_layer,
                     exclusive: layer.Level == 2 ? true : false,
+                    checked: layer.initially_checked === "y" ? true : false,
                   };
                 }),
             };
@@ -187,13 +193,32 @@
           .indexOf(selectedRestriction)
       : undefined
   );
-  $inspect(selectedRestrictionIndex);
-  let renderUnique = $derived(selectedRestrictionIndex >= 0 ? true : false);
+  // $inspect(selectedRestrictionIndex);
+  let renderUnique = $derived(
+    selected
+      .map((d) => d.replaceAll(".tif", "").replaceAll("_", " "))
+      .includes(selectedRestriction)
+      ? selectedRestrictionIndex >= 0
+        ? true
+        : false
+      : false
+  );
   $inspect({ renderUnique });
+
   const blendingProgress = writable(0);
+  let blending = $state(false);
   let geotiffFile = $state();
   let csvFile = $state();
   let zipFile = $state();
+  let tiffArrayBuffersFromZip = $state({});
+
+  let layersToUnpack = $state();
+  $inspect(
+    layersToUnpack
+    // layersToUnpack.map((d) => {
+    //   [...d], Object.entries(tiffArrayBuffersFromZip)[d.filename];
+    // })
+  );
 
   async function handleFileUpload(event) {
     const file = event.target.files[0];
@@ -210,9 +235,12 @@
 
         console.log("Parsed CSV:", csvText);
 
-        startingPosition = parseMetadataCsv(csvText).filter(
-          (d) => d.filename !== "ENGLAND_100M.tif"
-        );
+        metadataCsv = csvText;
+
+        startingPosition = parseMetadataCsv(csvText);
+        // .filter(
+        //   (d) => d.filename !== "ENGLAND_100M.tif"
+        // );
         // .map((d) => d.filename);
         console.log(startingPosition);
       }
@@ -230,16 +258,24 @@
         // const height = image.getHeight();
         // const bbox = image.getBoundingBox();
 
-        const geotiff = await fromArrayBuffer(arrayBuffer);
-        const image = await geotiff.getImage();
-        width = image.getWidth();
-        height = image.getHeight();
-        bbox = image.getBoundingBox();
-        const rasters = await image.readRasters();
+        const cleanFilename =
+          filename.split("/")[filename.split("/").length - 1];
 
-        const result = new Uint8Array(width * height);
+        tiffArrayBuffersFromZip[cleanFilename] = arrayBuffer;
 
-        console.log("GeoTIFF:", filename, result);
+        // const geotiff = await fromArrayBuffer(arrayBuffer);
+        // const image = await geotiff.getImage();
+        // width = image.getWidth();
+        // height = image.getHeight();
+        // bbox = image.getBoundingBox();
+        // const rasters = await image.readRasters();
+
+        // const result = new Uint8Array(width * height);
+
+        // console.log("GeoTIFF:", filename, result);
+        // if (selected.length > 0) {
+        //   unpackZippedLayers();
+        // }
       }
     }
   }
@@ -264,6 +300,8 @@
   }
 
   let geotiff = $state();
+  let metadataCsv = $state();
+  // $inspect(metadataCsv);
 
   // let unpackWorker;
   let blendWorker;
@@ -273,8 +311,8 @@
       console.log("effect 1 - restriction changed - update blending");
       done = false;
       // renderUnique = selectedRestrictionIndex >= 0 ? true : false;
-      dataURLForUniques = undefined;
-      dataURLForSelectedArea = undefined;
+      // dataURLForUniques = undefined;
+      // dataURLForSelectedArea = undefined;
       restrictionChanged = !restrictionChanged;
       blendLayers();
     }
@@ -325,6 +363,49 @@
     //   console.log("ERROR", e);
     // };
 
+    try {
+      const response = await fetch(csvLocation);
+      if (!response.ok) throw new Error("Failed to fetch CSV");
+      metadataCsv = await response.text();
+      // console.log(metadataCsv);
+
+      startingPosition = parseMetadataCsv(metadataCsv);
+      // .filter(
+      //   (d) => d.filename !== "ENGLAND_100M.tif"
+      // );
+      // .map((d) => d.filename);
+    } catch (err) {
+      message = `CSV Load Error: ${err.message}`;
+    }
+
+    if (startingPosition) {
+      selected = startingPosition
+        .filter((d) => d.initially_checked === "y")
+        .map((d) => d.filename);
+      unpackSelectedLayers();
+    }
+  });
+
+  // $effect(() => {
+  //   if (englandArea) {
+  //     console.log("Only runs on first load");
+  //     blendLayers();
+  //   }
+  // });
+
+  function prepareToUnpack() {
+    message = "Processing layers...";
+    // let selectedPlusEngland = [...selected];
+    // // selectedPlusEngland.push("ENGLAND_100M.tif");
+    // console.log(selected, selectedPlusEngland);
+    layersToUnpack = selected.map((d) =>
+      parseMetadataCsv(metadataCsv).find((layer) => layer.filename === d)
+    );
+  }
+
+  function unpackSelectedLayers() {
+    prepareToUnpack();
+
     const simpleWorker = new Worker(
       new URL("$lib/workers/simpleUnpackWorker.js", import.meta.url),
       { type: "module" }
@@ -344,19 +425,10 @@
       bbox = e.data.bbox;
       message = `Processed ${enrichedLayers.length} layers.`;
 
-      England = enrichedLayers.find(
-        (l) => l.filename === "ENGLAND_100M.tif"
-      )?.data;
-      //Filter out England to get 'selected', and do again to get starting position if needed
-      // selected = enrichedLayers
-      //   .map((e) => e.filename)
-      //   .filter((e) => e != "ENGLAND_100M.tif");
-
-      // startingPosition = enrichedLayers
-      //   .map((e) => e.filename)
-      //   .filter((e) => e != "ENGLAND_100M.tif");
-
-      //Make bitArrays a copy of bitLayers but with England filtered out - I think easiest is to use enrichedLayers
+      // England = enrichedLayers.find(
+      //   (l) => l.filename === "ENGLAND_100M.tif"
+      // )?.data;
+      blendLayers();
     };
 
     simpleWorker.onerror = (e) => {
@@ -364,80 +436,137 @@
       message = `Error: ${e.message}`;
     };
 
-    try {
-      const response = await fetch(csvLocation);
-      if (!response.ok) throw new Error("Failed to fetch CSV");
-      const metadataCsv = await response.text();
-      console.log(metadataCsv);
+    const safeLayersToUnpack = layersToUnpack.map((layer) => ({
+      filename: layer.filename,
+    }));
 
-      startingPosition = parseMetadataCsv(metadataCsv).filter(
-        (d) => d.filename !== "ENGLAND_100M.tif"
-      );
-      // .map((d) => d.filename);
+    simpleWorker.postMessage({
+      layersToUnpack: safeLayersToUnpack,
+      base,
+    });
+  }
 
-      simpleWorker.postMessage({
-        metadataCsv,
-        base,
-      });
-    } catch (err) {
-      message = `CSV Load Error: ${err.message}`;
-    }
-  });
+  // function unpackZippedLayers() {
+  //   prepareToUnpack();
 
-  $effect(() => {
-    if (englandArea) {
-      // const blendWorker = new Worker(
-      //   new URL("$lib/workers/blendWorker.js", import.meta.url),
-      //   { type: "module" }
-      // );
+  //   const simpleZipWorker = new Worker(
+  //     new URL("$lib/workers/simpleZipUnpackWorker.js", import.meta.url),
+  //     { type: "module" }
+  //   );
 
-      // // Select the active layers
-      // const active = enrichedLayers.filter((l) =>
-      //   selected.includes(l.filename)
-      // );
-      // currentBitArrays = active.map((l) => l.data);
-      // // Ensure Uint8Arrays
-      // const duplicateBitLayers = active.map((l) => new Uint8Array(l.data));
+  //   simpleZipWorker.onmessage = (e) => {
+  //     if (e.data.error) {
+  //       message = `Worker error: ${e.data.error}`;
+  //       return;
+  //     }
 
-      // // Get the raw buffers
-      // const buffers = duplicateBitLayers.map((arr) => arr.buffer);
+  //     console.log("Processed data:", e.data);
+  //     bitLayers = e.data.rasterLayers.map((layer) => layer.data);
+  //     enrichedLayers = e.data.rasterLayers;
+  //     height = e.data.height;
+  //     width = e.data.width;
+  //     bbox = e.data.bbox;
+  //     message = `Processed ${enrichedLayers.length} layers.`;
 
-      // // Post to the worker (transferring buffers)
-      // blendWorker.postMessage(
-      //   {
-      //     bitArrays: buffers, // ✅ send raw ArrayBuffers
-      //     englandLength, // e.g. 37371060
-      //   },
-      //   buffers // ✅ transfer buffers (zero-copy)
-      // );
+  //     England = enrichedLayers.find(
+  //       (l) => l.filename === "ENGLAND_100M.tif"
+  //     )?.data;
+  //   };
 
-      // // Listen for messages
-      // blendWorker.onmessage = (e) => {
-      //   if (e.data.progress !== undefined) {
-      //     blendingProgress.set(e.data.progress);
-      //   } else if (e.data.type === "done") {
-      //     blendedArrayLength = e.data.activeCount;
-      //     blendedArray = new Uint8Array(e.data.result); // ✅ re-wrap transferred buffer
-      //     occurrences = e.data.occurrences;
-      //     blendingProgress.set(100);
-      //     console.log("Blending complete:", blendedArrayLength);
-      //     findTheOnes(
-      //       enrichedLayers
-      //         .filter((l) => selected.includes(l.filename))
-      //         .map((l) => l.data)
-      //     )?.then(({ finalArray, uniqueArray, occurrences, done }) => {
-      //       console.log("Done processing.", done);
-      //       console.log("Final result:", finalArray);
-      //       console.log("Selected mask:", uniqueArray);
-      //       console.log("Occurrences:", occurrences);
-      //     });
-      //   } else if (e.data.error) {
-      //     console.error("Blend worker error:", e.data.error);
-      //   }
-      // };
+  //   // let zippedTiffsToUnpack = layersToUnpack;
+  //   layersToUnpack.forEach(
+  //     (layer) => (layer.arrayBuffer = tiffArrayBuffersFromZip[layer.filename])
+  //   );
+
+  //   simpleZipWorker.onerror = (e) => {
+  //     console.error("Worker error:", e);
+  //     message = `Error: ${e.message}`;
+  //   };
+
+  //   const transferables = layersToUnpack.map((layer) => layer.arrayBuffer);
+
+  //   simpleZipWorker.postMessage(
+  //     {
+  //       layersToUnpack,
+  //     },
+  //     transferables
+  //   );
+  // }
+
+  function unpackZippedLayers() {
+    prepareToUnpack();
+
+    const simpleZipWorker = new Worker(
+      new URL("$lib/workers/simpleZipUnpackWorker.js", import.meta.url),
+      { type: "module" }
+    );
+
+    simpleZipWorker.onmessage = (e) => {
+      if (e.data.error) {
+        message = `Worker error: ${e.data.error}`;
+        return;
+      }
+
+      console.log("Processed data:", e.data);
+      bitLayers = e.data.rasterLayers.map((layer) => layer.data);
+      enrichedLayers = e.data.rasterLayers;
+      height = e.data.height;
+      width = e.data.width;
+      bbox = e.data.bbox;
+      message = `Processed ${enrichedLayers.length} layers.`;
+
+      // England = enrichedLayers.find(
+      //   (l) => l.filename === "ENGLAND_100M.tif"
+      // )?.data;
+
       blendLayers();
-    }
-  });
+    };
+
+    layersToUnpack.forEach(
+      (layer) => (layer.arrayBuffer = tiffArrayBuffersFromZip[layer.filename])
+    );
+
+    simpleZipWorker.onerror = (e) => {
+      console.error("Worker error:", e);
+      message = `Error: ${e.message}`;
+    };
+
+    // Transfer the ArrayBuffers properly
+    // const transferables = layersToUnpack.map((layer) => layer.arrayBuffer);
+
+    // const safeLayersToUnpack = layersToUnpack.map((layer) => ({
+    //   filename: layer.filename,
+    //   arrayBuffer: layer.arrayBuffer,
+    // }));
+
+    // const bufferCopy = safeLayersToUnpack
+    //   .map((layer) => layer.arrayBuffer)
+    //   .slice(0);
+
+    // simpleZipWorker.postMessage(
+    //   { layersToUnpack: safeLayersToUnpack },
+    //   bufferCopy
+    // );
+
+    // simpleZipWorker.postMessage({ layersToUnpack }, transferables);
+
+    const clonedLayersToUnpack = layersToUnpack.map((layer) => {
+      const clonedBuffer = layer.arrayBuffer.slice(0); // Makes a real copy
+      return {
+        filename: layer.filename,
+        arrayBuffer: clonedBuffer,
+      };
+    });
+
+    const transferables = clonedLayersToUnpack.map(
+      (layer) => layer.arrayBuffer
+    );
+
+    simpleZipWorker.postMessage(
+      { layersToUnpack: clonedLayersToUnpack },
+      transferables
+    );
+  }
 
   function blendLayers() {
     const blendWorker = new Worker(
@@ -458,7 +587,6 @@
     blendWorker.postMessage(
       {
         bitArrays: buffers, // ✅ send raw ArrayBuffers
-        englandLength, // e.g. 37371060
       },
       buffers // ✅ transfer buffers (zero-copy)
     );
@@ -466,22 +594,24 @@
     // Listen for messages
     blendWorker.onmessage = (e) => {
       if (e.data.progress !== undefined) {
+        blending = true;
         blendingProgress.set(e.data.progress);
       } else if (e.data.type === "done") {
         blendedArrayLength = e.data.activeCount;
         blendedArray = new Uint8Array(e.data.result); // ✅ re-wrap transferred buffer
         // occurrences = e.data.occurrences;
+        blending = false;
         blendingProgress.set(100);
-        console.log("Blending complete:", blendedArrayLength);
+        // console.log("Blending complete:", blendedArrayLength);
         findTheOnes(
           enrichedLayers
             .filter((l) => selected.includes(l.filename))
             .map((l) => l.data)
         )?.then(({ finalArray, uniqueArray, occurrences, done }) => {
-          console.log("Done processing.", done);
-          console.log("Final result:", finalArray);
-          console.log("Selected mask:", countOccurrences(uniqueArray));
-          console.log("Occurrences:", occurrences);
+          // console.log("Done processing.", done);
+          // console.log("Final result:", finalArray);
+          // console.log("Selected mask:", countOccurrences(uniqueArray));
+          // console.log("Occurrences:", occurrences);
           makeAndPaintCanvases();
         });
         // .then();
@@ -491,92 +621,176 @@
     };
   }
 
-  function makeAndPaintCanvases() {
-    done = false;
-    canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    ctx = canvas.getContext("2d");
-    imageData = ctx.createImageData(width, height);
+  // function makeAndPaintCanvases() {
+  //   console.count("makeAndPaintCanvases called");
 
+  //   console.time("canvas");
+  //   done = false;
+  //   canvas = document.createElement("canvas");
+  //   canvas.width = width;
+  //   canvas.height = height;
+  //   ctx = canvas.getContext("2d");
+  //   imageData = ctx.createImageData(width, height);
+
+  //   console.log(blendedArray.length);
+
+  //   const totalPixels = new Uint32Array(imageData.data.buffer);
+  //   for (let i = 0; i < blendedArray.length; i++) {
+  //     const value = blendedArray[i];
+
+  //     totalPixels[i] = value !== 0 ? TOTAL_ON_COLOR : TOTAL_OFF_COLOR;
+  //   }
+
+  //   if (canvas) {
+  //     ctx.putImageData(imageData, 0, 0);
+
+  //     // Convert canvas to data URL
+  //     dataURL = canvas.toDataURL();
+  //   }
+
+  //   if (selectedRestrictionIndex >= 0) {
+  //     canvasForUniques = document.createElement("canvas");
+  //     canvasForUniques.width = width;
+  //     canvasForUniques.height = height;
+  //     ctxForUniques = canvasForUniques.getContext("2d", {
+  //       willReadFrequently: true,
+  //     });
+  //     imageDataForUniques = ctxForUniques.createImageData(width, height);
+
+  //     canvasForSelectedArea = document.createElement("canvas");
+  //     canvasForSelectedArea.width = width;
+  //     canvasForSelectedArea.height = height;
+  //     ctxForSelectedArea = canvasForSelectedArea.getContext("2d", {
+  //       willReadFrequently: true,
+  //     });
+  //     imageDataForSelectedArea = ctxForSelectedArea.createImageData(
+  //       width,
+  //       height
+  //     );
+
+  //     // const renderUnique = true;
+  //     // console.log(renderUnique);
+
+  //     const pixels = new Uint32Array(imageDataForUniques?.data.buffer);
+  //     console.log(countOccurrences(uniqueArray), countOccurrences(finalArray));
+  //     for (let i = 0; i < uniqueArray.length; i++) {
+  //       const valueUnique = renderUnique ? uniqueArray[i] : 0;
+  //       pixels[i] = valueUnique == 1 ? UNIQUE_ON_COLOR : UNIQUE_OFF_COLOR;
+  //     }
+
+  //     // Draw to canvas
+  //     if (canvasForUniques) {
+  //       ctxForUniques.putImageData(imageDataForUniques, 0, 0);
+
+  //       // Only convert to Data URL if needed (since it's expensive)
+  //       dataURLForUniques = canvasForUniques.toDataURL();
+  //     }
+
+  //     const areaPixels = new Uint32Array(imageDataForSelectedArea?.data.buffer);
+
+  //     // console.log(
+  //     //   uniqueArray.length,
+  //     //   currentBitArrays[selectedRestrictionIndex].length
+  //     // );
+  //     for (
+  //       let i = 0;
+  //       i < currentBitArrays[selectedRestrictionIndex].length;
+  //       i++
+  //     ) {
+  //       const valueSelectedArea = renderUnique
+  //         ? currentBitArrays[selectedRestrictionIndex][i]
+  //         : 0;
+
+  //       areaPixels[i] =
+  //         valueSelectedArea !== 0 ? AREA_ON_COLOR : AREA_OFF_COLOR;
+  //     }
+  //     if (canvasForSelectedArea) {
+  //       ctxForSelectedArea.putImageData(imageDataForSelectedArea, 0, 0);
+
+  //       // Convert canvas to data URL
+  //       dataURLForSelectedArea = canvasForSelectedArea.toDataURL();
+  //     }
+  //   }
+  //   done = true;
+  //   console.timeEnd("canvas");
+  // }
+
+  function makeAndPaintCanvases() {
+    console.time("canvas");
+    done = false;
+
+    // Helper to make a canvas and get context
+    function createCanvas(w, h) {
+      const c = document.createElement("canvas");
+      c.width = w;
+      c.height = h;
+      return [c, c.getContext("2d")];
+    }
+
+    // === TOTAL LAYER ===
+    const [canvas, ctx] = createCanvas(width, height);
+    const imageData = ctx.createImageData(width, height);
     const totalPixels = new Uint32Array(imageData.data.buffer);
+
     for (let i = 0; i < blendedArray.length; i++) {
       const value = blendedArray[i];
-
       totalPixels[i] = value !== 0 ? TOTAL_ON_COLOR : TOTAL_OFF_COLOR;
     }
 
-    if (canvas) {
-      ctx.putImageData(imageData, 0, 0);
+    ctx.putImageData(imageData, 0, 0);
 
-      // Convert canvas to data URL
-      dataURL = canvas.toDataURL();
-    }
+    dataURL = canvas.toDataURL("image/png");
 
+    // === UNIQUE + SELECTED AREA ===
     if (selectedRestrictionIndex >= 0) {
-      canvasForUniques = document.createElement("canvas");
-      canvasForUniques.width = width;
-      canvasForUniques.height = height;
-      ctxForUniques = canvasForUniques.getContext("2d", {
-        willReadFrequently: true,
-      });
-      imageDataForUniques = ctxForUniques.createImageData(width, height);
+      const [canvasForUniques, ctxForUniques] = createCanvas(width, height);
+      const imageDataForUniques = ctxForUniques.createImageData(width, height);
+      const pixels = new Uint32Array(imageDataForUniques.data.buffer);
 
-      canvasForSelectedArea = document.createElement("canvas");
-      canvasForSelectedArea.width = width;
-      canvasForSelectedArea.height = height;
-      ctxForSelectedArea = canvasForSelectedArea.getContext("2d", {
-        willReadFrequently: true,
-      });
-      imageDataForSelectedArea = ctxForSelectedArea.createImageData(
+      if (renderUnique) {
+        for (let i = 0; i < uniqueArray.length; i++) {
+          const valueUnique = uniqueArray[i];
+          pixels[i] = valueUnique === 1 ? UNIQUE_ON_COLOR : UNIQUE_OFF_COLOR;
+        }
+        ctxForUniques.putImageData(imageDataForUniques, 0, 0);
+        // if (needUniqueDataURL) {
+        dataURLForUniques = canvasForUniques.toDataURL("image/png");
+        // }
+      }
+
+      const [canvasForSelectedArea, ctxForSelectedArea] = createCanvas(
         width,
         height
       );
+      const imageDataForSelectedArea = ctxForSelectedArea.createImageData(
+        width,
+        height
+      );
+      const areaPixels = new Uint32Array(imageDataForSelectedArea.data.buffer);
+      const currentBitArray = currentBitArrays[selectedRestrictionIndex];
 
-      // const renderUnique = true;
-      // console.log(renderUnique);
-
-      const pixels = new Uint32Array(imageDataForUniques?.data.buffer);
-      console.log(countOccurrences(uniqueArray), countOccurrences(finalArray));
-      for (let i = 0; i < uniqueArray.length; i++) {
-        const valueUnique = renderUnique ? uniqueArray[i] : 0;
-        pixels[i] = valueUnique == 1 ? UNIQUE_ON_COLOR : UNIQUE_OFF_COLOR;
-      }
-
-      // Draw to canvas
-      if (canvasForUniques) {
-        ctxForUniques.putImageData(imageDataForUniques, 0, 0);
-
-        // Only convert to Data URL if needed (since it's expensive)
-        dataURLForUniques = canvasForUniques.toDataURL();
-      }
-
-      const areaPixels = new Uint32Array(imageDataForSelectedArea?.data.buffer);
-
-      // console.log(
-      //   uniqueArray.length,
-      //   currentBitArrays[selectedRestrictionIndex].length
-      // );
-      for (
-        let i = 0;
-        i < currentBitArrays[selectedRestrictionIndex].length;
-        i++
-      ) {
-        const valueSelectedArea = renderUnique
-          ? currentBitArrays[selectedRestrictionIndex][i]
-          : 0;
-
+      for (let i = 0; i < currentBitArray.length; i++) {
+        const valueSelectedArea = renderUnique ? currentBitArray[i] : 0;
         areaPixels[i] =
           valueSelectedArea !== 0 ? AREA_ON_COLOR : AREA_OFF_COLOR;
       }
-      if (canvasForSelectedArea) {
-        ctxForSelectedArea.putImageData(imageDataForSelectedArea, 0, 0);
 
-        // Convert canvas to data URL
-        dataURLForSelectedArea = canvasForSelectedArea.toDataURL();
+      ctxForSelectedArea.putImageData(imageDataForSelectedArea, 0, 0);
+      if (renderUnique) {
+        dataURLForSelectedArea = canvasForSelectedArea.toDataURL("image/png");
       }
+    } else {
+      dataURLForUniques = undefined;
+      dataURLForSelectedArea = undefined;
     }
+
     done = true;
+    // console.log({
+    //   selectedRestrictionIndex,
+    //   dataURLForUniques,
+    //   dataURLForSelectedArea,
+    // });
+    console.timeEnd("canvas");
   }
 
   function countOccurrences(uint8Array) {
@@ -665,10 +879,11 @@
         done,
       };
     });
+
     // .then(makeAndPaintCanvases());
   }
 
-  let message = $state("Processing layers...");
+  let message = $state("");
 </script>
 
 <svelte:head>
@@ -700,17 +915,6 @@
     : "..."} ha.
 </h2> -->
 
-{#if $blendingProgress < 100}
-  <p>Blending... {$blendingProgress.toFixed(1)}%</p>
-  <progress max="100" value={$blendingProgress}></progress>
-{:else}
-  <p>
-    Blending done, total area in England is {englandArea.toLocaleString()} ha.
-    {#if blendedArrayLength > 0}
-      {blendedArrayLength.toLocaleString()} ha is covered by the selected categories.
-    {/if}
-  </p>
-{/if}
 <!-- <p>[potentially visualisations]</p> -->
 <!-- <label for="area"
   >Select an area
@@ -720,14 +924,40 @@
     {/each}
   </select></label
 > -->
+<div class="header">
+  <div>
+    <h1>MHCLG Land Investigator tool</h1>
+    <p>
+      Bringing together multiple land use, ownership, and infrastructure
+      datasets to provide statistical insight on each hectare of land in England
+    </p>
+  </div>
+  <div>
+    <div class="header-right">
+      <Details
+        summaryText={"Use a local file (optional)"}
+        detailedText={detailsContent}
+      />
 
-<div class="container">
-  <div class="output">
-    <div>
-      <details>
-        <summary>Use a local file (optional)</summary>
-        <br />
-        <!-- <label for="csv-file-upload">Use a local csv file:</label>
+      <!-- <p>Get in touch...</p> -->
+    </div>
+    {#if blending && $blendingProgress < 100}
+      <p>Blending... {$blendingProgress.toFixed(1)}%</p>
+      <progress max="100" value={$blendingProgress}></progress>
+    {:else if $blendingProgress == 100}
+      <p>
+        The total area in England is 13,046,002 ha.
+        {#if blendedArrayLength > 0}
+          {blendedArrayLength.toLocaleString()} ha is covered by the selected categories.
+        {/if}
+      </p>
+    {/if}
+  </div>
+</div>
+
+{#snippet detailsContent()}
+  <!-- <br /> -->
+  <!-- <label for="csv-file-upload">Use a local csv file:</label>
         <input
           bind:files={csvFile}
           accept="text/csv"
@@ -743,17 +973,18 @@
           type="file"
         />
         <br /> -->
-        <label for="zip-file-upload">Use a local zip file:</label>
-        <input
-          bind:files={zipFile}
-          accept=".zip"
-          id="file-upload"
-          type="file"
-          onchange={handleFileUpload}
-        />
-      </details>
-    </div>
+  <label for="zip-file-upload">Use a local zip file:</label>
+  <input
+    bind:files={zipFile}
+    accept=".zip"
+    id="file-upload"
+    type="file"
+    onchange={handleFileUpload}
+  />
+{/snippet}
 
+<div class="container">
+  <div class="output">
     {#if startingPosition}
       <!-- <ul>
     {#each enrichedLayers.filter((e) => e.filename != "ENGLAND_100M.tif") as layer, i}
@@ -770,11 +1001,18 @@
       <form
         method="POST"
         use:enhance={({ formData, cancel }) => {
-          console.log(formData.getAll("categories[]"), selected);
           selected = [];
           formData.forEach((d) => selected.push(d));
+          Object.keys(tiffArrayBuffersFromZip).length > 0
+            ? unpackZippedLayers()
+            : unpackSelectedLayers();
           // selected = formData.getAll("categories[]");
           // Cancel server submission and process client-side
+          window.scroll({
+            top: 0,
+            left: 0,
+            behavior: "smooth",
+          });
           cancel();
 
           // No server action needed
@@ -878,58 +1116,130 @@
           bind:restrictionChanged
           sortedColumn={"unique"}
         />
+        <Button
+          buttonType="default"
+          textContent="Download data (.csv)"
+          onClickFunction={function () {
+            console.log("clicked");
+            // const res = await fetch("/data/IMD2019.json");
+            // const data = await res.json();
+
+            // Get the first item from the "indexOfMultipleDeprivation" array
+            // const subset = data.indexOfMultipleDeprivation[0];
+
+            // Optional: wrap in array or object if you want a valid JSON structure
+            // const wrapped = [subset]; // or { indexOfMultipleDeprivation: [subset] }
+
+            function jsonToCsv(items) {
+              const header = Object.keys(items[0]);
+              const headerString = header.join(",");
+              // handle null or undefined values here
+              const replacer = (key, value) => value ?? "";
+              const rowItems = items.map((row) =>
+                header
+                  .map((fieldName) => JSON.stringify(row[fieldName], replacer))
+                  .join(",")
+              );
+              // join header and body, and break into separate lines
+              const csv = [headerString, ...rowItems].join("\r\n");
+              return csv;
+            }
+
+            // const jsonStr = JSON.stringify(wrapped, null, 2);
+            const csvStr = jsonToCsv(tableData);
+            const blob = new Blob([csvStr], { type: "text/csv" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "land-data.csv";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
+          }}
+        ></Button>
       {/key}
     {:else}
       <p>Select some categories to view the data.</p>
     {/if}
   </div>
 </div>
-<p>{message}</p>
+
+<!-- <p>{message}</p> -->
 
 <style>
+  .header {
+    display: grid;
+    grid-template-columns: 70% 30%;
+    font-family: sans-serif;
+    padding: 10px;
+  }
+
+  .header-right {
+    margin-top: 21.44px;
+    display: grid;
+    /* grid-template-columns: 50% 50%; */
+  }
+
+  /* details {
+    margin-top: 16px;
+  } */
+
   .container {
     display: grid;
     grid-template-columns: 23% 40% 37%;
     font-family: sans-serif;
-    max-height: 85vh;
-    overflow: scroll;
+    /* max-height: 85vh; */
+    /* overflow: scroll; */
   }
   .output {
-    padding: 10px;
-    max-height: 700px;
-    overflow-y: auto;
-    overflow-x: scroll;
+    padding: 0px 10px;
+    /* max-height: 700px; */
+    /* overflow-y: auto; */
+    /* overflow-x: scroll; */
     /* width: 100%; */
+  }
+
+  :global(.output div.app-c-filter-panel) {
+    padding-top: 0px;
   }
 
   .table {
     padding: 0px 10px;
-    max-height: 700px;
+    /* max-height: 700px; */
   }
 
   .os-map-container {
-    height: 80vh;
+    height: calc(100vh - 250px);
   }
   :global(td.govuk-table__cell) {
     padding-right: 20px;
   }
-  summary {
+  /* summary {
     cursor: pointer;
-  }
+  } */
 
   .totalHighlightText {
     font-weight: 700;
-    color: dimgray;
+    color: white;
+    background-color: dimgray;
+    padding: 0 2px 2px;
+    border-radius: 2px;
   }
 
   .uniqueHighlightText {
     font-weight: 700;
-    color: crimson;
+    color: white;
+    background-color: crimson;
+    padding: 0 2px 2px;
+    border-radius: 2px;
   }
 
   .areaHighlightText {
     font-weight: 700;
-    color: #e75480;
+    color: #0b0c0c;
+    background-color: pink;
+    padding: 0 2px 2px;
+    border-radius: 2px;
   }
   .os-map-container:not(.done) {
     background-color: grey;

@@ -37,8 +37,10 @@
     validate?: (values: string[]) => string | undefined;
     selectedValues?: string[];
   }>();
-  let selectedBoxes = $derived(selectedValues);
-  $inspect(selectedBoxes);
+
+  options.forEach((option) =>
+    option.checked === true ? selectedValues.push(option.value) : ""
+  );
   // Add support detection
   let isSupported = $state(false);
   // Check for browser support on mount
