@@ -19,6 +19,8 @@
   import ImageCanvasSource from "ol/source/ImageCanvas";
   import * as topojson from "topojson-client";
   import { Style, Stroke, Fill } from "ol/style";
+  import FullScreen from "ol/control/FullScreen.js";
+  import { defaults as defaultControls } from "ol/control/defaults.js";
 
   let mapElement;
   let map;
@@ -72,6 +74,8 @@
         url: tiles,
         projection: "EPSG:27700",
         tileGrid,
+        attributions:
+          "Contains OS data © Crown copyright and database rights 2025",
       })
     );
 
@@ -87,7 +91,7 @@
       source: geoJsonVectorSource,
       style: (feature, resolution) => {
         // Set line width based on 'resolution' which is the inverse of zoom level
-        const width = resolution < 1 ? 3 : resolution < 5 ? 2 : 1; // fallback
+        const width = resolution < 1 ? 3 : resolution < 5 ? 2 : 0.5; // fallback
 
         return new Style({
           stroke: new Stroke({
@@ -129,6 +133,7 @@
     });
 
     map = new ol.Map({
+      controls: defaultControls().extend([new FullScreen()]),
       target: mapElement,
       layers: [
         vectorTileLayer,
@@ -141,10 +146,10 @@
         projection: "EPSG:27700",
         extent: [-238375.0, 0.0, 900000.0, 1376256.0],
         resolutions,
-        minZoom: 2,
-        maxZoom: 15,
+        minZoom: 1,
+        maxZoom: 12,
         center: [377297, 353995],
-        zoom: 2,
+        // zoom: 1,
       }),
     });
 
@@ -192,7 +197,7 @@
         if (props.name) {
           selectedAreaName = props.name;
 
-          map.getView().fit(props.geometry?.extent_, { duration: 1000 });
+          // map.getView().fit(props.geometry?.extent_, { duration: 1000 });
         }
 
         return true; // stop after first match

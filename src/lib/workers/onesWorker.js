@@ -1,4 +1,5 @@
 self.onmessage = function (e) {
+  
   try {
     const { arrays, start, end, selectedRestrictionIndex } = e.data;
     const count = arrays.length;
