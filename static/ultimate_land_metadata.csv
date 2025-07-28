@@ -29,11 +29,11 @@
 2,Development limited,Planned infrastructure sites,All data layers,Planned_infrastructure_sites.tif,y
 3,Development limited,Planned infrastructure sites,Nationally Significant Infrastructure Projects,Nationally_Significant_Infrastructure_Projects.tif,
 3,Development limited,Planned infrastructure sites,HS2,HS2.tif,
-2,Development avoided,Flood risk ,All data layers,Flood_risk_.tif,y
-3,Development avoided,Flood risk ,Flood zone 2,Flood_zone_2.tif,
-3,Development avoided,Flood risk ,Flood zone 3,Flood_zone_3.tif,
-2,Infrastructure limited,Connectivity,All data layers,Connectivity.tif,
-3,Infrastructure limited,Connectivity,within KM of BUA,within_KM_of_BUA.tif,
+2,Other suitability considerations,Flood risk ,All data layers,Flood_risk_.tif,
+3,Other suitability considerations,Flood risk ,Flood zone 2,Flood_zone_2.tif,
+3,Other suitability considerations,Flood risk ,Flood zone 3,Flood_zone_3.tif,
+2,Other suitability considerations,Connectivity,All data layers,Connectivity.tif,
+3,Other suitability considerations,Connectivity,within KM of BUA,within_KM_of_BUA.tif,
 2,Ownership,Organisation,All data layers,Organisation.tif,
 3,Ownership,Organisation,Developer,Developer.tif,
 3,Ownership,Organisation,Non-developer company,Non-developer_company.tif,
