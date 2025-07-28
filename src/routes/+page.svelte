@@ -55,7 +55,7 @@
 
   const OFF_COLOR = 0x00000000; // Transparent
   const BLENDED_COLOR = 0x88000000; // Gray
-  const BLENDED_AREA_COLOR = 0x0ff0100;
+  const BLENDED_AREA_COLOR = 0x990000ff;
   const UNIQUE_AREA_COLOR = 0xff0000ff;
 
   // let rasterLayers = $state([]);
@@ -692,26 +692,35 @@
     const currentBitArray = hasSelection
       ? currentBitArrays[selectedRestrictionIndex]
       : null;
-
+    console.log(uniqueArray);
+    let countOff = 0,
+      countBlended = 0,
+      countBlendedArea = 0,
+      countUniqueArea = 0;
     for (let i = 0; i < blendedArray.length; i++) {
       const blended = blendedArray[i]; // 0 or 1
       const area = hasSelection ? currentBitArray[i] : 0;
-      const unique = hasSelection ? uniqueArray[i] : 0;
+      const unique = hasSelection ? (uniqueArray[i] === 1 ? 1 : 0) : 0;
 
       let color;
 
       if (blended === 0) {
         color = OFF_COLOR;
+        countOff++;
       } else if (area && unique) {
         color = UNIQUE_AREA_COLOR;
+        countUniqueArea++;
       } else if (area) {
         color = BLENDED_AREA_COLOR;
+        countBlendedArea++;
       } else {
         color = BLENDED_COLOR;
+        countBlended++;
       }
 
       pixels[i] = color;
     }
+    console.log({ countOff, countBlended, countBlendedArea, countUniqueArea });
 
     // Paint
     ctx.putImageData(imageData, 0, 0);
