@@ -17,32 +17,34 @@
   import { base } from "$app/paths";
   import Table from "$lib/Table.svelte";
   import { csvParse } from "d3-dsv";
-  import LALookup from "$lib/LALookup.js";
+  // import LALookup from "$lib/LALookup.js";
   import JSZip from "jszip";
 
   let done = $state(false);
   $inspect({ done });
   let ones;
   let dataURL = $state();
+  // $inspect(dataURL);
   let dataURLForUniques = $state();
+  // $inspect(dataURLForUniques);
   let dataURLForSelectedArea = $state();
   let occurrences = $state();
-  $inspect(occurrences);
+  // $inspect(occurrences);
   let finalArray = $state();
   let width = $state(0),
     height = $state(0);
   let bbox = $state([]);
-  $inspect({ width, height, bbox });
-  let canvas = $state();
-  let canvasForUniques = $state();
-  let canvasForSelectedArea = $state();
-  let ctx = $state();
-  let ctxForUniques = $state();
-  let ctxForSelectedArea = $state();
-  let image = $state();
-  let imageData = $state();
-  let imageDataForUniques = $state();
-  let imageDataForSelectedArea = $state();
+  // $inspect({ width, height, bbox });
+  // let canvas = $state();
+  // let canvasForUniques = $state();
+  // let canvasForSelectedArea = $state();
+  // let ctx = $state();
+  // let ctxForUniques = $state();
+  // let ctxForSelectedArea = $state();
+  // let image = $state();
+  // let imageData = $state();
+  // let imageDataForUniques = $state();
+  // let imageDataForSelectedArea = $state();
   // Define RGBA colors in little-endian format (most systems are little-endian)
   const UNIQUE_ON_COLOR = 0xff0000ff; // Red with full opacity (R=255, G=0, B=0, A=255)
   const UNIQUE_OFF_COLOR = 0x000000ff; // Red with 0 alpha (R=255, G=0, B=0, A=0)
@@ -50,12 +52,18 @@
   const AREA_OFF_COLOR = 0x000000ff;
   const TOTAL_ON_COLOR = 0xff000000;
   const TOTAL_OFF_COLOR = 0x00000000;
-  let rasterLayers = $state([]);
-  let lookup = [];
+
+  const OFF_COLOR = 0x00000000; // Transparent
+  const BLENDED_COLOR = 0x88000000; // Gray
+  const BLENDED_AREA_COLOR = 0x0ff0100;
+  const UNIQUE_AREA_COLOR = 0xff0000ff;
+
+  // let rasterLayers = $state([]);
+  // let lookup = [];
   let bitLayers = $state([]);
-  $inspect(bitLayers);
+  // $inspect(bitLayers);
   let currentBitArrays = $state();
-  $inspect({ currentBitArrays });
+  // $inspect({ currentBitArrays });
   // let England = $state();
   // let englandLength = $derived(England?.length);
 
@@ -107,42 +115,6 @@
   let sortState = $state({ column: "unique", order: "descending" });
 
   let startingPosition = $state();
-  $inspect(
-    [...new Set(startingPosition?.map((d) => d.Tier))]?.map((section, i) => {
-      const thisSectionData = startingPosition?.filter(
-        (d) => d.Tier == section
-      );
-      return {
-        tier: section,
-        sections: [...new Set(thisSectionData?.map((d) => d.Category))]?.map(
-          (category, j) => {
-            return {
-              id: `categories${i}-${j}`,
-              type: "checkboxes",
-              title: category,
-              ga4Section: "categories_filter",
-              ga4IndexSection: 1,
-              ga4IndexSectionCount: 2,
-              name: `categories${i}-${j}[]`,
-              legend: "",
-              openByDefault: false,
-              options: thisSectionData
-                .filter((d) => d.Category == category)
-                ?.map((layer) => {
-                  return {
-                    value: layer.filename,
-                    label: layer.Data_layer,
-                    exclusive: layer.Level == 2 ? true : false,
-                    checked: layer.initially_checked === "y" ? true : false,
-                  };
-                }),
-            };
-          }
-        ),
-        // selectedValues: startingPosition, //If we want all selected initially
-      };
-    })
-  );
 
   let filterSections = $derived(
     [...new Set(startingPosition?.map((d) => d.Tier))]?.map((section, i) => {
@@ -180,10 +152,12 @@
       };
     })
   );
+  // $inspect(filterSections);
 
   let uniqueArray = $state([]);
   // let selectedRestrictionIndex = 0;
   let selectedRestriction = $state();
+  // $inspect({ selectedRestriction });
   let restrictionChanged = $state(false);
   let selectedRestrictionIndex = $derived(
     selectedRestriction
@@ -193,7 +167,7 @@
           .indexOf(selectedRestriction)
       : undefined
   );
-  // $inspect(selectedRestrictionIndex);
+  // $inspect({ selectedRestrictionIndex });
   let renderUnique = $derived(
     selected
       .map((d) => d.replaceAll(".tif", "").replaceAll("_", " "))
@@ -203,22 +177,17 @@
         : false
       : false
   );
-  $inspect({ renderUnique });
+  // $inspect({ renderUnique });
 
   const blendingProgress = writable(0);
   let blending = $state(false);
-  let geotiffFile = $state();
+  // let geotiffFile = $state();
   let csvFile = $state();
   let zipFile = $state();
   let tiffArrayBuffersFromZip = $state({});
 
   let layersToUnpack = $state();
-  $inspect(
-    layersToUnpack
-    // layersToUnpack.map((d) => {
-    //   [...d], Object.entries(tiffArrayBuffersFromZip)[d.filename];
-    // })
-  );
+  // $inspect(layersToUnpack);
 
   async function handleFileUpload(event) {
     const file = event.target.files[0];
@@ -250,32 +219,19 @@
         !filename.startsWith("_")
       ) {
         const arrayBuffer = await zipEntry.async("arraybuffer");
-        // const tiff = await fromArrayBuffer(arrayBuffer);
-        // const image = await tiff.getImage(); // Or loop through multiple images
-
-        // const rasters = await image.readRasters(); // { width, height, data: [TypedArray] }
-        // const width = image.getWidth();
-        // const height = image.getHeight();
-        // const bbox = image.getBoundingBox();
 
         const cleanFilename =
           filename.split("/")[filename.split("/").length - 1];
 
         tiffArrayBuffersFromZip[cleanFilename] = arrayBuffer;
-
-        // const geotiff = await fromArrayBuffer(arrayBuffer);
-        // const image = await geotiff.getImage();
-        // width = image.getWidth();
-        // height = image.getHeight();
-        // bbox = image.getBoundingBox();
-        // const rasters = await image.readRasters();
-
-        // const result = new Uint8Array(width * height);
-
-        // console.log("GeoTIFF:", filename, result);
-        // if (selected.length > 0) {
-        //   unpackZippedLayers();
-        // }
+      }
+    }
+    if (startingPosition) {
+      selected = startingPosition
+        .filter((d) => d.initially_checked === "y")
+        .map((d) => d.filename);
+      if (selected.length > 0) {
+        unpackZippedLayers();
       }
     }
   }
@@ -310,59 +266,13 @@
     if (restrictionChanged) {
       console.log("effect 1 - restriction changed - update blending");
       done = false;
-      // renderUnique = selectedRestrictionIndex >= 0 ? true : false;
-      // dataURLForUniques = undefined;
-      // dataURLForSelectedArea = undefined;
+
       restrictionChanged = !restrictionChanged;
       blendLayers();
     }
   });
 
   onMount(async () => {
-    // unpackWorker = new Worker(
-    //   new URL("../lib/workers/bitUnpackerWorker.js", import.meta.url),
-    //   { type: "module" }
-    // );
-
-    // blendWorker = new Worker(
-    //   new URL("../lib/workers/blendWorker.js?worker", import.meta.url),
-    //   { type: "module" }
-    // );
-
-    // unpackWorker.onmessage = (e) => {
-    //   const { bitLayers: bits, rasterLayers: layers } = e?.data;
-    //   console.log(bits, layers);
-    //   if (!Array.isArray(bits) || !Array.isArray(layers)) {
-    //     console.error("Worker returned unexpected data:", e?.data);
-    //     return;
-    //   }
-
-    //   bitLayers = bits;
-    //   rasterLayers = layers;
-
-    //   // Only assign .data, don't compute .area again
-    //   rasterLayers.forEach((layer, i) => {
-    //     layer.data = bitLayers[i];
-    //   });
-
-    //   England = rasterLayers.find(
-    //     (l) => l.filename === "ENGLAND_100M.tif"
-    //   )?.data;
-    //   // selected = rasterLayers
-    //   //   .map((e) => e.filename)
-    //   //   .filter((e) => e != "ENGLAND_100M.tif");
-
-    //   startingPosition = rasterLayers
-    //     .map((e) => e.filename)
-    //     .filter((e) => e != "ENGLAND_100M.tif");
-    //   // updateBlending();
-    //   //findTheOnes();
-    // };
-
-    // unpackWorker.onerror = (e) => {
-    //   console.log("ERROR", e);
-    // };
-
     try {
       const response = await fetch(csvLocation);
       if (!response.ok) throw new Error("Failed to fetch CSV");
@@ -385,13 +295,6 @@
       unpackSelectedLayers();
     }
   });
-
-  // $effect(() => {
-  //   if (englandArea) {
-  //     console.log("Only runs on first load");
-  //     blendLayers();
-  //   }
-  // });
 
   function prepareToUnpack() {
     message = "Processing layers...";
@@ -429,6 +332,7 @@
       //   (l) => l.filename === "ENGLAND_100M.tif"
       // )?.data;
       blendLayers();
+      simpleWorker.terminate();
     };
 
     simpleWorker.onerror = (e) => {
@@ -446,55 +350,12 @@
     });
   }
 
-  // function unpackZippedLayers() {
-  //   prepareToUnpack();
-
-  //   const simpleZipWorker = new Worker(
-  //     new URL("$lib/workers/simpleZipUnpackWorker.js", import.meta.url),
-  //     { type: "module" }
-  //   );
-
-  //   simpleZipWorker.onmessage = (e) => {
-  //     if (e.data.error) {
-  //       message = `Worker error: ${e.data.error}`;
-  //       return;
-  //     }
-
-  //     console.log("Processed data:", e.data);
-  //     bitLayers = e.data.rasterLayers.map((layer) => layer.data);
-  //     enrichedLayers = e.data.rasterLayers;
-  //     height = e.data.height;
-  //     width = e.data.width;
-  //     bbox = e.data.bbox;
-  //     message = `Processed ${enrichedLayers.length} layers.`;
-
-  //     England = enrichedLayers.find(
-  //       (l) => l.filename === "ENGLAND_100M.tif"
-  //     )?.data;
-  //   };
-
-  //   // let zippedTiffsToUnpack = layersToUnpack;
-  //   layersToUnpack.forEach(
-  //     (layer) => (layer.arrayBuffer = tiffArrayBuffersFromZip[layer.filename])
-  //   );
-
-  //   simpleZipWorker.onerror = (e) => {
-  //     console.error("Worker error:", e);
-  //     message = `Error: ${e.message}`;
-  //   };
-
-  //   const transferables = layersToUnpack.map((layer) => layer.arrayBuffer);
-
-  //   simpleZipWorker.postMessage(
-  //     {
-  //       layersToUnpack,
-  //     },
-  //     transferables
-  //   );
-  // }
-
   function unpackZippedLayers() {
     prepareToUnpack();
+
+    dataURL = null;
+    dataURLForUniques = null;
+    dataURLForSelectedArea = null;
 
     const simpleZipWorker = new Worker(
       new URL("$lib/workers/simpleZipUnpackWorker.js", import.meta.url),
@@ -520,6 +381,7 @@
       // )?.data;
 
       blendLayers();
+      simpleZipWorker.terminate();
     };
 
     layersToUnpack.forEach(
@@ -530,25 +392,6 @@
       console.error("Worker error:", e);
       message = `Error: ${e.message}`;
     };
-
-    // Transfer the ArrayBuffers properly
-    // const transferables = layersToUnpack.map((layer) => layer.arrayBuffer);
-
-    // const safeLayersToUnpack = layersToUnpack.map((layer) => ({
-    //   filename: layer.filename,
-    //   arrayBuffer: layer.arrayBuffer,
-    // }));
-
-    // const bufferCopy = safeLayersToUnpack
-    //   .map((layer) => layer.arrayBuffer)
-    //   .slice(0);
-
-    // simpleZipWorker.postMessage(
-    //   { layersToUnpack: safeLayersToUnpack },
-    //   bufferCopy
-    // );
-
-    // simpleZipWorker.postMessage({ layersToUnpack }, transferables);
 
     const clonedLayersToUnpack = layersToUnpack.map((layer) => {
       const clonedBuffer = layer.arrayBuffer.slice(0); // Makes a real copy
@@ -569,6 +412,7 @@
   }
 
   function blendLayers() {
+    console.time("blendLayers");
     const blendWorker = new Worker(
       new URL("$lib/workers/blendWorker.js", import.meta.url),
       { type: "module" }
@@ -582,7 +426,7 @@
 
     // Get the raw buffers
     const buffers = duplicateBitLayers.map((arr) => arr.buffer);
-
+    console.log({ active });
     // Post to the worker (transferring buffers)
     blendWorker.postMessage(
       {
@@ -590,7 +434,7 @@
       },
       buffers // ✅ transfer buffers (zero-copy)
     );
-
+    console.log({ duplicateBitLayers });
     // Listen for messages
     blendWorker.onmessage = (e) => {
       if (e.data.progress !== undefined) {
@@ -603,16 +447,20 @@
         blending = false;
         blendingProgress.set(100);
         // console.log("Blending complete:", blendedArrayLength);
+        console.timeEnd("blendLayers");
         findTheOnes(
-          enrichedLayers
-            .filter((l) => selected.includes(l.filename))
-            .map((l) => l.data)
+          // enrichedLayers
+          //   .filter((l) => selected.includes(l.filename))
+          //   .map((l) => l.data)
+          currentBitArrays
         )?.then(({ finalArray, uniqueArray, occurrences, done }) => {
           // console.log("Done processing.", done);
           // console.log("Final result:", finalArray);
           // console.log("Selected mask:", countOccurrences(uniqueArray));
           // console.log("Occurrences:", occurrences);
-          makeAndPaintCanvases();
+          blendWorker.terminate();
+          // makeAndPaintCanvases();
+          makeAndPaintCombinedCanvas();
         });
         // .then();
       } else if (e.data.error) {
@@ -622,175 +470,259 @@
   }
 
   // function makeAndPaintCanvases() {
-  //   console.count("makeAndPaintCanvases called");
-
   //   console.time("canvas");
   //   done = false;
-  //   canvas = document.createElement("canvas");
-  //   canvas.width = width;
-  //   canvas.height = height;
-  //   ctx = canvas.getContext("2d");
-  //   imageData = ctx.createImageData(width, height);
 
-  //   console.log(blendedArray.length);
+  //   // Helper to make a canvas and get context
+  //   function createCanvas(w, h) {
+  //     const c = document.createElement("canvas");
+  //     c.width = w;
+  //     c.height = h;
+  //     return [c, c.getContext("2d")];
+  //   }
 
+  //   // === TOTAL LAYER ===
+  //   let [canvas, ctx] = createCanvas(width, height);
+  //   const imageData = ctx.createImageData(width, height);
   //   const totalPixels = new Uint32Array(imageData.data.buffer);
+
   //   for (let i = 0; i < blendedArray.length; i++) {
   //     const value = blendedArray[i];
-
   //     totalPixels[i] = value !== 0 ? TOTAL_ON_COLOR : TOTAL_OFF_COLOR;
   //   }
 
-  //   if (canvas) {
-  //     ctx.putImageData(imageData, 0, 0);
+  //   ctx.putImageData(imageData, 0, 0);
 
-  //     // Convert canvas to data URL
-  //     dataURL = canvas.toDataURL();
-  //   }
+  //   dataURL = canvas.toDataURL("image/png");
+  //   canvas.width = 0;
+  //   canvas.height = 0;
+  //   canvas = null;
+  //   ctx = null;
 
+  //   // === UNIQUE + SELECTED AREA ===
   //   if (selectedRestrictionIndex >= 0) {
-  //     canvasForUniques = document.createElement("canvas");
-  //     canvasForUniques.width = width;
-  //     canvasForUniques.height = height;
-  //     ctxForUniques = canvasForUniques.getContext("2d", {
-  //       willReadFrequently: true,
-  //     });
-  //     imageDataForUniques = ctxForUniques.createImageData(width, height);
+  //     let [canvasForUniques, ctxForUniques] = createCanvas(width, height);
+  //     const imageDataForUniques = ctxForUniques.createImageData(width, height);
+  //     const pixels = new Uint32Array(imageDataForUniques.data.buffer);
 
-  //     canvasForSelectedArea = document.createElement("canvas");
-  //     canvasForSelectedArea.width = width;
-  //     canvasForSelectedArea.height = height;
-  //     ctxForSelectedArea = canvasForSelectedArea.getContext("2d", {
-  //       willReadFrequently: true,
-  //     });
-  //     imageDataForSelectedArea = ctxForSelectedArea.createImageData(
+  //     if (renderUnique) {
+  //       for (let i = 0; i < uniqueArray.length; i++) {
+  //         const valueUnique = uniqueArray[i];
+  //         pixels[i] = valueUnique === 1 ? UNIQUE_ON_COLOR : UNIQUE_OFF_COLOR;
+  //       }
+  //       ctxForUniques.putImageData(imageDataForUniques, 0, 0);
+
+  //       dataURLForUniques = canvasForUniques.toDataURL("image/png");
+  //       canvasForUniques.width = 0;
+  //       canvasForUniques.height = 0;
+  //       canvasForUniques = null;
+  //       ctxForUniques = null;
+  //     }
+
+  //     let [canvasForSelectedArea, ctxForSelectedArea] = createCanvas(
   //       width,
   //       height
   //     );
+  //     const imageDataForSelectedArea = ctxForSelectedArea.createImageData(
+  //       width,
+  //       height
+  //     );
+  //     const areaPixels = new Uint32Array(imageDataForSelectedArea.data.buffer);
+  //     const currentBitArray = currentBitArrays[selectedRestrictionIndex];
 
-  //     // const renderUnique = true;
-  //     // console.log(renderUnique);
-
-  //     const pixels = new Uint32Array(imageDataForUniques?.data.buffer);
-  //     console.log(countOccurrences(uniqueArray), countOccurrences(finalArray));
-  //     for (let i = 0; i < uniqueArray.length; i++) {
-  //       const valueUnique = renderUnique ? uniqueArray[i] : 0;
-  //       pixels[i] = valueUnique == 1 ? UNIQUE_ON_COLOR : UNIQUE_OFF_COLOR;
-  //     }
-
-  //     // Draw to canvas
-  //     if (canvasForUniques) {
-  //       ctxForUniques.putImageData(imageDataForUniques, 0, 0);
-
-  //       // Only convert to Data URL if needed (since it's expensive)
-  //       dataURLForUniques = canvasForUniques.toDataURL();
-  //     }
-
-  //     const areaPixels = new Uint32Array(imageDataForSelectedArea?.data.buffer);
-
-  //     // console.log(
-  //     //   uniqueArray.length,
-  //     //   currentBitArrays[selectedRestrictionIndex].length
-  //     // );
-  //     for (
-  //       let i = 0;
-  //       i < currentBitArrays[selectedRestrictionIndex].length;
-  //       i++
-  //     ) {
-  //       const valueSelectedArea = renderUnique
-  //         ? currentBitArrays[selectedRestrictionIndex][i]
-  //         : 0;
-
+  //     for (let i = 0; i < currentBitArray.length; i++) {
+  //       const valueSelectedArea = renderUnique ? currentBitArray[i] : 0;
   //       areaPixels[i] =
   //         valueSelectedArea !== 0 ? AREA_ON_COLOR : AREA_OFF_COLOR;
   //     }
-  //     if (canvasForSelectedArea) {
+  //     if (renderUnique) {
   //       ctxForSelectedArea.putImageData(imageDataForSelectedArea, 0, 0);
 
-  //       // Convert canvas to data URL
-  //       dataURLForSelectedArea = canvasForSelectedArea.toDataURL();
+  //       dataURLForSelectedArea = canvasForSelectedArea.toDataURL("image/png");
+
+  //       canvasForSelectedArea.width = 0;
+  //       canvasForSelectedArea.height = 0;
+  //       canvasForSelectedArea = null;
+  //       ctxForSelectedArea = null;
   //     }
+  //   } else {
+  //     dataURLForUniques = null;
+  //     dataURLForSelectedArea = null;
   //   }
+
+  //   done = true;
+
+  //   console.timeEnd("canvas");
+  // }
+
+  // === Reusable resources (persistent between calls) ===
+  const canvasPool = {
+    total: null,
+    unique: null,
+    selected: null,
+  };
+
+  const ctxPool = {
+    total: null,
+    unique: null,
+    selected: null,
+  };
+
+  const imageDataPool = {
+    total: null,
+    unique: null,
+    selected: null,
+  };
+
+  const pixelBufferPool = {
+    total: null,
+    unique: null,
+    selected: null,
+  };
+
+  // === Setup function (run once) ===
+  // function setupReusableCanvas(name, width, height) {
+  //   if (!canvasPool[name]) {
+  //     const canvas = document.createElement("canvas");
+  //     canvas.width = width;
+  //     canvas.height = height;
+  //     const ctx = canvas.getContext("2d");
+
+  //     const imageData = ctx.createImageData(width, height);
+  //     const pixels = new Uint32Array(imageData.data.buffer);
+
+  //     canvasPool[name] = canvas;
+  //     ctxPool[name] = ctx;
+  //     imageDataPool[name] = imageData;
+  //     pixelBufferPool[name] = pixels;
+  //   }
+  // }
+
+  // === Main rendering function ===
+  // function makeAndPaintCanvases() {
+  //   console.time("canvas");
+  //   done = false;
+
+  //   // Ensure all reusable resources are initialized
+  //   setupReusableCanvas("total", width, height);
+  //   if (selectedRestrictionIndex >= 0) {
+  //     setupReusableCanvas("unique", width, height);
+  //     setupReusableCanvas("selected", width, height);
+  //   }
+
+  //   // === TOTAL LAYER ===
+  //   const canvas = canvasPool.total;
+  //   const ctx = ctxPool.total;
+  //   const imageData = imageDataPool.total;
+  //   const totalPixels = pixelBufferPool.total;
+
+  //   for (let i = 0; i < blendedArray.length; i++) {
+  //     const value = blendedArray[i];
+  //     totalPixels[i] = value !== 0 ? TOTAL_ON_COLOR : TOTAL_OFF_COLOR;
+  //   }
+
+  //   ctx.putImageData(imageData, 0, 0);
+  //   canvas.toBlob((blob) => {
+  //     dataURL = URL.createObjectURL(blob);
+  //   });
+
+  //   // === UNIQUE + SELECTED AREA ===
+  //   if (selectedRestrictionIndex >= 0) {
+  //     if (renderUnique) {
+  //       const ctxU = ctxPool.unique;
+  //       const imageDataU = imageDataPool.unique;
+  //       const pixelsU = pixelBufferPool.unique;
+
+  //       for (let i = 0; i < uniqueArray.length; i++) {
+  //         const valueUnique = uniqueArray[i];
+  //         pixelsU[i] = valueUnique === 1 ? UNIQUE_ON_COLOR : UNIQUE_OFF_COLOR;
+  //       }
+
+  //       ctxU.putImageData(imageDataU, 0, 0);
+  //       canvasPool.unique.toBlob((blob) => {
+  //         dataURLForUniques = URL.createObjectURL(blob);
+  //       });
+  //       // dataURLForUniques = canvasPool.unique.toDataURL("image/png");
+  //     }
+
+  //     const ctxA = ctxPool.selected;
+  //     const imageDataA = imageDataPool.selected;
+  //     const areaPixels = pixelBufferPool.selected;
+  //     const currentBitArray = currentBitArrays[selectedRestrictionIndex];
+
+  //     for (let i = 0; i < currentBitArray.length; i++) {
+  //       const valueSelectedArea = renderUnique ? currentBitArray[i] : 0;
+  //       areaPixels[i] =
+  //         valueSelectedArea !== 0 ? AREA_ON_COLOR : AREA_OFF_COLOR;
+  //     }
+
+  //     if (renderUnique) {
+  //       ctxA.putImageData(imageDataA, 0, 0);
+  //       canvasPool.selected.toBlob((blob) => {
+  //         dataURLForUniques = URL.createObjectURL(blob);
+  //       });
+  //       // dataURLForSelectedArea = canvasPool.selected.toDataURL("image/png");
+  //     }
+  //   } else {
+  //     dataURLForUniques = null;
+  //     dataURLForSelectedArea = null;
+  //   }
+
   //   done = true;
   //   console.timeEnd("canvas");
   // }
 
-  function makeAndPaintCanvases() {
-    console.time("canvas");
+  function makeAndPaintCombinedCanvas() {
+    console.time("canvas-combined");
     done = false;
 
-    // Helper to make a canvas and get context
-    function createCanvas(w, h) {
-      const c = document.createElement("canvas");
-      c.width = w;
-      c.height = h;
-      return [c, c.getContext("2d")];
-    }
+    // Reuse or create canvas
+    const canvas = canvasPool.combined || document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!canvasPool.combined) canvasPool.combined = canvas;
 
-    // === TOTAL LAYER ===
-    const [canvas, ctx] = createCanvas(width, height);
+    // Create ImageData
     const imageData = ctx.createImageData(width, height);
-    const totalPixels = new Uint32Array(imageData.data.buffer);
+    const pixels = new Uint32Array(imageData.data.buffer);
+
+    // Get reference arrays
+    const hasSelection = selectedRestrictionIndex >= 0 && renderUnique;
+    const currentBitArray = hasSelection
+      ? currentBitArrays[selectedRestrictionIndex]
+      : null;
 
     for (let i = 0; i < blendedArray.length; i++) {
-      const value = blendedArray[i];
-      totalPixels[i] = value !== 0 ? TOTAL_ON_COLOR : TOTAL_OFF_COLOR;
+      const blended = blendedArray[i]; // 0 or 1
+      const area = hasSelection ? currentBitArray[i] : 0;
+      const unique = hasSelection ? uniqueArray[i] : 0;
+
+      let color;
+
+      if (blended === 0) {
+        color = OFF_COLOR;
+      } else if (area && unique) {
+        color = UNIQUE_AREA_COLOR;
+      } else if (area) {
+        color = BLENDED_AREA_COLOR;
+      } else {
+        color = BLENDED_COLOR;
+      }
+
+      pixels[i] = color;
     }
 
+    // Paint
     ctx.putImageData(imageData, 0, 0);
-
     dataURL = canvas.toDataURL("image/png");
 
-    // === UNIQUE + SELECTED AREA ===
-    if (selectedRestrictionIndex >= 0) {
-      const [canvasForUniques, ctxForUniques] = createCanvas(width, height);
-      const imageDataForUniques = ctxForUniques.createImageData(width, height);
-      const pixels = new Uint32Array(imageDataForUniques.data.buffer);
-
-      if (renderUnique) {
-        for (let i = 0; i < uniqueArray.length; i++) {
-          const valueUnique = uniqueArray[i];
-          pixels[i] = valueUnique === 1 ? UNIQUE_ON_COLOR : UNIQUE_OFF_COLOR;
-        }
-        ctxForUniques.putImageData(imageDataForUniques, 0, 0);
-        // if (needUniqueDataURL) {
-        dataURLForUniques = canvasForUniques.toDataURL("image/png");
-        // }
-      }
-
-      const [canvasForSelectedArea, ctxForSelectedArea] = createCanvas(
-        width,
-        height
-      );
-      const imageDataForSelectedArea = ctxForSelectedArea.createImageData(
-        width,
-        height
-      );
-      const areaPixels = new Uint32Array(imageDataForSelectedArea.data.buffer);
-      const currentBitArray = currentBitArrays[selectedRestrictionIndex];
-
-      for (let i = 0; i < currentBitArray.length; i++) {
-        const valueSelectedArea = renderUnique ? currentBitArray[i] : 0;
-        areaPixels[i] =
-          valueSelectedArea !== 0 ? AREA_ON_COLOR : AREA_OFF_COLOR;
-      }
-
-      ctxForSelectedArea.putImageData(imageDataForSelectedArea, 0, 0);
-      if (renderUnique) {
-        dataURLForSelectedArea = canvasForSelectedArea.toDataURL("image/png");
-      }
-    } else {
-      dataURLForUniques = undefined;
-      dataURLForSelectedArea = undefined;
-    }
+    // Reset unused
+    dataURLForUniques = null;
+    dataURLForSelectedArea = null;
 
     done = true;
-    // console.log({
-    //   selectedRestrictionIndex,
-    //   dataURLForUniques,
-    //   dataURLForSelectedArea,
-    // });
-    console.timeEnd("canvas");
+    console.timeEnd("canvas-combined");
   }
 
   function countOccurrences(uint8Array) {
@@ -807,6 +739,7 @@
   }
 
   function findTheOnes(bitArrays) {
+    console.time("findTheOnes");
     if (!bitArrays.length) return;
 
     const NUM_WORKERS = 4;
@@ -846,6 +779,8 @@
           interimUniqueArray.set(uniqueResultArray, start);
 
           resolve();
+
+          worker.terminate();
         };
 
         worker.onerror = function (err) {
@@ -871,7 +806,7 @@
       occurrences = countOccurrences(finalArray);
       uniqueArray = new Uint8Array(interimUniqueArray);
       const done = true;
-
+      console.timeEnd("findTheOnes");
       return {
         finalArray,
         uniqueArray,
@@ -879,8 +814,6 @@
         done,
       };
     });
-
-    // .then(makeAndPaintCanvases());
   }
 
   let message = $state("");
@@ -947,9 +880,9 @@
     {:else if $blendingProgress == 100}
       <p>
         The total area in England is 13,046,002 ha.
-        {#if blendedArrayLength > 0}
+        <!-- {#if blendedArrayLength > 0}
           {blendedArrayLength.toLocaleString()} ha is covered by the selected categories.
-        {/if}
+        {/if} -->
       </p>
     {/if}
   </div>
@@ -985,6 +918,24 @@
 
 <div class="container">
   <div class="output">
+    <!-- <div
+      style="
+    color: white;
+    border: 8px solid green;
+    border-radius: 16px;
+    width: 16px;
+    height: 16px;
+    background: green;
+    font-weight:  700;
+    /* dominant-baseline: revert; */
+    position: relative;
+    top: 30px;
+    text-align: center;
+"
+      
+    >
+      1
+    </div> -->
     {#if startingPosition}
       <!-- <ul>
     {#each enrichedLayers.filter((e) => e.filename != "ENGLAND_100M.tif") as layer, i}
@@ -1095,8 +1046,15 @@
       <p>
         The total area covered by the selected categories is shown in <span
           class="totalHighlightText">grey</span
-        > on the map.
+        >
+        on the map.
+        {#if blendedArrayLength > 0}
+          That's {blendedArrayLength.toLocaleString()} ha with the current selections,
+          or about {((blendedArrayLength / 13046002) * 100).toFixed(0)}% of
+          England.
+        {/if}
       </p>
+      <p>You can change the categories using the options on the left.</p>
       <p>
         Select a row in the table to see areas that are covered by this category
         and no others, highlighted in <span class="uniqueHighlightText"
@@ -1120,16 +1078,6 @@
           buttonType="default"
           textContent="Download data (.csv)"
           onClickFunction={function () {
-            console.log("clicked");
-            // const res = await fetch("/data/IMD2019.json");
-            // const data = await res.json();
-
-            // Get the first item from the "indexOfMultipleDeprivation" array
-            // const subset = data.indexOfMultipleDeprivation[0];
-
-            // Optional: wrap in array or object if you want a valid JSON structure
-            // const wrapped = [subset]; // or { indexOfMultipleDeprivation: [subset] }
-
             function jsonToCsv(items) {
               const header = Object.keys(items[0]);
               const headerString = header.join(",");
