@@ -3,6 +3,7 @@
   import { enhance } from "$app/forms";
   import { fromUrl, fromBlob, fromArrayBuffer } from "geotiff";
   import { writable } from "svelte/store";
+  import { MediaQuery } from "svelte/reactivity";
   import { browser } from "$app/environment";
   import {
     CheckBox,
@@ -20,14 +21,15 @@
   // import LALookup from "$lib/LALookup.js";
   import JSZip from "jszip";
 
+  const mobile = new MediaQuery("max-width: 600px");
   let done = $state(false);
   $inspect({ done });
   let ones;
   let dataURL = $state();
   // $inspect(dataURL);
-  let dataURLForUniques = $state();
+  // let dataURLForUniques = $state();
   // $inspect(dataURLForUniques);
-  let dataURLForSelectedArea = $state();
+  // let dataURLForSelectedArea = $state();
   let occurrences = $state();
   // $inspect(occurrences);
   let finalArray = $state();
@@ -45,18 +47,18 @@
   // let imageData = $state();
   // let imageDataForUniques = $state();
   // let imageDataForSelectedArea = $state();
-  // Define RGBA colors in little-endian format (most systems are little-endian)
-  const UNIQUE_ON_COLOR = 0xff0000ff; // Red with full opacity (R=255, G=0, B=0, A=255)
-  const UNIQUE_OFF_COLOR = 0x000000ff; // Red with 0 alpha (R=255, G=0, B=0, A=0)
-  const AREA_ON_COLOR = 0xff0000ff;
-  const AREA_OFF_COLOR = 0x000000ff;
-  const TOTAL_ON_COLOR = 0xff000000;
-  const TOTAL_OFF_COLOR = 0x00000000;
+  // // Define RGBA colors in little-endian format (most systems are little-endian)
+  // const UNIQUE_ON_COLOR = 0xff0000ff; // Red with full opacity (R=255, G=0, B=0, A=255)
+  // const UNIQUE_OFF_COLOR = 0x000000ff; // Red with 0 alpha (R=255, G=0, B=0, A=0)
+  // const AREA_ON_COLOR = 0xff0000ff;
+  // const AREA_OFF_COLOR = 0x000000ff;
+  // const TOTAL_ON_COLOR = 0xff000000;
+  // const TOTAL_OFF_COLOR = 0x00000000;
 
   const OFF_COLOR = 0x00000000; // Transparent
-  const BLENDED_COLOR = 0x88000000; // Gray
-  const BLENDED_AREA_COLOR = 0x990000ff;
-  const UNIQUE_AREA_COLOR = 0xff0000ff;
+  const TOTAL_COLOR = 0x88000000; // Grey
+  const SELECTED_AREA_COLOR = 0x990000ff; // Pink
+  const UNIQUE_AREA_COLOR = 0xff0000ff; // Red
 
   // let rasterLayers = $state([]);
   // let lookup = [];
@@ -190,6 +192,9 @@
   // $inspect(layersToUnpack);
 
   async function handleFileUpload(event) {
+    dataURL = null;
+    selected = null;
+
     const file = event.target.files[0];
     if (!file) return;
 
@@ -354,8 +359,8 @@
     prepareToUnpack();
 
     dataURL = null;
-    dataURLForUniques = null;
-    dataURLForSelectedArea = null;
+    // dataURLForUniques = null;
+    // dataURLForSelectedArea = null;
 
     const simpleZipWorker = new Worker(
       new URL("$lib/workers/simpleZipUnpackWorker.js", import.meta.url),
@@ -556,29 +561,29 @@
   // }
 
   // === Reusable resources (persistent between calls) ===
-  const canvasPool = {
-    total: null,
-    unique: null,
-    selected: null,
-  };
+  // const canvasPool = {
+  //   total: null,
+  //   unique: null,
+  //   selected: null,
+  // };
 
-  const ctxPool = {
-    total: null,
-    unique: null,
-    selected: null,
-  };
+  // const ctxPool = {
+  //   total: null,
+  //   unique: null,
+  //   selected: null,
+  // };
 
-  const imageDataPool = {
-    total: null,
-    unique: null,
-    selected: null,
-  };
+  // const imageDataPool = {
+  //   total: null,
+  //   unique: null,
+  //   selected: null,
+  // };
 
-  const pixelBufferPool = {
-    total: null,
-    unique: null,
-    selected: null,
-  };
+  // const pixelBufferPool = {
+  //   total: null,
+  //   unique: null,
+  //   selected: null,
+  // };
 
   // === Setup function (run once) ===
   // function setupReusableCanvas(name, width, height) {
@@ -677,11 +682,11 @@
     done = false;
 
     // Reuse or create canvas
-    const canvas = canvasPool.combined || document.createElement("canvas");
+    const canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext("2d");
-    if (!canvasPool.combined) canvasPool.combined = canvas;
+    // if (!canvasPool.combined) canvasPool.combined = canvas;
 
     // Create ImageData
     const imageData = ctx.createImageData(width, height);
@@ -692,11 +697,7 @@
     const currentBitArray = hasSelection
       ? currentBitArrays[selectedRestrictionIndex]
       : null;
-    console.log(uniqueArray);
-    let countOff = 0,
-      countBlended = 0,
-      countBlendedArea = 0,
-      countUniqueArea = 0;
+
     for (let i = 0; i < blendedArray.length; i++) {
       const blended = blendedArray[i]; // 0 or 1
       const area = hasSelection ? currentBitArray[i] : 0;
@@ -706,29 +707,20 @@
 
       if (blended === 0) {
         color = OFF_COLOR;
-        countOff++;
       } else if (area && unique) {
         color = UNIQUE_AREA_COLOR;
-        countUniqueArea++;
       } else if (area) {
-        color = BLENDED_AREA_COLOR;
-        countBlendedArea++;
+        color = SELECTED_AREA_COLOR;
       } else {
-        color = BLENDED_COLOR;
-        countBlended++;
+        color = TOTAL_COLOR;
       }
 
       pixels[i] = color;
     }
-    console.log({ countOff, countBlended, countBlendedArea, countUniqueArea });
 
     // Paint
     ctx.putImageData(imageData, 0, 0);
     dataURL = canvas.toDataURL("image/png");
-
-    // Reset unused
-    dataURLForUniques = null;
-    dataURLForSelectedArea = null;
 
     done = true;
     console.timeEnd("canvas-combined");
@@ -846,8 +838,9 @@
 
 <PhaseBanner
   tagText={"Alpha"}
-  bannerText={"THIS IS AN EXPERIMENTAL PRODUCT UNDER DEVELOPMENT"}
-  linkText={""}
+  bannerText={"THIS IS AN EXPERIMENTAL PRODUCT UNDER DEVELOPMENT. "}
+  linkText={"Share feedback (opens in a new tab)"}
+  linkHref={"./"}
 />
 <!-- <h2>
   The total area of land in ... is
@@ -881,7 +874,7 @@
         detailedText={detailsContent}
       />
 
-      <!-- <p>Get in touch...</p> -->
+      <!-- <a href="./" target="_blank">Send feedback (opens in a new tab)</a> -->
     </div>
     {#if blending && $blendingProgress < 100}
       <p>Blending... {$blendingProgress.toFixed(1)}%</p>
@@ -898,23 +891,6 @@
 </div>
 
 {#snippet detailsContent()}
-  <!-- <br /> -->
-  <!-- <label for="csv-file-upload">Use a local csv file:</label>
-        <input
-          bind:files={csvFile}
-          accept="text/csv"
-          id="csv-file-upload"
-          type="file"
-        />
-        <br />
-        <label for="file-upload">Use a local geotiff file:</label>
-        <input
-          bind:files={geotiffFile}
-          accept="image/tiff"
-          id="file-upload"
-          type="file"
-        />
-        <br /> -->
   <label for="zip-file-upload">Use a local zip file:</label>
   <input
     bind:files={zipFile}
@@ -946,18 +922,6 @@
       1
     </div> -->
     {#if startingPosition}
-      <!-- <ul>
-    {#each enrichedLayers.filter((e) => e.filename != "ENGLAND_100M.tif") as layer, i}
-      <li
-        onclick={() => {
-          console.log(i);
-          selectedRestrictionIndex = i;
-        }}
-      >
-        {layer.filename} - area: {layer.area.toLocaleString()} ha
-      </li>
-    {/each}
-  </ul> -->
       <form
         method="POST"
         use:enhance={({ formData, cancel }) => {
@@ -967,12 +931,13 @@
             ? unpackZippedLayers()
             : unpackSelectedLayers();
           // selected = formData.getAll("categories[]");
-          // Cancel server submission and process client-side
+
           window.scroll({
             top: 0,
             left: 0,
             behavior: "smooth",
           });
+          // Cancel server submission and process client-side
           cancel();
 
           // No server action needed
@@ -1037,17 +1002,10 @@
       {console.log("Rendering the map!")}
 
       <div class={["os-map-container", { done }]}>
-        <!-- {#key geotiffFile}
-          <OsMap
-            {dataURL}
-            {dataURLForUniques}
-            {dataURLForSelectedArea}
-            {bbox}
-            bind:selectedAreaName
-          />
-        {/key} -->
-        <OsMap {dataURL} {dataURLForUniques} {dataURLForSelectedArea} {bbox} />
+        <OsMap {dataURL} {bbox} />
       </div>
+    {:else}
+      <div>Preparing the map</div>
     {/if}
   </div>
   <div class="table">
@@ -1063,7 +1021,11 @@
           England.
         {/if}
       </p>
-      <p>You can change the categories using the options on the left.</p>
+      <p>
+        You can change the categories using the options {mobile.current
+          ? "above."
+          : "on the left."}
+      </p>
       <p>
         Select a row in the table to see areas that are covered by this category
         and no others, highlighted in <span class="uniqueHighlightText"
@@ -1129,6 +1091,17 @@
     grid-template-columns: 70% 30%;
     font-family: sans-serif;
     padding: 10px;
+    min-height: 200px;
+  }
+
+  @media (max-width: 600px) {
+    .header {
+      display: flex;
+      flex-direction: column;
+      font-family: sans-serif;
+      padding: 10px;
+      min-height: 200px;
+    }
   }
 
   .header-right {
@@ -1148,6 +1121,15 @@
     /* max-height: 85vh; */
     /* overflow: scroll; */
   }
+
+  @media (max-width: 600px) {
+    .container {
+      display: flex;
+      flex-direction: column;
+      font-family: sans-serif;
+    }
+  }
+
   .output {
     padding: 0px 10px;
     /* max-height: 700px; */

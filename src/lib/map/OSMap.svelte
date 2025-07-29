@@ -1,11 +1,5 @@
 <script>
-  let {
-    dataURL,
-    dataURLForUniques,
-    dataURLForSelectedArea,
-    bbox,
-    selectedAreaName = $bindable(),
-  } = $props();
+  let { dataURL, bbox, selectedAreaName = $bindable() } = $props();
 
   import { onMount } from "svelte";
   import { onDestroy } from "svelte";
@@ -24,7 +18,7 @@
 
   let mapElement;
   let map;
-  let tiffLayer, tiffLayerUnique, tiffLayerSelectedArea;
+  let tiffLayer;
   const apiKey = "oCUBI8DjgzTP5J8VptrnOAxYVeZc0cZ2";
   const serviceUrl = "https://api.os.uk/maps/vector/v1/vts";
   // let worker;
@@ -114,34 +108,10 @@
       opacity: 0.8,
     });
 
-    tiffLayerSelectedArea = new ImageLayer({
-      source: new ImageStatic({
-        url: dataURLForSelectedArea,
-        imageExtent: bbox,
-        projection: "EPSG:27700",
-      }),
-      opacity: 0.25,
-    });
-
-    tiffLayerUnique = new ImageLayer({
-      source: new ImageStatic({
-        url: dataURLForUniques,
-        imageExtent: bbox,
-        projection: "EPSG:27700",
-      }),
-      opacity: 0.5,
-    });
-
     map = new ol.Map({
       controls: defaultControls().extend([new FullScreen()]),
       target: mapElement,
-      layers: [
-        vectorTileLayer,
-        geoJsonVectorLayer,
-        tiffLayer,
-        tiffLayerUnique,
-        tiffLayerSelectedArea,
-      ],
+      layers: [vectorTileLayer, geoJsonVectorLayer, tiffLayer],
       view: new ol.View({
         projection: "EPSG:27700",
         extent: [-238375.0, 0.0, 900000.0, 1376256.0],
@@ -152,39 +122,6 @@
         // zoom: 1,
       }),
     });
-
-    // fetch("local-planning-authority.json")
-    //   .then((response) => response.json())
-    //   .then((topoData) => {
-    //     // Convert TopoJSON to GeoJSON (pick the object you want)
-    //     const geojsonObject = topojson.feature(
-    //       topoData,
-    //       topoData.objects["local-planning-authority"]
-    //     ); // <-- adjust this
-
-    //     // Read and reproject GeoJSON features
-    //     const features = new ol.format.GeoJSON({
-    //       dataProjection: "EPSG:4326",
-    //       featureProjection: "EPSG:27700",
-    //     }).readFeatures(geojsonObject);
-
-    //     // Add features to vector source
-    //     const vectorSource = new ol.source.Vector({
-    //       features: features,
-    //     });
-
-    //     const vectorLayer = new ol.layer.Vector({
-    //       source: vectorSource,
-    //       style: {
-    //         "stroke-color": "teal",
-    //         "stroke-width": 1.5,
-    //         "fill-color": "rgba(0,123,0,0.2)",
-    //       },
-    //       // opacity: 0.3,
-    //     });
-
-    //     map.addLayer(vectorLayer);
-    //   });
 
     //Zoom to the area
     map.getView().fit(bbox, { duration: 1000 });
@@ -225,43 +162,6 @@
         console.log("Adding the total tiff layer");
         map.addLayer(tiffLayer);
 
-        map.getView().fit(bbox, { duration: 1000 });
-      }
-    }
-  });
-
-  $effect(() => {
-    if (map) {
-      console.log("Removing the selected tiff layers");
-
-      map.removeLayer(tiffLayerSelectedArea);
-      map.removeLayer(tiffLayerUnique);
-    }
-
-    if (dataURLForSelectedArea && dataURLForUniques && bbox) {
-      tiffLayerSelectedArea = new ImageLayer({
-        source: new ImageStatic({
-          url: dataURLForSelectedArea,
-          imageExtent: bbox,
-          projection: "EPSG:27700",
-        }),
-        opacity: 0.25,
-      });
-
-      tiffLayerUnique = new ImageLayer({
-        source: new ImageStatic({
-          url: dataURLForUniques,
-          imageExtent: bbox,
-          projection: "EPSG:27700",
-        }),
-        opacity: 0.75,
-      });
-
-      if (map) {
-        console.log("Adding the selected tiff layers");
-
-        map.addLayer(tiffLayerSelectedArea);
-        map.addLayer(tiffLayerUnique);
         map.getView().fit(bbox, { duration: 1000 });
       }
     }
