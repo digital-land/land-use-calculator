@@ -1025,8 +1025,8 @@
           ).toLocaleString()} ha ({(
             ((13046002 - blendedArrayLength) / 13046002) *
             100
-          ).toFixed(0)}%) of England is not in of the area covered by the
-          current selections.
+          ).toFixed(0)}%) of England is not in the area covered by the current
+          selections.
         {/if}
       </p>
       <p>
