@@ -5,11 +5,9 @@
   import { writable } from "svelte/store";
   import { MediaQuery } from "svelte/reactivity";
   import { browser } from "$app/environment";
-  import {
-    CheckBox,
-    PhaseBanner,
-  } from "@communitiesuk/svelte-component-library";
+  import { CheckBox } from "@communitiesuk/svelte-component-library";
   import Map from "$lib/map/Map.svelte";
+  import PhaseBanner from "$lib/PhaseBanner.svelte";
   import FilterPanel from "$lib/FilterPanel.svelte";
   import Button from "$lib/Button.svelte";
   import Details from "$lib/Details.svelte";
@@ -243,7 +241,10 @@
 
   let csvLocation = $derived(
     //DERIVED 3
-    csvFile?.length > 0 ? csvFile[0] : `${base}/ultimate_land_metadata.csv`
+    // csvFile?.length > 0 ? csvFile[0] : `${base}/ultimate_land_metadata.csv`
+    csvFile?.length > 0
+      ? csvFile[0]
+      : `${base}/data/PUBLIC_LAYERS/ultimate_land_metadata.csv`
   );
 
   function parseMetadataCsv(csvText) {
@@ -840,7 +841,8 @@
   tagText={"Alpha"}
   bannerText={"THIS IS AN EXPERIMENTAL PRODUCT UNDER DEVELOPMENT. "}
   linkText={"Share feedback (opens in a new tab)"}
-  linkHref={"./"}
+  linkHref={"https://mhclg.sharepoint.com/:x:/s/HousingDiversification/ETTZ0xrT3yZMpeaX1GkOy1oBBqdv1ZFXJHiZK47qCUQMhw?e=FggJfN"}
+  linkTarget={"_blank"}
 />
 <!-- <h2>
   The total area of land in ... is
@@ -1005,7 +1007,7 @@
         <OsMap {dataURL} {bbox} />
       </div>
     {:else}
-      <div>Preparing the map</div>
+      <div>Preparing the map...</div>
     {/if}
   </div>
   <div class="table">
@@ -1018,7 +1020,13 @@
         {#if blendedArrayLength > 0}
           That's {blendedArrayLength.toLocaleString()} ha with the current selections,
           or about {((blendedArrayLength / 13046002) * 100).toFixed(0)}% of
-          England.
+          England, which means that {(
+            13046002 - blendedArrayLength
+          ).toLocaleString()} ha ({(
+            ((13046002 - blendedArrayLength) / 13046002) *
+            100
+          ).toFixed(0)}%) of England is not in of the area covered by the
+          current selections.
         {/if}
       </p>
       <p>
@@ -1027,8 +1035,8 @@
           : "on the left."}
       </p>
       <p>
-        Select a row in the table to see areas that are covered by this category
-        and no others, highlighted in <span class="uniqueHighlightText"
+        Select a row in the table below to see areas that are covered by this
+        category and no others, highlighted in <span class="uniqueHighlightText"
           >red</span
         >
         on the map, with the total area in this category shown in
