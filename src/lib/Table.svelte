@@ -6,9 +6,11 @@
     metaData = undefined,
     caption = undefined,
     colourScale = undefined,
-    sortState = $bindable({ column: "sortedColumn", order: "ascending" }),
+    sortState = $bindable({ column: "unique", order: "descending" }),
+    selectedRestriction = $bindable(),
+    restrictionChanged = $bindable(false),
   } = $props();
-
+  //   $inspect(sortState);
   let localCopyOfData = $state([...data]);
 
   function hasUniqueValues(array, key) {
@@ -38,8 +40,6 @@
     columns.push(columnObject);
   }
 
-  $inspect("columns array is ", columns);
-
   const metrics = columns
     .filter((column) => column.dataType === "number")
     .map((column) => column.key);
@@ -52,40 +52,34 @@
   }
 
   function sortFunction() {
-    if (typeof localCopyOfData[0][sortState["column"]] === "number") {
-      if (sortState.order === "ascending") {
-        localCopyOfData.sort(
-          (a, b) => a[sortState.column] - b[sortState.column]
-        );
-      } else {
-        localCopyOfData.sort(
-          (a, b) => b[sortState.column] - a[sortState.column]
-        );
+    if (localCopyOfData[0]) {
+      if (typeof localCopyOfData[0][sortState["column"]] === "number") {
+        if (sortState.order === "ascending") {
+          localCopyOfData.sort(
+            (a, b) => a[sortState.column] - b[sortState.column]
+          );
+        } else {
+          localCopyOfData.sort(
+            (a, b) => b[sortState.column] - a[sortState.column]
+          );
+        }
       }
-    }
-    if (typeof localCopyOfData[0][sortState["column"]] === "string") {
-      if (sortState.order === "ascending") {
-        localCopyOfData.sort((a, b) =>
-          a[sortState["column"]].localeCompare(b[sortState["column"]])
-        );
-      } else {
-        localCopyOfData.sort((a, b) =>
-          b[sortState["column"]].localeCompare(a[sortState["column"]])
-        );
+      if (typeof localCopyOfData[0][sortState["column"]] === "string") {
+        if (sortState.order === "ascending") {
+          localCopyOfData.sort((a, b) =>
+            a[sortState["column"]].localeCompare(b[sortState["column"]])
+          );
+        } else {
+          localCopyOfData.sort((a, b) =>
+            b[sortState["column"]].localeCompare(a[sortState["column"]])
+          );
+        }
       }
     }
   }
-  if (sortState.column !== "sortedColumn") {
+  if (sortState?.column !== "sortedColumn") {
     sortFunction();
   }
-
-  //   $inspect(
-  //     sortState,
-  //     localCopyOfData[0],
-  //     typeof localCopyOfData[0][sortState["column"]]
-  //   );
-
-  // heat map
 
   // calculate the min and max of each metric
   const minAndMaxValues = {}; // create an empty object to store them in
@@ -98,20 +92,19 @@
     minAndMaxValues[metric] = { min, max };
   }
 
-    localCopyOfData = localCopyOfData.map((row) => {
-      const rowWithNorms = { ...row };
+  localCopyOfData = localCopyOfData.map((row) => {
+    const rowWithNorms = { ...row };
 
-      for (const metric of metrics) {
-        const { min, max } = minAndMaxValues[metric];
-        const value = row[metric];
-        const normalisedValue = (value - min) / (max - min);
+    for (const metric of metrics) {
+      const { min, max } = minAndMaxValues[metric];
+      const value = row[metric];
+      const normalisedValue = (value - min) / (max - min);
 
-        rowWithNorms[`${metric}__normalised`] = normalisedValue;
-      }
-  console.log("LOCAL COPY 2", rowWithNorms)
-      return rowWithNorms;
-    });
-console.log("LOCAL COPY", localCopyOfData)
+      rowWithNorms[`${metric}__normalised`] = normalisedValue;
+    }
+
+    return rowWithNorms;
+  });
 
   function normToColor(norm) {
     const hue = 120 * norm;
@@ -148,6 +141,12 @@ console.log("LOCAL COPY", localCopyOfData)
               scope="col"
               class={`govuk-table__header ${column.dataType === "number" ? "govuk-table__header--numeric" : ""}`}
               title={metaData[column.key].explainer}
+              aria-sort={sortState.column !== column.key
+                ? "none"
+                : sortState.column === column.key &&
+                    sortState.order === "descending"
+                  ? "descending"
+                  : "ascending"}
             >
               <div class="header">
                 <Button
@@ -156,9 +155,9 @@ console.log("LOCAL COPY", localCopyOfData)
                   onClickFunction={() => {
                     const newDirection =
                       sortState.column === column.key &&
-                      sortState.order === "ascending"
-                        ? "descending"
-                        : "ascending";
+                      sortState.order === "descending"
+                        ? "ascending"
+                        : "descending";
 
                     updateSortState(column.key, newDirection);
                     sortFunction();
@@ -171,7 +170,26 @@ console.log("LOCAL COPY", localCopyOfData)
       >
       <tbody class="govuk-table__body">
         {#each localCopyOfData as row}
-          <tr class="govuk-table__row">
+          <tr
+            class={"govuk-table__row" +
+              (selectedRestriction === row.name ? " selected" : "")}
+            onclick={() => {
+              selectedRestriction === row.name
+                ? (selectedRestriction = undefined)
+                : (selectedRestriction = row.name);
+              restrictionChanged = true;
+            }}
+            onkeydown={(e) => {
+              //   console.log(e.code);
+              if (e.code == "Enter" || e.code == "Space") {
+                selectedRestriction === row.name
+                  ? (selectedRestriction = undefined)
+                  : (selectedRestriction = row.name);
+                restrictionChanged = true;
+              }
+            }}
+            tabindex="0"
+          >
             {#each columns as column}
               {#if column.dataType === "number"}
                 {#if colourScale === "On"}
@@ -201,9 +219,9 @@ console.log("LOCAL COPY", localCopyOfData)
 
 <style>
   .table-container {
-    max-height: 85vh;
+    /* max-height: 85vh;
     overflow-y: auto;
-    overflow-x: scroll;
+    overflow-x: scroll; */
     width: 100%;
   }
 
@@ -235,5 +253,39 @@ console.log("LOCAL COPY", localCopyOfData)
   .text-header {
     display: flex;
     color: #005ea5;
+  }
+
+  /* .selected {
+    background-color: pink;
+  } */
+  .selected td:nth-child(2) {
+    background-color: pink;
+  }
+
+  .selected td:nth-child(3) {
+    background-color: crimson;
+    color: white;
+    font-weight: 700;
+  }
+
+  tr {
+    cursor: pointer;
+  }
+
+  tr:not(.selected) td:not(:nth-child(1)) {
+    background-color: whitesmoke;
+  }
+
+  :global([aria-sort="ascending"].govuk-table__header .top-triangle) {
+    fill: #222;
+  }
+  :global([aria-sort="ascending"].govuk-table__header .bottom-triangle) {
+    fill: #bcbcbd;
+  }
+  :global([aria-sort="descending"].govuk-table__header .top-triangle) {
+    fill: #bcbcbd;
+  }
+  :global([aria-sort="descending"].govuk-table__header .bottom-triangle) {
+    fill: #222;
   }
 </style>

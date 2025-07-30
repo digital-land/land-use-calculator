@@ -21,14 +21,11 @@
     const look = await fetch('lookup.json');
     lookup = await look.json()
 
-    console.log("look", look)
-
     const res = await fromUrl(`./multi.tif`);
     const image = await res.getImage();
 
     rasters = await image.readRasters();
     rasters.forEach(e=>rastersArray.push(e)); 
-    //areas= rasters.map(e=>e.filter(el=>el).length)
     width = image.getWidth();
     height = image.getHeight();
     const numBands = image.getSamplesPerPixel();
@@ -39,19 +36,6 @@ let geotiffUrl=`./multi.tif`
 let metadataUrl=`./bitpacking_metadata.csv`
 
     async function unpackGeoTIFFBits(url, bitMetadataCsvUrl = null, image) {
-  // const response = await fetch(url);
-  // const arrayBuffer = await response.arrayBuffer();
-  // const tiff = await GeoTIFF.fromArrayBuffer(arrayBuffer);
-  // const image = await tiff.getImage();
-
-  // const width = image.getWidth();
-  // const height = image.getHeight();
-  // const numBands = image.getSamplesPerPixel();
-
-  // const rasterData = await image.readRasters({ interleave: false });
-
-  // Create 3D array: [band][y][x] with all 8 bits unpacked
-  //const bitLayers = [];
 
   for (let b = 0; b < numBands; b++) {
     const band = rasters[b]; // Uint8Array
@@ -100,9 +84,6 @@ function parseMetadataCsv(csvText) {
 
 
 unpackGeoTIFFBits(geotiffUrl, metadataUrl).then(({ width, height, layers, rasterLayers }) => {
-  // console.log(`Loaded ${layers.length} bit layers`);
-  // console.log(`Pixel size: ${width}×${height}`);
-  // console.log("rasterLayers:", rasterLayers);
   rasterLayers.forEach((el,i)=>{el.area=layers[i].filter(e=>e).length; el.data=layers[i]})
   England = rasterLayers.find(e=>e.filename=="ENGLAND_MASTER.tif").data
 
@@ -112,26 +93,21 @@ layers.forEach(el=>areas.push(el.filter(e=>e).length))
   const activeBits = layers
     .map((layer, i) => (layer[pixelIndex] ? i : null))
     .filter(i => i !== null);
-  //console.log("Active bits at (0,0):", activeBits);
 });
   });
 
 let layers = $derived(lookup?lookup.map(e => e.category):[]);
 
-//$inspect(rastersArray, lookup)
+
 let selection = $derived(rasterLayers.map(e=>e.filename))
 let chosenLayers=$derived(rasterLayers.filter(e=>selection.includes(e.filename)).map(e=>e.data)||[])
 let blendedArrayLength=$state(5470417)
-//et calculateRemainder=$effect(()=>console.log(chosenLayers.map(e=>e.data)))
-//$inspect(selection)
-//$inspect(chosenLayers)
-$inspect(blendedArrayLength)
+
 function blendBitArrays(bitArrays) {
  if(bitArrays[0]){
   if (bitArrays[0].length){
   const length = bitArrays[0].length;
   const result = new Uint8Array(length); // Fast, typed array
-console.log("BAL",bitArrays.length,"BA[0]L",bitArrays[0].length)
   for (let i = 0; i < length; i++) {
     for (let arr of bitArrays) {
       if (arr[i] && England[i]) {

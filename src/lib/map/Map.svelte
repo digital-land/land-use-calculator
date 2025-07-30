@@ -131,7 +131,6 @@
     geoTiffHeight: number;
     bbox: [];
   } = $props();
-  $inspect({ geoTiffWidth });
 
   let styleLookup = {
     "Carto-light":
@@ -141,32 +140,11 @@
   };
   let style = $derived(styleLookup[styleSheet] ?? styleSheet);
 
-  // let breakCount = $derived(
-  //   breaksType == "custom" ? customBreaks.length : numberOfBreaks,
-  // );
-  // $inspect(breakCount);
-
-  // let mapData = $derived(data?.filter((d) => d["year"] == year)[0]?.data);
-
-  // let filteredMapData = $derived(
-  //   mapData?.map((el) => ({
-  //     areaCode: el.areaCode,
-  //     areaName: el.areaName,
-  //     metric: +el.data[metric],
-  //   })),
-  // );
-
   const geojsonData: FeatureCollection = $derived(
     topojson.feature(fullTopo, fullTopo.objects[geoType])
   );
 
   let filteredGeoJsonData = $derived(filterGeo(geojsonData, year));
-
-  // let fillColors: string[] = $derived(
-  //   setCustomPallet == true
-  //     ? customPallet
-  //     : colorbrewer[colorPalette][breakCount],
-  // );
 
   let borderColor = "#003300";
 
@@ -181,109 +159,16 @@
       : []
   );
 
-  // let colors = $derived(fillColors.map((d) => contrastingColor(d)));
   $effect(() => {
-    //Things can get out of sync when changing source
-    //this section makes sure that the geojson layers end up below the text layers
-    // let geoJsonLayerIds = map
-    //   ?.getStyle()
-    //   ?.layers.filter((layer) => {
-    //     return layer.source == "areas";
-    //   })
-    //   .map((d) => d.id);
-    // const labelLayerId = map
-    //   ?.getStyle()
-    //   ?.layers.find(
-    //     (layer) => layer.type === "symbol" && layer["source-layer"] === "place",
-    //   )?.id;
-    // if (geoJsonLayerIds && labelLayerId) {
-    //   for (let layer of geoJsonLayerIds) {
-    //     map?.moveLayer(layer, labelLayerId);
-    //   }
-    // }
-
-    // for (let layer of textLayers) {
-    //   //Hard coded to first color for testing
-    //   map?.setPaintProperty(layer.id, "text-color", colors[0].textColor);
-    //   map?.setPaintProperty(
-    //     layer.id,
-    //     "text-halo-color",
-    //     colors[0].textOutlineColor,
-    //   );
-    // }
 
     if (cooperativeGestures) {
       map?.cooperativeGestures.enable();
     } else {
       map?.cooperativeGestures.disable();
     }
-
-    // map?.setMaxBounds(bounds);
   });
 
-  // let vals = $derived(
-  //   filteredMapData?.map((d) => d.metric).sort((a, b) => a - b),
-  // );
-
-  // let breaks = $derived(
-  //   breaksType == "jenks"
-  //     ? jenksBreaks(vals, breakCount)
-  //     : breaksType == "quantile"
-  //       ? quantileBreaks(vals, breakCount)
-  //       : customBreaks,
-  // );
-
-  // let dataWithColor = $derived(
-  //   filteredMapData.map((d) => {
-  //     return {
-  //       ...d,
-  //       color: getColor(d.metric, breaks, fillColors),
-  //     };
-  //   }),
-  // );
-
-  // let merged = $derived(joinData(filteredGeoJsonData, dataWithColor));
-
-  // $inspect(merged);
-
-  // let hoveredArea = $state();
-  // let hoveredAreaData = $state();
-  // let currentMousePosition = $state();
-
-  // function convertToLngLatBounds(coords: LngLatBoundsLike): LngLatBoundsLike {
-  //   const bounds = new LngLatBounds(coords[0], coords[0]);
-
-  //   for (let i = 1; i < coords.length; i++) {
-  //     bounds.extend(coords[i]);
-  //   }
-
-  //   return bounds;
-  // }
-
-  // function zoomToArea(e) {
-  //   if (clickToZoom) {
-  //     let coordArray =
-  //       e.features[0].geometry.coordinates.length === 1
-  //         ? e.features[0].geometry.coordinates[0]
-  //         : //Do some extra processing to get the data in the right shape if the area has non-contiguous areas
-  //           e.features[0].geometry.coordinates.flat(2);
-
-  //     let minValues = [
-  //       Math.min(...coordArray.map((d) => +d[0])),
-  //       Math.max(...coordArray.map((d) => +d[0])),
-  //     ];
-
-  //     let maxValues = [
-  //       Math.min(...coordArray.map((d) => +d[1])),
-  //       Math.max(...coordArray.map((d) => +d[1])),
-  //     ];
-
-  //     map?.fitBounds([
-  //       [minValues[0], maxValues[0]],
-  //       [minValues[1], maxValues[1]],
-  //     ]);
-  //   }
-  // }
+  
   //When useInitialHash is true, even if hash is false, if the page is loaded with a location hash use that as the initial settings, rather than the values passed to the component
   const initialLocationHash = page.url.hash.replace("#", "").split("/");
   const useLocationHash = initialLocationHash.length >= 3 ? true : false;
@@ -300,12 +185,6 @@
       : zoom
     : zoom;
 
-  // let bounds = $derived(
-  //   setMaxBounds ? convertToLngLatBounds(maxBoundsCoords) : undefined,
-  // );
-
-  // let displayBounds = $derived(bounds.map((b) => b.toFixed(4)).join(", "));
-  // $inspect(displayBounds);
 </script>
 
 <div style="height: {mapHeight}px;">
@@ -350,45 +229,6 @@
       >
     </Control>
 
-    <!-- <GeoJSON id="areas" data={merged} promoteId="areanm">
-      <FillLayer
-        paint={{
-          //Get the color property of the area, or lightgrey if that's undefined
-          "fill-color": ["coalesce", ["get", "color"], "lightgrey"],
-          "fill-opacity": changeOpacityOnHover
-            ? hoverStateFilter(fillOpacity, hoverOpacity) //setting the fill-opacity based on whether the area is hovered
-            : fillOpacity,
-        }}
-        beforeLayerType="symbol"
-        manageHoverState
-        onclick={(e) => zoomToArea(e)}
-        onmousemove={(e) => {
-          hoveredArea = e.features[0].id;
-          hoveredAreaData = e.features[0].properties.metric;
-          currentMousePosition = e.event.point;
-        }}
-        onmouseleave={(e) => {
-          (hoveredArea = null), (hoveredAreaData = null);
-        }}
-      />
-      {#if showBorder}
-        <LineLayer
-          layout={{ "line-cap": "round", "line-join": "round" }}
-          paint={{
-            "line-color": hoverStateFilter(borderColor, "orange"), //setting the colour based on whether the area is hovered
-            "line-width": zoomTransition(3, 0, 12, maxBorderWidth), //setting the line-width based on the zoom level
-          }}
-          beforeLayerType="symbol"
-        />
-      {/if}
-    </GeoJSON> -->
-    <!-- <RasterTileSource tiles={tifLayer} tileSize={256}>
-    <RasterLayer
-      paint={{
-        'raster-opacity': 0.5,
-      }}
-    />
-  </RasterTileSource> -->
     {#if tooltip}
       <Tooltip
         {currentMousePosition}
