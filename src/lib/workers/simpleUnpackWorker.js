@@ -27,7 +27,8 @@ console.log('starting to unpack')
 
     const enrichedRasterLayers = await Promise.all(
       rasterLayers.map(async (layer) => {
-        const url = `${base}/data/ALL_LAYERS/${layer.filename}`;
+        // const url = `${base}/data/ALL_LAYERS/${layer.filename}`;
+        const url = `${base}/data/PUBLIC_LAYERS/${layer.filename}`;
         const response = await fetch(url);
         if (!response.ok) throw new Error(`Failed to load ${url}`);
 
