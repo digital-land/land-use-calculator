@@ -2,3 +2,4 @@ node_modules/
 .svelte-kit/
 .DS_Store
 ALL_LAYERS/
+docs/data/ALL_LAYERS/
