@@ -123,36 +123,44 @@
       );
       return {
         tier: section,
-        sections: [...new Set(thisSectionData?.map((d) => d.Category))]?.map(
-          (category, j) => {
-            return {
-              id: `categories${section.replaceAll(" ", "_")}-${j}`,
-              type: "checkboxes",
-              title: category,
-              ga4Section: "categories_filter",
-              ga4IndexSection: 1,
-              ga4IndexSectionCount: 2,
-              name: `categories${i}-${j}[]`,
-              legend: "",
-              openByDefault: false,
-              options: thisSectionData
-                .filter((d) => d.Category == category)
-                ?.map((layer) => {
-                  return {
-                    value: layer.filename,
-                    label: layer.Data_layer,
-                    exclusive: layer.Level == 2 ? true : false,
-                    checked: layer.initially_checked === "y" ? true : false,
-                  };
-                }),
-            };
-          }
-        ),
+        sections: [
+          ...new Set(
+            thisSectionData
+              ?.filter((d) => d.Level !== "1")
+              ?.map((d) => d.Category)
+          ),
+        ]?.map((category, j) => {
+          return {
+            id: `categories${section.replaceAll(" ", "_")}-${j}`,
+            type: "checkboxes",
+            title: category,
+            ga4Section: "categories_filter",
+            ga4IndexSection: 1,
+            ga4IndexSectionCount: 2,
+            name: `categories${i}-${j}[]`,
+            legend: "",
+            openByDefault: false,
+            options: thisSectionData
+              .filter((d) => d.Category == category)
+              ?.map((layer) => {
+                return {
+                  value: layer.filename,
+                  label: layer.Data_layer,
+                  exclusive: layer.Level == 2 ? true : false,
+                  checked: layer.initially_checked === "y" ? true : false,
+                  parentCheckBoxName: section.replaceAll(" ", "_") + ".tif",
+                  section: category,
+                };
+              }),
+          };
+        }),
+        allOption: thisSectionData?.map((d) => d.Level)?.includes("1"),
+
         // selectedValues: startingPosition, //If we want all selected initially
       };
     })
   );
-  // $inspect(filterSections);
+  $inspect(filterSections);
 
   let uniqueArray = $state([]);
   // let selectedRestrictionIndex = 0;
@@ -934,11 +942,10 @@
             : unpackSelectedLayers();
           // selected = formData.getAll("categories[]");
 
-          window.scroll({
-            top: 0,
-            left: 0,
+          document.getElementById("map").scrollIntoView({
             behavior: "smooth",
           });
+
           // Cancel server submission and process client-side
           cancel();
 
@@ -1003,7 +1010,7 @@
     {#if dataURL && bbox.length > 0}
       {console.log("Rendering the map!")}
 
-      <div class={["os-map-container", { done }]}>
+      <div id="map" class={["os-map-container", { done }]}>
         <OsMap {dataURL} {bbox} />
       </div>
     {:else}

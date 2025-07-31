@@ -80,6 +80,7 @@
   interface NestedSection {
     tier: string;
     sections: object;
+    allOption: boolean;
   }
 
   type Section =
@@ -108,8 +109,64 @@
     filterPanelExpanded?: boolean;
   }>();
 
-  let sections = $derived(sectionsData);
-  $inspect({ sections });
+  // let sections = $derived(sectionsData);
+  // $inspect({ sections });
+  let allSelectedCheckBoxes = $state();
+  allSelectedCheckBoxes = sectionsData.reduce((acc, d) => {
+    const thistier = d.tier;
+    acc[thistier] = d.allOption
+      ? [d.tier.replaceAll(" ", "_") + ".tif"]
+      : d.sections.flatMap((section) =>
+          section.options.filter((option) => option.checked).map((d) => d.value)
+        );
+    return acc;
+  }, {});
+
+  // let selectedValues = $state([]);
+  let tierSelections: Record<string, string[]> = $state({});
+  for (const tierGroup of sectionsData) {
+    const tierKey = tierGroup.tier;
+    if (!(tierKey in tierSelections)) {
+      const selected: string[] = [];
+      for (const section of tierGroup.sections) {
+        section.options.forEach((opt) => {
+          if (opt.checked) selected.push(opt.value);
+        });
+      }
+      tierSelections[tierKey] = selected;
+    }
+  }
+
+  $inspect({ tierSelections });
+  // $inspect({ allSelectedCheckBoxes });
+
+  let checkedLevel1s = $derived(
+    Object.fromEntries(
+      Object.entries(allSelectedCheckBoxes).map(([key, values]) => {
+        const expectedFileName = key.replaceAll(" ", "_") + ".tif";
+        const found = values.includes(expectedFileName);
+        return [key, found];
+      })
+    )
+  );
+  $inspect({ checkedLevel1s });
+
+  let level1Options = $derived(
+    Object.fromEntries(
+      Object.keys(checkedLevel1s).map((key) => [
+        key,
+        {
+          value: key.replaceAll(" ", "_") + ".tif",
+          label: "All " + key,
+          exclusive: true,
+          checked: checkedLevel1s[key],
+          parentCheckBoxName: key.replaceAll(" ", "_") + ".tif",
+          section: key,
+        },
+      ])
+    )
+  );
+  $inspect(level1Options);
   // Call $props.id() once at the top level
   const componentId = $props.id();
 
@@ -184,14 +241,29 @@
       role="region"
       aria-labelledby={filterButtonId}
     >
-      {#each sections as thisSection}
+      {#each sectionsData as thisSection}
         {@const section = thisSection.sections}
+
         <details class="app-c-filter-section-super">
           <summary class="app-c-filter-section__summary">
             <h2 class="app-c-filter-section__summary-heading super-heading">
               {thisSection.tier}
             </h2>
           </summary>
+          {#if thisSection.allOption}
+            <!-- <p>All option</p> -->
+            <!-- {#key level1Options} -->
+            <CheckBox
+              name={thisSection.tier}
+              legend={""}
+              legendSize="m"
+              isPageHeading={false}
+              options={[level1Options[thisSection.tier]]}
+              bind:selectedValues={tierSelections[thisSection.tier]}
+              small={true}
+            />
+            <!-- {/key} -->
+          {/if}
           {#each section as section}
             <details
               data-ga4-index={JSON.stringify({
@@ -297,6 +369,7 @@
                   {/each}
                 {:else if section.type === "checkboxes"}
                   {@const checkboxData = section}
+                  <!-- {console.log(allSelectedCheckBoxes[thisSection.tier])} -->
                   <div
                     id={`checkboxes-${checkboxData.id}`}
                     data-module="gem-checkboxes govuk-checkboxes"
@@ -308,7 +381,7 @@
                       legendSize="m"
                       isPageHeading={false}
                       options={checkboxData.options.map((opt) => ({ ...opt }))}
-                      selectedValues={checkboxData.selectedValues}
+                      bind:selectedValues={tierSelections[thisSection.tier]}
                       small={true}
                     />
                   </div>
@@ -329,7 +402,7 @@
             section: filterButtonText,
             action: "apply",
             index_section: 0,
-            index_section_count: sections.length,
+            index_section_count: sectionsData.length,
           })}
           data-disable-with={applyButtonText}
         />
