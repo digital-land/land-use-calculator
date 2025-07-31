@@ -11,6 +11,9 @@
       id: string;
       content: string | typeof SvelteComponent | Snippet;
     };
+    checked?: boolean;
+    parentCheckBoxName?: string;
+    section?: string;
   };
 
   // Component props
@@ -38,9 +41,17 @@
     selectedValues?: string[];
   }>();
 
-  options.forEach((option) =>
-    option.checked === true ? selectedValues.push(option.value) : ""
-  );
+  // options.forEach((option) =>
+  //   option.checked === true ? selectedValues.push(option.value) : ""
+  // );
+
+  selectedValues = [
+    ...new Set([
+      ...selectedValues,
+      ...options.filter((o) => o.checked).map((o) => o.value),
+    ]),
+  ];
+
   // Add support detection
   let isSupported = $state(false);
   // Check for browser support on mount
@@ -55,25 +66,49 @@
     isSupported && validate ? validate(selectedValues) : undefined
   );
 
-  // Modify toggleCheckbox to handle non-JS scenarios
   function toggleCheckbox(option: CheckboxOption) {
-    // If JS/modern features aren't supported, let the native checkbox behavior work
     if (!isSupported) return;
+    // console.log(option);
+    // Ensure section is defined
+    const section = option.section ?? "__unknown";
+    // console.log(section);
+    const sectionValues = options
+      .filter((op) => op.section === section)
+      .map((op) => op.value);
 
-    if (option.exclusive) {
-      selectedValues = selectedValues.includes(option.value)
-        ? []
-        : [option.value];
+    const isChecked = selectedValues.includes(option.value);
+
+    if (option.value === option.parentCheckBoxName) {
+      selectedValues = [option.value];
+    } else if (option.exclusive) {
+      // Toggle exclusive checkbox
+      selectedValues = isChecked
+        ? selectedValues.filter((v) => v !== option.value)
+        : // : [option.value]; // Clear all others
+          selectedValues
+            .filter((v) => !sectionValues.includes(v))
+            // Deselect top parent checkbox
+            .filter((v) => v !== option.parentCheckBoxName)
+            .concat(option.value);
     } else {
-      selectedValues = selectedValues.includes(option.value)
-        ? selectedValues.filter((v: string) => v !== option.value)
-        : [
-            ...selectedValues.filter(
-              (v: string) => !options.find((o) => o.value === v && o.exclusive)
-            ),
-            option.value,
-          ];
+      if (isChecked) {
+        // Uncheck regular option
+        selectedValues = selectedValues.filter((v) => v !== option.value);
+      } else {
+        selectedValues = selectedValues
+          // Remove exclusive "All" option if present
+          .filter((v) => {
+            const opt = options.find(
+              (o) => o.value === v && o.section === section
+            );
+            return !(opt && opt.exclusive);
+          })
+          // Deselect top parent checkbox
+          .filter((v) => v !== option.parentCheckBoxName)
+          .concat(option.value);
+      }
     }
+    // console.log(selectedValues);
   }
 </script>
 
