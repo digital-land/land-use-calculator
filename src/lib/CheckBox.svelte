@@ -27,7 +27,7 @@
     small = false,
     options = [],
     validate = undefined,
-    selectedValues = $bindable([]),
+    selectedValues = $bindable(),
   } = $props<{
     legend: string;
     hint?: string;

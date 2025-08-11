@@ -155,12 +155,16 @@
           };
         }),
         allOption: thisSectionData?.map((d) => d.Level)?.includes("1"),
+        allChecked:
+          thisSectionData?.find((d) => d.Level == 1)?.initially_checked === "y"
+            ? true
+            : false,
 
         // selectedValues: startingPosition, //If we want all selected initially
       };
     })
   );
-  $inspect(filterSections);
+  $inspect({ filterSections });
 
   let uniqueArray = $state([]);
   // let selectedRestrictionIndex = 0;
@@ -952,13 +956,15 @@
           // No server action needed
         }}
       >
-        <FilterPanel
-          sectionsData={filterSections}
-          resultsCount={""}
-          filterButtonText="Show filters"
-          applyButtonText="Apply filters"
-          ga4BaseEvent={{ event_name: "filter_items", type: "basic" }}
-        />
+        {#key filterSections}
+          <FilterPanel
+            sectionsData={filterSections}
+            resultsCount={""}
+            filterButtonText="Show filters"
+            applyButtonText="Apply filters"
+            ga4BaseEvent={{ event_name: "filter_items", type: "basic" }}
+          />
+        {/key}
       </form>
     {/if}
 
@@ -1050,47 +1056,51 @@
         <span class="areaHighlightText">pink</span>.
       </p>
       {#key tableData}
-        <Table
-          caption={""}
-          data={tableData.sort((a, b) => +b.unique - +a.unique)}
-          metaData={tableMetadata}
-          colourScale={"Off"}
-          bind:sortState
-          bind:selectedRestriction
-          bind:restrictionChanged
-          sortedColumn={"unique"}
-        />
-        <Button
-          buttonType="default"
-          textContent="Download data (.csv)"
-          onClickFunction={function () {
-            function jsonToCsv(items) {
-              const header = Object.keys(items[0]);
-              const headerString = header.join(",");
-              // handle null or undefined values here
-              const replacer = (key, value) => value ?? "";
-              const rowItems = items.map((row) =>
-                header
-                  .map((fieldName) => JSON.stringify(row[fieldName], replacer))
-                  .join(",")
-              );
-              // join header and body, and break into separate lines
-              const csv = [headerString, ...rowItems].join("\r\n");
-              return csv;
-            }
+        {#if tableData && tableMetadata}
+          <Table
+            caption={""}
+            data={tableData.sort((a, b) => +b.unique - +a.unique)}
+            metaData={tableMetadata}
+            colourScale={"Off"}
+            bind:sortState
+            bind:selectedRestriction
+            bind:restrictionChanged
+            sortedColumn={"unique"}
+          />
+          <Button
+            buttonType="default"
+            textContent="Download data (.csv)"
+            onClickFunction={function () {
+              function jsonToCsv(items) {
+                const header = Object.keys(items[0]);
+                const headerString = header.join(",");
+                // handle null or undefined values here
+                const replacer = (key, value) => value ?? "";
+                const rowItems = items.map((row) =>
+                  header
+                    .map((fieldName) =>
+                      JSON.stringify(row[fieldName], replacer)
+                    )
+                    .join(",")
+                );
+                // join header and body, and break into separate lines
+                const csv = [headerString, ...rowItems].join("\r\n");
+                return csv;
+              }
 
-            // const jsonStr = JSON.stringify(wrapped, null, 2);
-            const csvStr = jsonToCsv(tableData);
-            const blob = new Blob([csvStr], { type: "text/csv" });
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.download = "land-data.csv";
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(link.href);
-          }}
-        ></Button>
+              // const jsonStr = JSON.stringify(wrapped, null, 2);
+              const csvStr = jsonToCsv(tableData);
+              const blob = new Blob([csvStr], { type: "text/csv" });
+              const link = document.createElement("a");
+              link.href = URL.createObjectURL(blob);
+              link.download = "land-data.csv";
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              URL.revokeObjectURL(link.href);
+            }}
+          ></Button>
+        {/if}
       {/key}
     {:else}
       <p>Select some categories to view the data.</p>
