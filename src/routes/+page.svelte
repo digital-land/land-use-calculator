@@ -78,6 +78,7 @@
   // $inspect(blendedArray);
   let blendedArrayLength = $state(0);
   let selected = $state([]);
+  $inspect({ enrichedLayers });
   let tableData = $derived(
     //DERIVED 6
     // if (englandArea && blendedArrayLength) {
@@ -88,10 +89,11 @@
           ? enrichedLayers?.find((d) => d.filename == layer)?.area
           : "-",
         unique: occurrences && occurrences[i] ? occurrences[i] : "-",
+        subLayers: selectedSubLayers[layer],
       };
     })
   );
-
+  $inspect({ tableData });
   let tableMetadata = {
     name: {
       explainer: "Sort by restriction name",
@@ -109,6 +111,11 @@
         "Sort by hectares where this is the only barrier to development",
       label: "Uniquely this",
       shortLabel: "Uniquely this",
+    },
+    subLayers: {
+      explainer: "",
+      label: "",
+      shortLabel: "",
     },
   };
 
@@ -165,6 +172,25 @@
     })
   );
   $inspect({ filterSections });
+
+  let selectedSubLayers = $derived(
+    selected.reduce((acc, sel) => {
+      const key = sel;
+      const value = startingPosition
+        .filter(
+          (d) =>
+            (d.Tier == sel.replaceAll("_", " ").replace(".tif", "") ||
+              d.Category == sel.replaceAll("_", " ").replace(".tif", "")) &&
+            d.Data_layer !== "All data layers"
+        )
+        .map((d) => d.Data_layer);
+
+      acc[key] = value;
+      return acc;
+    }, {})
+  );
+
+  $inspect(selectedSubLayers, startingPosition);
 
   let uniqueArray = $state([]);
   // let selectedRestrictionIndex = 0;
@@ -486,209 +512,6 @@
       }
     };
   }
-
-  // function makeAndPaintCanvases() {
-  //   console.time("canvas");
-  //   done = false;
-
-  //   // Helper to make a canvas and get context
-  //   function createCanvas(w, h) {
-  //     const c = document.createElement("canvas");
-  //     c.width = w;
-  //     c.height = h;
-  //     return [c, c.getContext("2d")];
-  //   }
-
-  //   // === TOTAL LAYER ===
-  //   let [canvas, ctx] = createCanvas(width, height);
-  //   const imageData = ctx.createImageData(width, height);
-  //   const totalPixels = new Uint32Array(imageData.data.buffer);
-
-  //   for (let i = 0; i < blendedArray.length; i++) {
-  //     const value = blendedArray[i];
-  //     totalPixels[i] = value !== 0 ? TOTAL_ON_COLOR : TOTAL_OFF_COLOR;
-  //   }
-
-  //   ctx.putImageData(imageData, 0, 0);
-
-  //   dataURL = canvas.toDataURL("image/png");
-  //   canvas.width = 0;
-  //   canvas.height = 0;
-  //   canvas = null;
-  //   ctx = null;
-
-  //   // === UNIQUE + SELECTED AREA ===
-  //   if (selectedRestrictionIndex >= 0) {
-  //     let [canvasForUniques, ctxForUniques] = createCanvas(width, height);
-  //     const imageDataForUniques = ctxForUniques.createImageData(width, height);
-  //     const pixels = new Uint32Array(imageDataForUniques.data.buffer);
-
-  //     if (renderUnique) {
-  //       for (let i = 0; i < uniqueArray.length; i++) {
-  //         const valueUnique = uniqueArray[i];
-  //         pixels[i] = valueUnique === 1 ? UNIQUE_ON_COLOR : UNIQUE_OFF_COLOR;
-  //       }
-  //       ctxForUniques.putImageData(imageDataForUniques, 0, 0);
-
-  //       dataURLForUniques = canvasForUniques.toDataURL("image/png");
-  //       canvasForUniques.width = 0;
-  //       canvasForUniques.height = 0;
-  //       canvasForUniques = null;
-  //       ctxForUniques = null;
-  //     }
-
-  //     let [canvasForSelectedArea, ctxForSelectedArea] = createCanvas(
-  //       width,
-  //       height
-  //     );
-  //     const imageDataForSelectedArea = ctxForSelectedArea.createImageData(
-  //       width,
-  //       height
-  //     );
-  //     const areaPixels = new Uint32Array(imageDataForSelectedArea.data.buffer);
-  //     const currentBitArray = currentBitArrays[selectedRestrictionIndex];
-
-  //     for (let i = 0; i < currentBitArray.length; i++) {
-  //       const valueSelectedArea = renderUnique ? currentBitArray[i] : 0;
-  //       areaPixels[i] =
-  //         valueSelectedArea !== 0 ? AREA_ON_COLOR : AREA_OFF_COLOR;
-  //     }
-  //     if (renderUnique) {
-  //       ctxForSelectedArea.putImageData(imageDataForSelectedArea, 0, 0);
-
-  //       dataURLForSelectedArea = canvasForSelectedArea.toDataURL("image/png");
-
-  //       canvasForSelectedArea.width = 0;
-  //       canvasForSelectedArea.height = 0;
-  //       canvasForSelectedArea = null;
-  //       ctxForSelectedArea = null;
-  //     }
-  //   } else {
-  //     dataURLForUniques = null;
-  //     dataURLForSelectedArea = null;
-  //   }
-
-  //   done = true;
-
-  //   console.timeEnd("canvas");
-  // }
-
-  // === Reusable resources (persistent between calls) ===
-  // const canvasPool = {
-  //   total: null,
-  //   unique: null,
-  //   selected: null,
-  // };
-
-  // const ctxPool = {
-  //   total: null,
-  //   unique: null,
-  //   selected: null,
-  // };
-
-  // const imageDataPool = {
-  //   total: null,
-  //   unique: null,
-  //   selected: null,
-  // };
-
-  // const pixelBufferPool = {
-  //   total: null,
-  //   unique: null,
-  //   selected: null,
-  // };
-
-  // === Setup function (run once) ===
-  // function setupReusableCanvas(name, width, height) {
-  //   if (!canvasPool[name]) {
-  //     const canvas = document.createElement("canvas");
-  //     canvas.width = width;
-  //     canvas.height = height;
-  //     const ctx = canvas.getContext("2d");
-
-  //     const imageData = ctx.createImageData(width, height);
-  //     const pixels = new Uint32Array(imageData.data.buffer);
-
-  //     canvasPool[name] = canvas;
-  //     ctxPool[name] = ctx;
-  //     imageDataPool[name] = imageData;
-  //     pixelBufferPool[name] = pixels;
-  //   }
-  // }
-
-  // === Main rendering function ===
-  // function makeAndPaintCanvases() {
-  //   console.time("canvas");
-  //   done = false;
-
-  //   // Ensure all reusable resources are initialized
-  //   setupReusableCanvas("total", width, height);
-  //   if (selectedRestrictionIndex >= 0) {
-  //     setupReusableCanvas("unique", width, height);
-  //     setupReusableCanvas("selected", width, height);
-  //   }
-
-  //   // === TOTAL LAYER ===
-  //   const canvas = canvasPool.total;
-  //   const ctx = ctxPool.total;
-  //   const imageData = imageDataPool.total;
-  //   const totalPixels = pixelBufferPool.total;
-
-  //   for (let i = 0; i < blendedArray.length; i++) {
-  //     const value = blendedArray[i];
-  //     totalPixels[i] = value !== 0 ? TOTAL_ON_COLOR : TOTAL_OFF_COLOR;
-  //   }
-
-  //   ctx.putImageData(imageData, 0, 0);
-  //   canvas.toBlob((blob) => {
-  //     dataURL = URL.createObjectURL(blob);
-  //   });
-
-  //   // === UNIQUE + SELECTED AREA ===
-  //   if (selectedRestrictionIndex >= 0) {
-  //     if (renderUnique) {
-  //       const ctxU = ctxPool.unique;
-  //       const imageDataU = imageDataPool.unique;
-  //       const pixelsU = pixelBufferPool.unique;
-
-  //       for (let i = 0; i < uniqueArray.length; i++) {
-  //         const valueUnique = uniqueArray[i];
-  //         pixelsU[i] = valueUnique === 1 ? UNIQUE_ON_COLOR : UNIQUE_OFF_COLOR;
-  //       }
-
-  //       ctxU.putImageData(imageDataU, 0, 0);
-  //       canvasPool.unique.toBlob((blob) => {
-  //         dataURLForUniques = URL.createObjectURL(blob);
-  //       });
-  //       // dataURLForUniques = canvasPool.unique.toDataURL("image/png");
-  //     }
-
-  //     const ctxA = ctxPool.selected;
-  //     const imageDataA = imageDataPool.selected;
-  //     const areaPixels = pixelBufferPool.selected;
-  //     const currentBitArray = currentBitArrays[selectedRestrictionIndex];
-
-  //     for (let i = 0; i < currentBitArray.length; i++) {
-  //       const valueSelectedArea = renderUnique ? currentBitArray[i] : 0;
-  //       areaPixels[i] =
-  //         valueSelectedArea !== 0 ? AREA_ON_COLOR : AREA_OFF_COLOR;
-  //     }
-
-  //     if (renderUnique) {
-  //       ctxA.putImageData(imageDataA, 0, 0);
-  //       canvasPool.selected.toBlob((blob) => {
-  //         dataURLForUniques = URL.createObjectURL(blob);
-  //       });
-  //       // dataURLForSelectedArea = canvasPool.selected.toDataURL("image/png");
-  //     }
-  //   } else {
-  //     dataURLForUniques = null;
-  //     dataURLForSelectedArea = null;
-  //   }
-
-  //   done = true;
-  //   console.timeEnd("canvas");
-  // }
 
   function makeAndPaintCombinedCanvas() {
     console.time("canvas-combined");

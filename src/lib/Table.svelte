@@ -37,7 +37,9 @@
       isUnique: keyIsUnique,
       dataType: columnDataType,
     };
-    columns.push(columnObject);
+    if (column !== "subLayers") {
+      columns.push(columnObject);
+    }
   }
 
   const metrics = columns
@@ -207,7 +209,13 @@
                   >
                 {/if}
               {:else}
-                <td class="govuk-table__cell">{row[column.key]}</td>
+                <td class="govuk-table__cell"
+                  >{row[column.key]}
+                  {#if row.subLayers.length > 0}
+                    <br />
+                    <span class="subLayers">(made up of {row.subLayers})</span>
+                  {/if}
+                </td>
               {/if}
             {/each}
           </tr>
@@ -274,6 +282,12 @@
 
   tr:not(.selected) td:not(:nth-child(1)) {
     background-color: whitesmoke;
+  }
+
+  .subLayers {
+    font-style: italic;
+    color: #707170;
+    font-size: small;
   }
 
   :global([aria-sort="ascending"].govuk-table__header .top-triangle) {
