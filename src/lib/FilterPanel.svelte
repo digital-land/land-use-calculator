@@ -114,11 +114,14 @@
   let allSelectedCheckBoxes = $state();
   allSelectedCheckBoxes = sectionsData.reduce((acc, d) => {
     const thistier = d.tier;
-    acc[thistier] = d.allOption
-      ? [d.tier.replaceAll(" ", "_") + ".tif"]
-      : d.sections.flatMap((section) =>
-          section.options.filter((option) => option.checked).map((d) => d.value)
-        );
+    acc[thistier] =
+      d.allOption && d.allChecked
+        ? [d.tier.replaceAll(" ", "_") + ".tif"]
+        : d.sections.flatMap((section) =>
+            section.options
+              .filter((option) => option.checked)
+              .map((d) => d.value)
+          );
     return acc;
   }, {});
 
