@@ -58,11 +58,11 @@
       if (typeof localCopyOfData[0][sortState["column"]] === "number") {
         if (sortState.order === "ascending") {
           localCopyOfData.sort(
-            (a, b) => a[sortState.column] - b[sortState.column]
+            (a, b) => +a[sortState.column] - +b[sortState.column]
           );
         } else {
           localCopyOfData.sort(
-            (a, b) => b[sortState.column] - a[sortState.column]
+            (a, b) => +b[sortState.column] - +a[sortState.column]
           );
         }
       }
