@@ -20,6 +20,27 @@
   import JSZip from "jszip";
 
   const mobile = new MediaQuery("max-width: 600px");
+  // let pageLayout = $state("grid-template-columns: 23% 40% 37%");
+  let showFilters = $state(true);
+  let mapSize = $state();
+  // $inspect(mapSize);
+  let containerLayout = $derived(
+    mobile.current
+      ? ""
+      : showFilters
+        ? // ? "grid-template-columns: 23% 40% 37%;"
+          `grid-template-columns: 23% 77%;`
+        : `grid-template-columns: 100%;`
+  );
+  let pageLayout = $derived(
+    mobile.current
+      ? ""
+      : // showFilters
+        //   ? // ? "grid-template-columns: 23% 40% 37%;"
+        //     `grid-template-columns: 23% ${0.77 * mapSize}% ${0.77 * (100 - mapSize)}%;`
+        `grid-template-columns: ${mapSize}% ${100 - mapSize}%;`
+  );
+
   let done = $state(false);
   $inspect({ done });
   let ones;
@@ -88,6 +109,7 @@
   // $inspect(blendedArray);
   let blendedArrayLength = $state(0);
   let selected = $state([]);
+  $inspect({ selected });
   // $inspect({ enrichedLayers });
   let tableData = $derived(
     //DERIVED 6
@@ -181,7 +203,7 @@
       };
     })
   );
-  // $inspect({ filterSections });
+  $inspect({ filterSections });
 
   let selectedSubLayers = $derived(
     selected?.reduce((acc, sel) => {
@@ -740,7 +762,16 @@
           ? unpackZippedLayers()
           : unpackSelectedLayers()}
     />
+    <Button
+      buttonType="default"
+      textContent={(showFilters ? "Hide" : "Show") + " filters"}
+      onClickFunction={() => {
+        showFilters = !showFilters;
+        // pageLayout = "grid-template-columns: 0% 50% 50%";
+      }}
+    />
   </div>
+
   <div>
     <div class="header-right">
       <Details
@@ -761,11 +792,17 @@
         {/if} -->
       </p>
     {/if}
-    {#if policyLensArea}
+    {#if policyLensArea && policyLens !== "England"}
       <p>
         The total area in England within {policyLens} is {policyLensArea.toLocaleString()}
         ha.
       </p>
+      <div class="stacked-bar">
+        <div
+          class="stacked-bar-inner"
+          style="width: {(policyLensArea / 13046002) * 100}%"
+        ></div>
+      </div>
     {/if}
   </div>
 </div>
@@ -781,8 +818,8 @@
   />
 {/snippet}
 
-<div class="container">
-  <div class="output">
+<div class="container" style={containerLayout}>
+  <div class="output" style={showFilters ? "" : "display: none"}>
     <!-- <div
       style="
     color: white;
@@ -831,29 +868,60 @@
             ga4BaseEvent={{ event_name: "filter_items", type: "basic" }}
           />
         {/key}
+        <Button
+          buttonType="secondary"
+          textContent="Clear filters"
+          onClickFunction={() => {
+            selected = [];
+            dataURL = null;
+            startingPosition.forEach((d) => (d.initially_checked = false));
+          }}
+        />
       </form>
     {/if}
   </div>
-  <div>
-    {#if dataURL && bbox.length > 0}
-      <!-- {console.log("Rendering the map!")} -->
 
-      <div id="map" class={["os-map-container", { done }]}>
-        <OsMap {dataURL} {bbox} />
+  <div class="map-and-table" style={pageLayout}>
+    {#if !mobile.current}
+      <div class="slider">
+        <input
+          type="range"
+          min="0"
+          max="100"
+          id="size-slider"
+          name="size-slider"
+          bind:value={mapSize}
+          style="width: 100%; margin-left: 10px"
+          title="Resize the map and table"
+        />
       </div>
-    {:else}
-      <div>Preparing the map...</div>
     {/if}
-  </div>
-  <div class="table">
-    {#if tableData?.length > 0}
-      <p>
-        The total area covered by the selected categories is shown in <span
-          class="totalHighlightText">grey</span
-        >
-        on the map.
+    <div class="map">
+      {#if dataURL && bbox.length > 0}
+        <!-- {console.log("Rendering the map!")} -->
+
+        <div id="map" class={["os-map-container", { done }]}>
+          <OsMap {dataURL} {bbox} />
+        </div>
+      {:else if { bbox }}
+        <div id="map"></div>
+      {:else}
+        <div>Preparing the map...</div>
+      {/if}
+    </div>
+    <div class="table">
+      {#if policyLens !== "England"}
+        <h2>Within {policyLens}</h2>
+      {/if}
+      {#if tableData?.length > 0}
+        <p>
+          The total area covered by the selected categories is shown in <span
+            class="totalHighlightText">grey</span
+          >
+          on the map.
+        </p>
         {#if blendedArrayLength > 0}
-          That's {blendedArrayLength.toLocaleString()} ha with the current selections,
+          <!-- That's {blendedArrayLength.toLocaleString()} ha with the current selections,
           or about {((blendedArrayLength / 13046002) * 100).toFixed(0)}% of
           England, which means that {(
             13046002 - blendedArrayLength
@@ -861,72 +929,85 @@
             ((13046002 - blendedArrayLength) / 13046002) *
             100
           ).toFixed(0)}%) of England is not in the area covered by the current
-          selections.
+          selections. -->
+          <p>
+            That's {blendedArrayLength.toLocaleString()} ha with the current selections,
+            or about {((blendedArrayLength / policyLensArea) * 100).toFixed(0)}%
+            of
+            {policyLens}, which means that {(
+              policyLensArea - blendedArrayLength
+            ).toLocaleString()} ha ({(
+              ((policyLensArea - blendedArrayLength) / policyLensArea) *
+              100
+            ).toFixed(0)}%) of {policyLens} is not in the area covered by the current
+            selections.
+          </p>
         {/if}
-      </p>
-      <p>
-        You can change the categories using the options {mobile.current
-          ? "above."
-          : "on the left."}
-      </p>
-      <p>
-        Select a row in the table below to see areas that are covered by this
-        category and no others, highlighted in <span class="uniqueHighlightText"
-          >red</span
-        >
-        on the map, with the total area in this category shown in
-        <span class="areaHighlightText">pink</span>.
-      </p>
-      {#key tableData}
-        {#if tableData && tableMetadata}
-          <Table
-            caption={""}
-            data={tableData.sort((a, b) => +b.unique - +a.unique)}
-            metaData={tableMetadata}
-            colourScale={"Off"}
-            bind:sortState
-            bind:selectedRestriction
-            bind:restrictionChanged
-            sortedColumn={"unique"}
-          />
-          <Button
-            buttonType="default"
-            textContent="Download data (.csv)"
-            onClickFunction={function () {
-              function jsonToCsv(items) {
-                const header = Object.keys(items[0]);
-                const headerString = header.join(",");
-                // handle null or undefined values here
-                const replacer = (key, value) => value ?? "";
-                const rowItems = items.map((row) =>
-                  header
-                    .map((fieldName) =>
-                      JSON.stringify(row[fieldName], replacer)
-                    )
-                    .join(",")
-                );
-                // join header and body, and break into separate lines
-                const csv = [headerString, ...rowItems].join("\r\n");
-                return csv;
-              }
 
-              // const jsonStr = JSON.stringify(wrapped, null, 2);
-              const csvStr = jsonToCsv(tableData);
-              const blob = new Blob([csvStr], { type: "text/csv" });
-              const link = document.createElement("a");
-              link.href = URL.createObjectURL(blob);
-              link.download = "land-data.csv";
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-              URL.revokeObjectURL(link.href);
-            }}
-          ></Button>
-        {/if}
-      {/key}
-    {:else}
-      <p>Select some categories to view the data.</p>
-    {/if}
+        <p>
+          You can change the categories using the options {mobile.current
+            ? "above."
+            : "on the left."}
+        </p>
+        <p>
+          Select a row in the table below to see areas that are covered by this
+          category and no others, highlighted in <span
+            class="uniqueHighlightText">red</span
+          >
+          on the map, with the total area in this category shown in
+          <span class="areaHighlightText">pink</span>.
+        </p>
+        {#key tableData}
+          {#if tableData && tableMetadata}
+            <Table
+              caption={""}
+              data={tableData.sort((a, b) => +b.unique - +a.unique)}
+              metaData={tableMetadata}
+              colourScale={"Off"}
+              bind:sortState
+              bind:selectedRestriction
+              bind:restrictionChanged
+              sortedColumn={"unique"}
+            />
+            <Button
+              buttonType="default"
+              textContent="Download data (.csv)"
+              onClickFunction={function () {
+                function jsonToCsv(items) {
+                  const header = Object.keys(items[0]);
+                  const headerString = header.join(",");
+                  // handle null or undefined values here
+                  const replacer = (key, value) => value ?? "";
+                  const rowItems = items.map((row) =>
+                    header
+                      .map((fieldName) =>
+                        JSON.stringify(row[fieldName], replacer)
+                      )
+                      .join(",")
+                  );
+                  // join header and body, and break into separate lines
+                  const csv = [headerString, ...rowItems].join("\r\n");
+                  return csv;
+                }
+
+                // const jsonStr = JSON.stringify(wrapped, null, 2);
+                const csvStr = jsonToCsv(tableData);
+                const blob = new Blob([csvStr], { type: "text/csv" });
+                const link = document.createElement("a");
+                link.href = URL.createObjectURL(blob);
+                link.download = "land-data.csv";
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(link.href);
+              }}
+            ></Button>
+          {/if}
+        {/key}
+      {:else}
+        <p>Select some categories to view the data.</p>
+      {/if}
+    </div>
   </div>
 </div>
 
@@ -959,10 +1040,15 @@
 
   .container {
     display: grid;
-    grid-template-columns: 23% 40% 37%;
+    /* grid-template-columns: 23% 40% 37%; */
     font-family: sans-serif;
     /* max-height: 85vh; */
     /* overflow: scroll; */
+    transition: all 500ms;
+  }
+
+  .map-and-table {
+    display: grid;
   }
 
   @media (max-width: 600px) {
@@ -970,6 +1056,11 @@
       display: flex;
       flex-direction: column;
       font-family: sans-serif;
+    }
+
+    .map-and-table {
+      display: flex;
+      flex-direction: column;
     }
   }
 
@@ -979,6 +1070,18 @@
     /* overflow-y: auto; */
     /* overflow-x: scroll; */
     /* width: 100%; */
+    transition: all 500ms;
+  }
+
+  .slider {
+    display: grid;
+    grid-column: 1 / span 2;
+    grid-row: 1;
+  }
+
+  .map {
+    grid-column: 1;
+    grid-row: 2;
   }
 
   :global(.output div.app-c-filter-panel) {
@@ -988,6 +1091,8 @@
   .table {
     padding: 0px 10px;
     /* max-height: 700px; */
+    grid-column: 2;
+    grid-row: 2;
   }
 
   .os-map-container {
@@ -1031,5 +1136,19 @@
 
   .os-map-container:not(.done)::after {
     content: "Recalculating...";
+  }
+
+  .stacked-bar {
+    width: 100px;
+    height: 1rem;
+    background-color: #99988f74;
+    border: 1px solid black;
+    /* border-radius: 0.5rem; */
+  }
+
+  .stacked-bar-inner {
+    /* width: 50px; */
+    height: 1rem;
+    background-color: #00625e;
   }
 </style>
