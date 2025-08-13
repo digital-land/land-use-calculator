@@ -5,7 +5,7 @@
   import { writable } from "svelte/store";
   import { MediaQuery } from "svelte/reactivity";
   import { browser } from "$app/environment";
-  import { CheckBox } from "@communitiesuk/svelte-component-library";
+  import { CheckBox, Select } from "@communitiesuk/svelte-component-library";
   import Map from "$lib/map/Map.svelte";
   import PhaseBanner from "$lib/PhaseBanner.svelte";
   import FilterPanel from "$lib/FilterPanel.svelte";
@@ -58,6 +58,16 @@
   const SELECTED_AREA_COLOR = 0x990000ff; // Pink
   const UNIQUE_AREA_COLOR = 0xff0000ff; // Red
 
+  let policyLensItems = [
+    { value: "England", text: "The whole of England" },
+    { value: "Greenbelt.tif", text: "Greenbelt" },
+    { value: "within_KM_of_BUA.tif", text: "Within 1km of built up areas" },
+  ];
+
+  let policyLens = $state("England");
+
+  let policyLensArea = $state();
+  $inspect(policyLensArea);
   // let rasterLayers = $state([]);
   // let lookup = [];
   let bitLayers = $state([]);
@@ -78,7 +88,7 @@
   // $inspect(blendedArray);
   let blendedArrayLength = $state(0);
   let selected = $state([]);
-  $inspect({ enrichedLayers });
+  // $inspect({ enrichedLayers });
   let tableData = $derived(
     //DERIVED 6
     // if (englandArea && blendedArrayLength) {
@@ -88,12 +98,12 @@
         area: enrichedLayers?.find((d) => d.filename == layer)?.area
           ? enrichedLayers?.find((d) => d.filename == layer)?.area
           : "-",
-        unique: occurrences && occurrences[i] ? occurrences[i] : "-",
+        unique: occurrences && occurrences[i] ? occurrences[i] : "",
         subLayers: selectedSubLayers[layer],
       };
     })
   );
-  $inspect({ tableData });
+  // $inspect({ tableData });
   let tableMetadata = {
     name: {
       explainer: "Sort by restriction name",
@@ -171,10 +181,10 @@
       };
     })
   );
-  $inspect({ filterSections });
+  // $inspect({ filterSections });
 
   let selectedSubLayers = $derived(
-    selected.reduce((acc, sel) => {
+    selected?.reduce((acc, sel) => {
       const key = sel;
       const value = startingPosition
         .filter(
@@ -190,7 +200,7 @@
     }, {})
   );
 
-  $inspect(selectedSubLayers, startingPosition);
+  // $inspect(selectedSubLayers, startingPosition);
 
   let uniqueArray = $state([]);
   // let selectedRestrictionIndex = 0;
@@ -342,9 +352,7 @@
 
   function prepareToUnpack() {
     message = "Processing layers...";
-    // let selectedPlusEngland = [...selected];
-    // // selectedPlusEngland.push("ENGLAND_100M.tif");
-    // console.log(selected, selectedPlusEngland);
+
     layersToUnpack = selected.map((d) =>
       parseMetadataCsv(metadataCsv).find((layer) => layer.filename === d)
     );
@@ -364,12 +372,13 @@
         return;
       }
 
-      console.log("Processed data:", e.data);
+      // console.log("Processed data:", e.data);
       bitLayers = e.data.rasterLayers.map((layer) => layer.data);
       enrichedLayers = e.data.rasterLayers;
       height = e.data.height;
       width = e.data.width;
       bbox = e.data.bbox;
+      policyLensArea = e.data.policyLensArea;
       message = `Processed ${enrichedLayers.length} layers.`;
 
       // England = enrichedLayers.find(
@@ -391,6 +400,7 @@
     simpleWorker.postMessage({
       layersToUnpack: safeLayersToUnpack,
       base,
+      policyLens,
     });
   }
 
@@ -398,8 +408,6 @@
     prepareToUnpack();
 
     dataURL = null;
-    // dataURLForUniques = null;
-    // dataURLForSelectedArea = null;
 
     const simpleZipWorker = new Worker(
       new URL("$lib/workers/simpleZipUnpackWorker.js", import.meta.url),
@@ -412,12 +420,13 @@
         return;
       }
 
-      console.log("Processed data:", e.data);
+      // console.log("Processed data:", e.data);
       bitLayers = e.data.rasterLayers.map((layer) => layer.data);
       enrichedLayers = e.data.rasterLayers;
       height = e.data.height;
       width = e.data.width;
       bbox = e.data.bbox;
+      policyLensArea = e.data.policyLensArea;
       message = `Processed ${enrichedLayers.length} layers.`;
 
       // England = enrichedLayers.find(
@@ -431,6 +440,18 @@
     layersToUnpack.forEach(
       (layer) => (layer.arrayBuffer = tiffArrayBuffersFromZip[layer.filename])
     );
+
+    let policyLensLayerToUnpack = parseMetadataCsv(metadataCsv).find(
+      (layer) => layer.filename === policyLens
+    );
+
+    let clonedPolicyLensLayerToUnpack;
+
+    if (policyLensLayerToUnpack) {
+      policyLensLayerToUnpack.arrayBuffer = tiffArrayBuffersFromZip[policyLens];
+      clonedPolicyLensLayerToUnpack = structuredClone(policyLensLayerToUnpack);
+      // console.log(policyLensLayerToUnpack, clonedPolicyLensLayerToUnpack);
+    }
 
     simpleZipWorker.onerror = (e) => {
       console.error("Worker error:", e);
@@ -450,8 +471,12 @@
     );
 
     simpleZipWorker.postMessage(
-      { layersToUnpack: clonedLayersToUnpack },
-      transferables
+      {
+        layersToUnpack: clonedLayersToUnpack,
+        policyLensLayerToUnpack: clonedPolicyLensLayerToUnpack ?? "England",
+      },
+      transferables,
+      clonedPolicyLensLayerToUnpack?.arrayBuffer ?? ""
     );
   }
 
@@ -470,15 +495,15 @@
 
     // Get the raw buffers
     const buffers = duplicateBitLayers.map((arr) => arr.buffer);
-    console.log({ active });
+    // console.log({ active });
     // Post to the worker (transferring buffers)
     blendWorker.postMessage(
       {
-        bitArrays: buffers, // ✅ send raw ArrayBuffers
+        bitArrays: buffers, // send raw ArrayBuffers
       },
-      buffers // ✅ transfer buffers (zero-copy)
+      buffers // transfer buffers (zero-copy)
     );
-    console.log({ duplicateBitLayers });
+    // console.log({ duplicateBitLayers });
     // Listen for messages
     blendWorker.onmessage = (e) => {
       if (e.data.progress !== undefined) {
@@ -486,7 +511,7 @@
         blendingProgress.set(e.data.progress);
       } else if (e.data.type === "done") {
         blendedArrayLength = e.data.activeCount;
-        blendedArray = new Uint8Array(e.data.result); // ✅ re-wrap transferred buffer
+        blendedArray = new Uint8Array(e.data.result); // re-wrap transferred buffer
         // occurrences = e.data.occurrences;
         blending = false;
         blendingProgress.set(100);
@@ -522,7 +547,6 @@
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext("2d");
-    // if (!canvasPool.combined) canvasPool.combined = canvas;
 
     // Create ImageData
     const imageData = ctx.createImageData(width, height);
@@ -698,11 +722,24 @@
 > -->
 <div class="header">
   <div>
-    <h1>MHCLG Land Investigator tool</h1>
+    <h1>MHCLG Land Stats tool</h1>
     <p>
-      Bringing together multiple land use, ownership, and infrastructure
-      datasets to provide statistical insight on each hectare of land in England
+      This tool brings together land datasets to provide statistical insight
+      into land supply in England. It is designed to show how physical
+      constraints, planning restrictions and land use trade-offs overlap and
+      impact the overall supply of land.
     </p>
+    <Select
+      id="policyLensInput"
+      name="policyLensInput"
+      items={policyLensItems}
+      bind:value={policyLens}
+      label={"I'm interested in"}
+      onchange={() =>
+        Object.keys(tiffArrayBuffersFromZip).length > 0
+          ? unpackZippedLayers()
+          : unpackSelectedLayers()}
+    />
   </div>
   <div>
     <div class="header-right">
@@ -722,6 +759,12 @@
         <!-- {#if blendedArrayLength > 0}
           {blendedArrayLength.toLocaleString()} ha is covered by the selected categories.
         {/if} -->
+      </p>
+    {/if}
+    {#if policyLensArea}
+      <p>
+        The total area in England within {policyLens} is {policyLensArea.toLocaleString()}
+        ha.
       </p>
     {/if}
   </div>
@@ -790,54 +833,10 @@
         {/key}
       </form>
     {/if}
-
-    <!-- {#if rasterLayers.length}
-      <p>
-        {LALookup[selectedArea - 1]?.LPA23NM ?? "England"} total:
-        {englandArea ? englandArea.toLocaleString() : "..."} ha.
-      </p>
-
-      <fieldset>
-        <legend>Layers to turn on/off:</legend>
-
-
-        {#each rasterLayers as layer, i}
-          {#if layer.filename !== "ENGLAND_100M.tif"}
-            <div>
-              <input
-                id={"checkbox-" + i}
-                name="checkbox"
-                type="checkbox"
-                value={layer.filename}
-              />
-
-              <label for={"checkbox-" + i}>
-                {layer.filename.replace(".tif", "").replaceAll("_", " ")}
-                : {layer.area?.toLocaleString() ?? 0} ha
-              </label>
-            </div>
-          {/if}
-        {/each}
-      </fieldset>
-      {#if $blendingProgress < 100}
-        <p>Blending... {$blendingProgress.toFixed(1)}%</p>
-        <progress max="100" value={$blendingProgress}></progress>
-      {:else}
-        <p>
-          <b
-            >Land outside selected categories:
-            {(
-              rasterLayers.find((e) => e.filename === "ENGLAND_100M.tif")
-                ?.area - blendedArrayLength
-            ).toLocaleString()} ha
-          </b>
-        </p>
-      {/if}
-    {/if} -->
   </div>
   <div>
     {#if dataURL && bbox.length > 0}
-      {console.log("Rendering the map!")}
+      <!-- {console.log("Rendering the map!")} -->
 
       <div id="map" class={["os-map-container", { done }]}>
         <OsMap {dataURL} {bbox} />
@@ -847,7 +846,7 @@
     {/if}
   </div>
   <div class="table">
-    {#if tableData.length > 0}
+    {#if tableData?.length > 0}
       <p>
         The total area covered by the selected categories is shown in <span
           class="totalHighlightText">grey</span
@@ -957,10 +956,6 @@
     display: grid;
     /* grid-template-columns: 50% 50%; */
   }
-
-  /* details {
-    margin-top: 16px;
-  } */
 
   .container {
     display: grid;

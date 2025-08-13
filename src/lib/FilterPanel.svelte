@@ -140,7 +140,7 @@
     }
   }
 
-  $inspect({ tierSelections });
+  // $inspect({ tierSelections });
   // $inspect({ allSelectedCheckBoxes });
 
   let checkedLevel1s = $derived(
@@ -152,7 +152,7 @@
       })
     )
   );
-  $inspect({ checkedLevel1s });
+  // $inspect({ checkedLevel1s });
 
   let level1Options = $derived(
     Object.fromEntries(
@@ -169,7 +169,7 @@
       ])
     )
   );
-  $inspect(level1Options);
+  // $inspect(level1Options);
   // Call $props.id() once at the top level
   const componentId = $props.id();
 
