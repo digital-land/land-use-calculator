@@ -763,7 +763,7 @@
           : unpackSelectedLayers()}
     />
     <Button
-      buttonType="default"
+      buttonType="secondary"
       textContent={(showFilters ? "Hide" : "Show") + " filters"}
       onClickFunction={() => {
         showFilters = !showFilters;
@@ -882,8 +882,8 @@
   </div>
 
   <div class="map-and-table" style={pageLayout}>
-    {#if !mobile.current}
-      <div class="slider">
+    <div class="slider">
+      {#if !mobile.current && dataURL}
         <input
           type="range"
           min="0"
@@ -894,8 +894,9 @@
           style="width: 100%; margin-left: 10px"
           title="Resize the map and table"
         />
-      </div>
-    {/if}
+      {/if}
+    </div>
+
     <div class="map">
       {#if dataURL && bbox.length > 0}
         <!-- {console.log("Rendering the map!")} -->
@@ -1049,6 +1050,7 @@
 
   .map-and-table {
     display: grid;
+    grid-template-rows: minmax(0, 20px) 1fr;
   }
 
   @media (max-width: 600px) {
@@ -1074,7 +1076,9 @@
   }
 
   .slider {
-    display: grid;
+    /* display: grid; */
+    /* grid-template-rows: minmax(0, 20px); */
+    /* max-height: 20px; */
     grid-column: 1 / span 2;
     grid-row: 1;
   }
