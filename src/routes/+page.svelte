@@ -80,9 +80,17 @@
   const UNIQUE_AREA_COLOR = 0xff0000ff; // Red
 
   let policyLensItems = [
-    { value: "England", text: "The whole of England" },
-    { value: "Greenbelt.tif", text: "Greenbelt" },
-    { value: "within_KM_of_BUA.tif", text: "Within 1km of built up areas" },
+    { value: "England", text: "The whole of England", sentenceText: "England" },
+    {
+      value: "Greenbelt.tif",
+      text: "Greenbelt land",
+      sentenceText: "greenbelt land",
+    },
+    {
+      value: "within_KM_of_BUA.tif",
+      text: "Land within 1km of built up areas",
+      sentenceText: "the land within 1km of built up areas",
+    },
   ];
 
   let policyLens = $state("England");
@@ -135,14 +143,14 @@
     area: {
       explainer:
         "Sort by the total area in England covered by this restriction",
-      label: "Area",
-      shortLabel: "Area",
+      label: "Area (ha)",
+      shortLabel: "Area (ha)",
     },
     unique: {
       explainer:
         "Sort by hectares where this is the only barrier to development",
-      label: "Uniquely this",
-      shortLabel: "Uniquely this",
+      label: "Uniquely this (ha)",
+      shortLabel: "Uniquely this (ha)",
     },
     subLayers: {
       explainer: "",
@@ -794,7 +802,9 @@
     {/if}
     {#if policyLensArea && policyLens !== "England"}
       <p>
-        The total area in England within {policyLens} is {policyLensArea.toLocaleString()}
+        The total area in England within {policyLensItems.find(
+          (d) => d.value == policyLens
+        ).sentenceText} is {policyLensArea.toLocaleString()}
         ha.
       </p>
       <div class="stacked-bar">
@@ -891,7 +901,6 @@
           id="size-slider"
           name="size-slider"
           bind:value={mapSize}
-          style="width: 100%; margin-left: 10px"
           title="Resize the map and table"
         />
       {/if}
@@ -912,7 +921,10 @@
     </div>
     <div class="table">
       {#if policyLens !== "England"}
-        <h2>Within {policyLens}</h2>
+        <h2>
+          Within {policyLensItems.find((d) => d.value == policyLens)
+            .sentenceText}
+        </h2>
       {/if}
       {#if tableData?.length > 0}
         <p>
@@ -932,16 +944,19 @@
           ).toFixed(0)}%) of England is not in the area covered by the current
           selections. -->
           <p>
-            That's {blendedArrayLength.toLocaleString()} ha with the current selections,
-            or about {((blendedArrayLength / policyLensArea) * 100).toFixed(0)}%
+            That's {blendedArrayLength.toLocaleString()} hectares with the current
+            selections, or about
+            <b>{((blendedArrayLength / policyLensArea) * 100).toFixed(0)}%</b>
             of
-            {policyLens}, which means that {(
+            {policyLensItems.find((d) => d.value == policyLens).sentenceText},
+            which means that {(
               policyLensArea - blendedArrayLength
-            ).toLocaleString()} ha ({(
+            ).toLocaleString()} hectares ({(
               ((policyLensArea - blendedArrayLength) / policyLensArea) *
               100
-            ).toFixed(0)}%) of {policyLens} is not in the area covered by the current
-            selections.
+            ).toFixed(0)}%) of {policyLensItems.find(
+              (d) => d.value == policyLens
+            ).sentenceText} is not in the area covered by the current selections.
           </p>
         {/if}
 
@@ -975,6 +990,12 @@
               textContent="Download data (.csv)"
               onClickFunction={function () {
                 function jsonToCsv(items) {
+                  const footer =
+                    "\r\n Notes: \r\n 1. All figures are in hectares. \r\n 2. This is an experimental product under development.";
+                  const caveat =
+                    "Figures relate to the area within " +
+                    policyLensItems.find((d) => d.value == policyLens)
+                      .sentenceText;
                   const header = Object.keys(items[0]);
                   const headerString = header.join(",");
                   // handle null or undefined values here
@@ -987,7 +1008,9 @@
                       .join(",")
                   );
                   // join header and body, and break into separate lines
-                  const csv = [headerString, ...rowItems].join("\r\n");
+                  const csv = [headerString, ...rowItems, footer, caveat].join(
+                    "\r\n"
+                  );
                   return csv;
                 }
 
@@ -1083,6 +1106,63 @@
     grid-row: 1;
   }
 
+  .slider input {
+    -webkit-appearance: none;
+    appearance: none;
+    width: calc(100% + 1rem);
+    /* margin-left: 10px; */
+    position: relative;
+    margin-left: -0.25rem;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    position: relative;
+    top: 300px;
+    margin-top: -12px; /* Centers the thumb */
+    margin-left: -0.5rem;
+    background-color: grey;
+    height: 2rem;
+    width: 1rem;
+    border-radius: 0.25rem;
+    z-index: 1;
+    /* cursor: pointer; */
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    background-color: grey;
+    height: 2rem;
+    width: 1rem;
+    border-radius: 0.25rem;
+    /* cursor: pointer; */
+    position: relative;
+    top: 300px;
+    margin-top: -12px;
+    margin-left: -1rem;
+    z-index: 1;
+  }
+
+  .slider input {
+    cursor: grab;
+  }
+
+  .slider input:active {
+    cursor: grabbing;
+  }
+
+  .slider input::-moz-range-track {
+    background: transparent;
+    border-color: transparent;
+    color: transparent;
+  }
+
+  .slider input::-webkit-slider-runnable-track {
+    background: transparent;
+    border-color: transparent;
+    color: transparent;
+  }
+
   .map {
     grid-column: 1;
     grid-row: 2;
@@ -1100,7 +1180,7 @@
   }
 
   .os-map-container {
-    height: calc(100vh - 250px);
+    height: calc(100vh - 150px);
   }
   :global(td.govuk-table__cell) {
     padding-right: 20px;
