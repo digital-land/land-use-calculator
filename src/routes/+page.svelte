@@ -74,7 +74,8 @@
   // const TOTAL_ON_COLOR = 0xff000000;
   // const TOTAL_OFF_COLOR = 0x00000000;
 
-  const OFF_COLOR = 0x00000000; // Transparent
+  const NO_DATA_COLOR = 0x00000000; // Transparent
+  const OFF_COLOR = 0x44ff00ff; // Pale pink
   const TOTAL_COLOR = 0x88000000; // Grey
   const SELECTED_AREA_COLOR = 0x990000ff; // Pink
   const UNIQUE_AREA_COLOR = 0xff0000ff; // Red
@@ -107,7 +108,9 @@
   // let englandLength = $derived(England?.length);
 
   let enrichedLayers = $state([]);
-
+  // $inspect(enrichedLayers);
+  let policyLensLayer = $state();
+  $inspect({ policyLensLayer });
   // let englandArea = $derived(
   //   enrichedLayers?.find((d) => d.filename == "ENGLAND_100M.tif")?.area
   // );
@@ -409,6 +412,7 @@
       width = e.data.width;
       bbox = e.data.bbox;
       policyLensArea = e.data.policyLensArea;
+      policyLensLayer = e.data.policyLensLayer;
       message = `Processed ${enrichedLayers.length} layers.`;
 
       // England = enrichedLayers.find(
@@ -457,6 +461,7 @@
       width = e.data.width;
       bbox = e.data.bbox;
       policyLensArea = e.data.policyLensArea;
+      policyLensLayer = e.data.policyLensLayer;
       message = `Processed ${enrichedLayers.length} layers.`;
 
       // England = enrichedLayers.find(
@@ -589,13 +594,16 @@
       : null;
 
     for (let i = 0; i < blendedArray.length; i++) {
+      const lensValue = policyLensLayer ? policyLensLayer[i] : 0;
       const blended = blendedArray[i]; // 0 or 1
       const area = hasSelection ? currentBitArray[i] : 0;
       const unique = hasSelection ? (uniqueArray[i] === 1 ? 1 : 0) : 0;
 
       let color;
 
-      if (blended === 0) {
+      if (blended === 0 && lensValue === 0) {
+        color = NO_DATA_COLOR;
+      } else if (blended === 0 && lensValue === 1) {
         color = OFF_COLOR;
       } else if (area && unique) {
         color = UNIQUE_AREA_COLOR;
@@ -610,7 +618,12 @@
 
     // Paint
     ctx.putImageData(imageData, 0, 0);
-    dataURL = canvas.toDataURL("image/png");
+    // dataURL = canvas.toDataURL("image/png");
+
+    //Note: no longer a dataURL with this method - worth changing the names of things if we keep this solution
+    canvas.toBlob((blob) => {
+      dataURL = URL.createObjectURL(blob);
+    });
 
     done = true;
     console.timeEnd("canvas-combined");
@@ -975,6 +988,60 @@
         </p>
         {#key tableData}
           {#if tableData && tableMetadata}
+            <div style="display: flex;">
+              {#each Object.entries(tableData).sort((a, b) => b[1].unique - a[1].unique) as data, i}
+                {console.log(
+                  100 - ((data[1].unique / policyLensArea) * 100).toFixed(0)
+                )}
+                <div
+                  style={"width: " +
+                    (data[1].unique / policyLensArea) * 100 +
+                    "%; background-color: " +
+                    (selectedRestriction == data[1]?.name
+                      ? "red"
+                      : // : [
+                        //     "#0000ff99",
+                        //     "#0000ff77",
+                        //     "#0000ff55",
+                        //     "#0000ff33",
+                        //     "#0000ff22",
+                        //   ][i]
+                        "#0000ff" +
+                        (100 -
+                          ((data[1].unique / policyLensArea) * 100).toFixed(
+                            0
+                          )))}
+                >
+                  <p>Just {data[1]?.name}</p>
+                </div>
+              {/each}
+              <div
+                style={"width: " +
+                  ((blendedArrayLength -
+                    tableData
+                      .map((d) => d?.unique)
+                      .reduce((acc, curr) => acc + curr, 0)) /
+                    policyLensArea) *
+                    100 +
+                  "%; background-color: lightgrey"}
+              >
+                {console.log(
+                  blendedArrayLength -
+                    tableData
+                      .map((d) => d?.unique)
+                      .reduce((acc, curr) => acc + curr, 0)
+                )}
+                <p>Multiple categories</p>
+              </div>
+              <div
+                style={"width: " +
+                  ((policyLensArea - blendedArrayLength) / policyLensArea) *
+                    100 +
+                  "%; background-color: #ff00ff44"}
+              >
+                <p>Not covered by the selected categories</p>
+              </div>
+            </div>
             <Table
               caption={""}
               data={tableData.sort((a, b) => +b.unique - +a.unique)}
