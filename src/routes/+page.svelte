@@ -5,9 +5,14 @@
   import { writable } from "svelte/store";
   import { MediaQuery } from "svelte/reactivity";
   import { browser } from "$app/environment";
-  import { CheckBox, Select } from "@communitiesuk/svelte-component-library";
+  import {
+    CheckBox,
+    Select,
+    Tooltip,
+    ServiceNavigation,
+  } from "@communitiesuk/svelte-component-library";
   import Map from "$lib/map/Map.svelte";
-  import PhaseBanner from "$lib/PhaseBanner.svelte";
+
   import FilterPanel from "$lib/FilterPanel.svelte";
   import Button from "$lib/Button.svelte";
   import Details from "$lib/Details.svelte";
@@ -21,6 +26,8 @@
 
   const mobile = new MediaQuery("max-width: 600px");
   // let pageLayout = $state("grid-template-columns: 23% 40% 37%");
+  let currentMousePosition = $state();
+  let hoveredArea = $state();
   let showFilters = $state(true);
   let mapSize = $state();
   // $inspect(mapSize);
@@ -84,12 +91,12 @@
     { value: "England", text: "The whole of England", sentenceText: "England" },
     {
       value: "Greenbelt.tif",
-      text: "Greenbelt land",
+      text: "Only greenbelt land",
       sentenceText: "greenbelt land",
     },
     {
       value: "within_KM_of_BUA.tif",
-      text: "Land within 1km of built up areas",
+      text: "Only land within 1km of built up areas",
       sentenceText: "the land within 1km of built up areas",
     },
   ];
@@ -739,13 +746,6 @@
   ></script>
 </svelte:head>
 
-<PhaseBanner
-  tagText={"Alpha"}
-  bannerText={"THIS IS AN EXPERIMENTAL PRODUCT UNDER DEVELOPMENT. "}
-  linkText={"Share feedback (opens in a new tab)"}
-  linkHref={"https://mhclg.sharepoint.com/:x:/s/HousingDiversification/ETTZ0xrT3yZMpeaX1GkOy1oBBqdv1ZFXJHiZK47qCUQMhw?e=FggJfN"}
-  linkTarget={"_blank"}
-/>
 <!-- <h2>
   The total area of land in ... is
   {englandArea ? englandArea.toLocaleString() : "..."} ha. Removing areas with the
@@ -763,70 +763,79 @@
     {/each}
   </select></label
 > -->
-<div class="header">
+<div class="header-section">
   <div>
-    <h1>MHCLG Land Stats tool</h1>
-    <p>
-      This tool brings together land datasets to provide statistical insight
-      into land supply in England. It is designed to show how physical
-      constraints, planning restrictions and land use trade-offs overlap and
-      impact the overall supply of land.
-    </p>
-    <Select
-      id="policyLensInput"
-      name="policyLensInput"
-      items={policyLensItems}
-      bind:value={policyLens}
-      label={"I'm interested in"}
-      onchange={() =>
-        Object.keys(tiffArrayBuffersFromZip).length > 0
-          ? unpackZippedLayers()
-          : unpackSelectedLayers()}
-    />
-    <Button
-      buttonType="secondary"
-      textContent={(showFilters ? "Hide" : "Show") + " filters"}
-      onClickFunction={() => {
-        showFilters = !showFilters;
-        // pageLayout = "grid-template-columns: 0% 50% 50%";
-      }}
-    />
+    <!-- <h1>MHCLG Land Stats tool</h1> -->
+
+    <div class="header-left">
+      <div class="firstSelections">
+        <Select
+          id="policyLensInput"
+          name="policyLensInput"
+          items={policyLensItems}
+          bind:value={policyLens}
+          label={"Show"}
+          onchange={() =>
+            Object.keys(tiffArrayBuffersFromZip).length > 0
+              ? unpackZippedLayers()
+              : unpackSelectedLayers()}
+        />
+        <Details
+          summaryText={"Use a local file (optional)"}
+          detailedText={detailsContent}
+        />
+      </div>
+      <div class="summaryStats">
+        {#if blending && $blendingProgress < 100}
+          <p>Blending... {$blendingProgress.toFixed(1)}%</p>
+          <progress max="100" value={$blendingProgress}></progress>
+        {:else if $blendingProgress == 100}
+          <p>
+            The total area in England is 13,046,002 ha.
+            <!-- {#if blendedArrayLength > 0}
+          {blendedArrayLength.toLocaleString()} ha is covered by the selected categories.
+        {/if} -->
+          </p>
+        {/if}
+        {#if policyLensArea && policyLens !== "England"}
+          <p>
+            The total area in England within {policyLensItems.find(
+              (d) => d.value == policyLens
+            ).sentenceText} is {policyLensArea.toLocaleString()}
+            ha.
+          </p>
+          <div class="stacked-bar">
+            <div
+              class="stacked-bar-inner"
+              style="width: {(policyLensArea / 13046002) * 100}%"
+            ></div>
+          </div>
+        {/if}
+      </div>
+    </div>
+
+    <div>
+      <Button
+        buttonType="secondary"
+        textContent={(showFilters ? "Hide" : "Show") + " filters"}
+        onClickFunction={() => {
+          showFilters = !showFilters;
+          // pageLayout = "grid-template-columns: 0% 50% 50%";
+        }}
+      />
+    </div>
   </div>
 
   <div>
     <div class="header-right">
-      <Details
-        summaryText={"Use a local file (optional)"}
-        detailedText={detailsContent}
-      />
-
       <!-- <a href="./" target="_blank">Send feedback (opens in a new tab)</a> -->
+      <p>
+        This tool brings together land datasets to provide statistical insight
+        into land supply in England. It is designed to show how physical
+        constraints, planning restrictions and land use trade-offs overlap and
+        impact the overall supply of land.
+      </p>
     </div>
-    {#if blending && $blendingProgress < 100}
-      <p>Blending... {$blendingProgress.toFixed(1)}%</p>
-      <progress max="100" value={$blendingProgress}></progress>
-    {:else if $blendingProgress == 100}
-      <p>
-        The total area in England is 13,046,002 ha.
-        <!-- {#if blendedArrayLength > 0}
-          {blendedArrayLength.toLocaleString()} ha is covered by the selected categories.
-        {/if} -->
-      </p>
-    {/if}
-    {#if policyLensArea && policyLens !== "England"}
-      <p>
-        The total area in England within {policyLensItems.find(
-          (d) => d.value == policyLens
-        ).sentenceText} is {policyLensArea.toLocaleString()}
-        ha.
-      </p>
-      <div class="stacked-bar">
-        <div
-          class="stacked-bar-inner"
-          style="width: {(policyLensArea / 13046002) * 100}%"
-        ></div>
-      </div>
-    {/if}
   </div>
 </div>
 
@@ -889,17 +898,18 @@
             filterButtonText="Show filters"
             applyButtonText="Apply filters"
             ga4BaseEvent={{ event_name: "filter_items", type: "basic" }}
-          />
+          >
+            <Button
+              buttonType="link"
+              textContent="Clear filters"
+              onClickFunction={() => {
+                selected = [];
+                dataURL = null;
+                startingPosition.forEach((d) => (d.initially_checked = false));
+              }}
+            />
+          </FilterPanel>
         {/key}
-        <Button
-          buttonType="secondary"
-          textContent="Clear filters"
-          onClickFunction={() => {
-            selected = [];
-            dataURL = null;
-            startingPosition.forEach((d) => (d.initially_checked = false));
-          }}
-        />
       </form>
     {/if}
   </div>
@@ -971,6 +981,85 @@
               (d) => d.value == policyLens
             ).sentenceText} is not in the area covered by the current selections.
           </p>
+          <!-- Un-snippet this if we want it back -->
+          {#snippet stackedBar()}
+            {#if tableData}
+              <div style="display: flex; height: 2rem">
+                {#each Object.entries(tableData).sort((a, b) => b[1].unique - a[1].unique) as data, i}
+                  {console.log(
+                    100 - ((data[1].unique / policyLensArea) * 100).toFixed(0)
+                  )}
+                  <div
+                    style={"width: " +
+                      (data[1].unique / policyLensArea) * 100 +
+                      "%; border: 1px solid black; background-color: " +
+                      (selectedRestriction == data[1]?.name
+                        ? "red"
+                        : // : [
+                          //     "#0000ff99",
+                          //     "#0000ff77",
+                          //     "#0000ff55",
+                          //     "#0000ff33",
+                          //     "#0000ff22",
+                          //   ][i]
+                          "#888888" +
+                          (100 -
+                            ((data[1].unique / policyLensArea) * 100).toFixed(
+                              0
+                            )))}
+                    onmousemove={(e) => {
+                      currentMousePosition = { x: e.x, y: e.y };
+                      hoveredArea = data[1]?.name;
+                      console.log(e);
+                    }}
+                    onmouseout={() => {
+                      currentMousePosition = null;
+                      hoveredArea = null;
+                    }}
+                  >
+                    {#if currentMousePosition}
+                      <Tooltip
+                        {currentMousePosition}
+                        {hoveredArea}
+                        hoveredAreaData={""}
+                        metric={""}
+                      />
+                    {/if}
+                    <!-- <p>Just {data[1]?.name}</p> -->
+                  </div>
+                {/each}
+                <div
+                  style={"width: " +
+                    ((blendedArrayLength -
+                      tableData
+                        .map((d) => d?.unique)
+                        .reduce((acc, curr) => acc + curr, 0)) /
+                      policyLensArea) *
+                      100 +
+                    "%; border: 1px solid black; background-color: grey"}
+                >
+                  {console.log(
+                    blendedArrayLength -
+                      tableData
+                        .map((d) => d?.unique)
+                        .reduce((acc, curr) => acc + curr, 0)
+                  )}
+                  <p>Multiple categories</p>
+                </div>
+                <div
+                  style={"width: " +
+                    ((policyLensArea - blendedArrayLength) / policyLensArea) *
+                      100 +
+                    "%; border: 1px solid black; background-color: #ff00ff44"}
+                >
+                  <p>
+                    {policyLensItems.find((d) => d.value == policyLens)
+                      .sentenceText}, but not covered by the selected categories
+                  </p>
+                </div>
+              </div>
+            {/if}
+          {/snippet}
         {/if}
 
         <p>
@@ -988,60 +1077,6 @@
         </p>
         {#key tableData}
           {#if tableData && tableMetadata}
-            <div style="display: flex;">
-              {#each Object.entries(tableData).sort((a, b) => b[1].unique - a[1].unique) as data, i}
-                {console.log(
-                  100 - ((data[1].unique / policyLensArea) * 100).toFixed(0)
-                )}
-                <div
-                  style={"width: " +
-                    (data[1].unique / policyLensArea) * 100 +
-                    "%; background-color: " +
-                    (selectedRestriction == data[1]?.name
-                      ? "red"
-                      : // : [
-                        //     "#0000ff99",
-                        //     "#0000ff77",
-                        //     "#0000ff55",
-                        //     "#0000ff33",
-                        //     "#0000ff22",
-                        //   ][i]
-                        "#0000ff" +
-                        (100 -
-                          ((data[1].unique / policyLensArea) * 100).toFixed(
-                            0
-                          )))}
-                >
-                  <p>Just {data[1]?.name}</p>
-                </div>
-              {/each}
-              <div
-                style={"width: " +
-                  ((blendedArrayLength -
-                    tableData
-                      .map((d) => d?.unique)
-                      .reduce((acc, curr) => acc + curr, 0)) /
-                    policyLensArea) *
-                    100 +
-                  "%; background-color: lightgrey"}
-              >
-                {console.log(
-                  blendedArrayLength -
-                    tableData
-                      .map((d) => d?.unique)
-                      .reduce((acc, curr) => acc + curr, 0)
-                )}
-                <p>Multiple categories</p>
-              </div>
-              <div
-                style={"width: " +
-                  ((policyLensArea - blendedArrayLength) / policyLensArea) *
-                    100 +
-                  "%; background-color: #ff00ff44"}
-              >
-                <p>Not covered by the selected categories</p>
-              </div>
-            </div>
             <Table
               caption={""}
               data={tableData.sort((a, b) => +b.unique - +a.unique)}
@@ -1105,16 +1140,42 @@
 <!-- <p>{message}</p> -->
 
 <style>
-  .header {
+  div.header-left {
     display: grid;
-    grid-template-columns: 70% 30%;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  div.firstSelections {
+    background-color: #f3f2f1;
+    /* max-width: 50%; */
+    padding: 22px 26px;
+    /* margin: 25px; */
+  }
+
+  div.summaryStats {
+    margin: 25px;
+    /* max-width: 50%; */
+  }
+
+  :global(div.header-section div.p-4) {
+    max-height: 2rem;
+    padding-top: 30px;
+  }
+
+  :global(div.app-c-filter-panel__actions div.p-4) {
+    max-height: 2.5rem;
+  }
+
+  .header-section {
+    display: grid;
+    grid-template-columns: 67% 33%;
     font-family: sans-serif;
     padding: 10px;
     min-height: 200px;
   }
 
   @media (max-width: 600px) {
-    .header {
+    .header-section {
       display: flex;
       flex-direction: column;
       font-family: sans-serif;
@@ -1140,7 +1201,7 @@
 
   .map-and-table {
     display: grid;
-    grid-template-rows: minmax(0, 20px) 1fr;
+    grid-template-rows: minmax(0, 0px) 1fr;
   }
 
   @media (max-width: 600px) {
@@ -1178,7 +1239,7 @@
     appearance: none;
     width: calc(100% + 1rem);
     /* margin-left: 10px; */
-    position: relative;
+    /* position: relative; */
     margin-left: -0.25rem;
   }
 
@@ -1188,25 +1249,34 @@
     position: relative;
     top: 300px;
     margin-top: -12px; /* Centers the thumb */
-    margin-left: -0.5rem;
-    background-color: grey;
-    height: 2rem;
-    width: 1rem;
+    margin-left: -10px;
+    background-color: #d9d9d9;
+    background-image: url("./Vector.svg");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 50%;
+    height: 80px;
+    width: 20px;
     border-radius: 0.25rem;
     z-index: 1;
     /* cursor: pointer; */
   }
 
   input[type="range"]::-moz-range-thumb {
-    background-color: grey;
-    height: 2rem;
-    width: 1rem;
+    background-color: #d9d9d9;
+    background-image: url("./Vector.svg");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 50%;
+    height: 80px;
+    width: 20px;
     border-radius: 0.25rem;
     /* cursor: pointer; */
-    position: relative;
-    top: 300px;
-    margin-top: -12px;
-    margin-left: -1rem;
+    /* position: relative; */
+    /* top: 300px; */
+    /* margin-top: -12px; */
+    /* margin-left: -40px; */
+    transform: translateY(300px) translateX(-0.45rem);
     z-index: 1;
   }
 
