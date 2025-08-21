@@ -160,7 +160,6 @@
   );
 
   $effect(() => {
-
     if (cooperativeGestures) {
       map?.cooperativeGestures.enable();
     } else {
@@ -168,7 +167,6 @@
     }
   });
 
-  
   //When useInitialHash is true, even if hash is false, if the page is loaded with a location hash use that as the initial settings, rather than the values passed to the component
   const initialLocationHash = page.url.hash.replace("#", "").split("/");
   const useLocationHash = initialLocationHash.length >= 3 ? true : false;
@@ -184,7 +182,6 @@
       ? +initialLocationHash[0]
       : zoom
     : zoom;
-
 </script>
 
 <div style="height: {mapHeight}px;">
@@ -248,5 +245,17 @@
     padding: 5px 10px;
     font-size: 16px;
     height: 100%;
+  }
+
+  /* Set controls to meet WCAG minimum target size */
+  :global(
+      button.ol-zoom-in,
+      button.ol-zoom-out,
+      button.ol-full-screen-false,
+      button.ol-full-screen-true,
+      button[title="Attributions"]
+    ) {
+    height: 24px;
+    width: 24px;
   }
 </style>
