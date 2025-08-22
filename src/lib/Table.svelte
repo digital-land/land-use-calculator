@@ -332,5 +332,6 @@
     vertical-align: middle;
     overflow: visible;
     forced-color-adjust: auto;
+    display: none; /* until we've coded this properly */
   }
 </style>
