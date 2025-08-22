@@ -99,6 +99,7 @@
     ga4BaseEvent = { event_name: "select_content", type: "finder" },
     filterPanelSectionsExpanded = false,
     filterPanelExpanded = true,
+    children,
   } = $props<{
     resultsCount?: string;
     sectionsData?: Section[];
@@ -107,6 +108,7 @@
     ga4BaseEvent?: Record<string, any>;
     filterPanelSectionsExpanded?: boolean;
     filterPanelExpanded?: boolean;
+    children?: any;
   }>();
 
   // let sections = $derived(sectionsData);
@@ -284,6 +286,7 @@
               open={section.openByDefault !== undefined
                 ? section.openByDefault
                 : filterPanelSectionsExpanded}
+              style="margin-left: 30px"
             >
               <summary
                 class="app-c-filter-section__summary"
@@ -409,6 +412,7 @@
           })}
           data-disable-with={applyButtonText}
         />
+        {@render children?.()}
       </div>
     </div>
     <!-- {/if} -->
