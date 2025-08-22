@@ -7,7 +7,7 @@
 
 <ServiceNavigation
   serviceName={"MHCLG Land Stats tool"}
-  serviceUrl="/"
+  serviceUrl="./"
   navigationItems={[{ href: "./about", label: "About" }]}
 />
 <PhaseBanner
