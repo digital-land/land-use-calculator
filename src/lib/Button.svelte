@@ -82,7 +82,7 @@
   {:else if buttonType === "link"}
     <button
       type="submit"
-      class="link-button app-c-filter-summary__clear-filters govuk-link govuk-link--no-visited-state"
+      class="link-button app-c-filter-summary__clear-filters govuk-link"
       onclick={onClickFunction}
     >
       {textContent}
@@ -160,7 +160,7 @@
     {:else if buttonType === "link"}
       <button
         type="submit"
-        class="link-button app-c-filter-summary__clear-filters govuk-link govuk-link--no-visited-state"
+        class="link-button app-c-filter-summary__clear-filters govuk-link"
         onclick={onClickFunction}
       >
         {textContent}
@@ -203,34 +203,17 @@
     padding: 0;
   }
 
-  button.link-button {
+  .link-button:not(:hover) {
     background: none; /* Removes background */
     border: none; /* Removes border */
-    color: #1d70b8; /* Matches hyperlink color */
-    text-decoration: underline; /* Adds underline like a link */
-    cursor: pointer; /* Changes cursor to pointer */
-    padding: 0; /* Removes padding for a cleaner look */
+    font-size: unset;
+    color: #1d70b8;
   }
 
-  button.link-button:hover {
-    color: darkblue; /* Optional: Change color on hover */
-  }
-
-  .app-c-filter-summary__clear-filters {
-    font-family: "GDS Transport", arial, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    font-weight: 400;
-    font-size: 1.1875rem;
-    line-height: 1.3157894737;
-  }
-
-  .govuk-link {
-    font-family: "GDS Transport", arial, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    text-decoration: underline;
-    text-decoration-thickness: max(1px, 0.0625rem);
-    text-underline-offset: 0.1578em;
+  .link-button:hover {
+    background: none; /* Removes background */
+    border: none; /* Removes border */
+    font-size: unset;
+    /* color: #1d70b8; */
   }
 </style>
