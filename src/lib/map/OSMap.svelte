@@ -162,7 +162,7 @@
         console.log("Adding the total tiff layer");
         map.addLayer(tiffLayer);
 
-        map.getView().fit(bbox, { duration: 1000 });
+        // map.getView().fit(bbox, { duration: 1000 });
       }
     }
   });

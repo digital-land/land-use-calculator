@@ -79,6 +79,14 @@
         ></path>
       </svg>
     </button>
+  {:else if buttonType === "link"}
+    <button
+      type="submit"
+      class="link-button app-c-filter-summary__clear-filters govuk-link"
+      onclick={onClickFunction}
+    >
+      {textContent}
+    </button>
   {:else}
     <button
       type="submit"
@@ -149,6 +157,14 @@
           ></path>
         </svg>
       </button>
+    {:else if buttonType === "link"}
+      <button
+        type="submit"
+        class="link-button app-c-filter-summary__clear-filters govuk-link"
+        onclick={onClickFunction}
+      >
+        {textContent}
+      </button>
     {:else}
       <button
         type="button"
@@ -185,5 +201,19 @@
 
     margin: 0;
     padding: 0;
+  }
+
+  .link-button:not(:hover) {
+    background: none; /* Removes background */
+    border: none; /* Removes border */
+    font-size: unset;
+    color: #1d70b8;
+  }
+
+  .link-button:hover {
+    background: none; /* Removes background */
+    border: none; /* Removes border */
+    font-size: unset;
+    /* color: #1d70b8; */
   }
 </style>

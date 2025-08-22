@@ -117,6 +117,7 @@ self.onmessage = async function (e) {
         height,
         bbox,
         policyLensArea: lensLayer?.area ?? 13046002,
+        policyLensLayer: lensLayer?.data
       },
       enrichedRasterLayers.map((layer) => layer.data.buffer)
     );
