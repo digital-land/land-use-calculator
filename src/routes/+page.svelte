@@ -1273,7 +1273,7 @@
     margin-top: -12px; /* Centers the thumb */
     margin-left: -4px;
     background-color: #d9d9d9;
-    background-image: url("./Vector.svg");
+    background-image: url("/Vector.svg");
     background-repeat: no-repeat;
     background-position: center;
     background-size: 50%;
@@ -1286,7 +1286,7 @@
 
   input[type="range"]::-moz-range-thumb {
     background-color: #d9d9d9;
-    background-image: url("./Vector.svg");
+    background-image: url("/Vector.svg");
     background-repeat: no-repeat;
     background-position: center;
     background-size: 50%;
