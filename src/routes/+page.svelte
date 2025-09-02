@@ -106,6 +106,11 @@
       text: "Only land within 1km of built up areas",
       sentenceText: "the land within 1km of built up areas",
     },
+    {
+      value: "Church.tif",
+      text: "Only Church-owned land",
+      sentenceText: "Church-owned land",
+    },
   ];
 
   let policyLens = $state("England");
