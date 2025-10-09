@@ -6,7 +6,7 @@
 </script>
 
 <ServiceNavigation
-  serviceName={"MHCLG Land Stats tool"}
+  serviceName={"MHCLG Land Stats Calculator"}
   serviceUrl="./"
   navigationItems={[{ href: "./about", label: "About" }]}
 />
