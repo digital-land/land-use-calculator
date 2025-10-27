@@ -15,7 +15,7 @@
   import DragPan from "ol/interaction/DragPan.js";
   import { fromUrl } from "geotiff";
   import Histogram from "$lib/components/Histogram.svelte";
-
+  import { base } from "$app/paths";
   // --- Constants ---
   const originX = 82668;
   const originY = 5339;
@@ -228,7 +228,7 @@
   }
 
   onMount(async () => {
-    const tiffData = await loadTiff("/range/hectare_counts.tif");
+    const tiffData = await loadTiff(`${base}/range/hectare_counts.tif`);
     densityArray = tiffData.densityArray;
     width = tiffData.width;
     height = tiffData.height;
