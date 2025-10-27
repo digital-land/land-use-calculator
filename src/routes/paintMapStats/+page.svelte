@@ -304,7 +304,7 @@
   <li class="font-semibold mb-2">Press the space key and the left mouse button to paint (go slow)</li>
   <li class="font-semibold mb-2">Press the space key and the right mouse button to erase (go slow)</li>
    <li class="font-semibold mb-2">Painting and erasing are more precise as you zoom in</li>
-  <li class="font-semibold mb-2">Press keys 1–9 to switch paint groups</li>
+  <li class="font-semibold mb-2">Press keys 1–9 to switch paint groups (to compare two or more areas)</li>
   <li class="font-semibold mb-2">Scroll down the page to see more reporting</li>
 </ul>
 </div>
