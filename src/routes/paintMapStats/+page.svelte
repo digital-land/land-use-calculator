@@ -377,11 +377,20 @@ window.addEventListener("keyup", (e) => {
     opacity = +(event.target as HTMLInputElement).value;
     groups.forEach(g => g.layer.setOpacity(opacity));
   }
-
+function clearGroup(group) {
+  group.paintedCells.clear();
+  group.paintedIndices.clear();
+  group.layer.getSource().clear(); // removes all features
+  computeStats(group);
+  groups = [...groups]; // trigger Svelte reactivity
+}
 </script>
 
 <div id="map" ></div>
 <div id="slider-container">
+  <button on:click={() => clearGroup(groups[currentGroupIndex])}>
+  Clear Painted Cells
+</button>
   <label>
     Opacity: {Math.round(opacity*100)}%
     <input
@@ -413,6 +422,7 @@ window.addEventListener("keyup", (e) => {
   <li class="font-semibold mb-2">Press keys 1–9 to switch paint groups (to compare two or more areas)</li>
   <li class="font-semibold mb-2">Scroll down the page to see more reporting</li>
   <li class="font-semibold mb-2">Adjust opacity with the top right slider</li>
+  <li class="font-semibold mb-2">Click "Clear Painted Cells" to clear the current group</li>
 </ul>
 </div>
  
