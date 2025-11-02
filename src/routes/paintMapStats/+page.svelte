@@ -15,7 +15,21 @@
   import DragPan from "ol/interaction/DragPan.js";
   import { fromUrl } from "geotiff";
   import Histogram from "$lib/components/Histogram.svelte";
-  import { base } from "$app/paths";
+  import {base} from "$app/paths"
+import { scaleThreshold } from "d3-scale";
+import { interpolateViridis } from "d3-scale-chromatic";
+const bins = [0, 1, 5, 10, 20, 50, 100, 200, 500];
+const colorScale = scaleThreshold()
+  .domain(bins)
+  .range(bins.map((_, i) => interpolateViridis(i / (bins.length - 1))));
+const fillOpacity = 0.5; // tweak transparency (0.3–0.8 looks good)
+
+  let tooltipEl;
+let tooltipVisible = false;
+let tooltipText = "";
+let tooltipX = 0;
+let tooltipY = 0;
+
   // --- Constants ---
   const originX = 82668;
   const originY = 5339;
@@ -61,7 +75,7 @@
     layer: new VectorLayer({
       source: new VectorSource(),
       style: new Style({
-        fill: new Fill({ color }),
+        fill: new Fill({ color   }),
         stroke: new Stroke({ color: color.replace("0.3", "0.6"), width: 1 }),
       }),
     }),
@@ -84,26 +98,58 @@
     return row * width + col;
   }
 
-  function addCellFeature(group, x: number, y: number) {
-    const key = `${x}_${y}`;
-    if (group.paintedCells.has(key)) return;
-    const index = coordToIndex(x, y);
-    if (index === null) return;
+ function addCellFeature(group, x: number, y: number) {
+  const key = `${x}_${y}`;
+  if (group.paintedCells.has(key)) return;
 
-    group.paintedCells.add(key);
-    group.paintedIndices.add(index);
+  const index = coordToIndex(x, y);
+  if (index === null || !densityArray) return;
 
-    const square = new Polygon([
-      [
-        [x, y],
-        [x + cellSize, y],
-        [x + cellSize, y + cellSize],
-        [x, y + cellSize],
-        [x, y],
-      ],
-    ]);
-    group.layer.getSource().addFeature(new Feature({ geometry: square }));
-  }
+  const value = densityArray[index];
+  if (value === undefined) return;
+
+  group.paintedCells.add(key);
+  group.paintedIndices.add(index);
+
+  // --- Match histogram buckets ---
+  let normalized;
+  if (value <= 1) normalized = 0.0;
+  else if (value <= 5) normalized = 0.1;
+  else if (value <= 10) normalized = 0.2;
+  else if (value <= 20) normalized = 0.35;
+  else if (value <= 50) normalized = 0.45;
+  else if (value <= 100) normalized = 0.55;
+  else if (value <= 200) normalized = 0.65;
+  else if (value <= 500) normalized = 0.8;
+  else normalized = 1.0;
+
+  const rgb = interpolateViridis(1-normalized); // e.g. "rgb(68, 1, 84)"
+  const rgba = rgb.replace("rgb(", "rgba(").replace(")", `, ${fillOpacity})`);
+
+  const square = new Polygon([
+    [
+      [x, y],
+      [x + cellSize, y], 
+      [x + cellSize, y + cellSize],
+      [x, y + cellSize],
+      [x, y],
+    ],
+  ]);
+
+  const feature = new Feature({ geometry: square });
+  feature.set("densityValue", value);
+  feature.setStyle(
+    new Style({
+      fill: new Fill({ color: rgba }),
+      stroke: new Stroke({ color: "rgba(0,0,0,0.3)", width: 0.5 }),
+    })
+  );
+
+  group.layer.getSource().addFeature(feature);
+}
+
+
+
 
   function computeStats(group) {
     if (!densityArray || group.paintedIndices.size === 0) {
@@ -228,6 +274,7 @@
   }
 
   onMount(async () => {
+
     const tiffData = await loadTiff(`${base}/range/hectare_counts.tif`);
     densityArray = tiffData.densityArray;
     width = tiffData.width;
@@ -250,51 +297,88 @@
     map.getTargetElement().addEventListener("contextmenu", (e) => e.preventDefault());
     const dragPan = map.getInteractions().getArray().find((i) => i instanceof DragPan);
 
-    // Painting controls
-    map.on("pointerdown", (evt) => {
-      if (spacePressed && evt.originalEvent.button === 0) {
-        painting = true;
-        erasing = false;
-        dragPan.setActive(false);
-      } else if (spacePressed && evt.originalEvent.button === 2) {
-        erasing = true;
-        painting = false;
-        dragPan.setActive(false);
-      }
-    });
+  // --- Painting / Erasing controls ---
+let dPressed = false;
 
-    map.on("pointerup", () => {
-      painting = false;
-      erasing = false;
-      dragPan.setActive(true);
-    });
+map.on("pointerdown", (evt) => {
+  if (spacePressed && evt.originalEvent.button === 0) {
+    // Paint with Space + Left Mouse
+    painting = true;
+    erasing = false;
+    dragPan.setActive(false);
+  } else if (dPressed && evt.originalEvent.button === 0) {
+    // Erase with D + Left Mouse
+    erasing = true;
+    painting = false;
+    dragPan.setActive(false);
+  }
+});
 
-    map.on("pointermove", (evt) => {
-      if (painting) paintAt(groups[currentGroupIndex], evt.coordinate);
-      else if (erasing) eraseAt(groups[currentGroupIndex], evt.coordinate);
-    });
+map.on("pointerup", () => {
+  painting = false;
+  erasing = false;
+  dragPan.setActive(true);
+});
 
-    // Spacebar toggle
-    window.addEventListener("keydown", (e) => {
-      if (e.code === "Space") {
-        e.preventDefault();
-        spacePressed = true;
-      }
-      if (e.key >= "1" && e.key <= "9") {
-        currentGroupIndex = Number(e.key) - 1;
-      }
-    });
-    window.addEventListener("keyup", (e) => {
-      if (e.code === "Space") {
-        e.preventDefault();
-        spacePressed = false;
-      }
-    });
+// --- Pointer move handles both actions + tooltip ---
+map.on("pointermove", (evt) => {
+  const pixel = map.getEventPixel(evt.originalEvent);
+  const feature = map.forEachFeatureAtPixel(pixel, (f) => f);
+
+  if (feature) {
+    const value = feature.get("densityValue");
+    tooltipVisible = true;
+    tooltipText =
+      value !== undefined
+        ? `Title deeds with centroids in this hectare: ${value}`
+        : "No data";
+    tooltipX = evt.originalEvent.pageX + 10;
+    tooltipY = evt.originalEvent.pageY + 10;
+  } else {
+    tooltipVisible = false;
+  }
+
+  if (painting) paintAt(groups[currentGroupIndex], evt.coordinate);
+  else if (erasing) eraseAt(groups[currentGroupIndex], evt.coordinate);
+});
+
+// --- Key listeners ---
+window.addEventListener("keydown", (e) => {
+  if (e.code === "Space") {
+    e.preventDefault();
+    spacePressed = true;
+  }
+  if (e.key.toLowerCase() === "d") {
+    e.preventDefault();
+    dPressed = true;
+  }
+  if (e.key >= "1" && e.key <= "9") {
+    currentGroupIndex = Number(e.key) - 1;
+  }
+});
+
+window.addEventListener("keyup", (e) => {
+  if (e.code === "Space") {
+    e.preventDefault();
+    spacePressed = false;
+  }
+  if (e.key.toLowerCase() === "d") {
+    e.preventDefault();
+    dPressed = false;
+  }
+});
+
   });
 </script>
 
 <div id="map" ></div>
-
+<div
+  bind:this={tooltipEl}
+  class="absolute bg-black text-white text-xs px-2 py-1 rounded pointer-events-none transition-opacity duration-100"
+  style="opacity: {tooltipVisible ? 1 : 0}; left: {tooltipX}px; top: {tooltipY}px;"
+>
+  {tooltipText}
+</div>
 <!-- Fixed stats panel -->
 <div class="fixed top-4 right-4 bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-lg text-sm w-[250px] max-h-[90vh] overflow-y-auto z-50">
  <div id="instructions"> 
@@ -302,13 +386,13 @@
   <ul>
   <li class="font-semibold mb-2">Pan and zoom as you normally would with a mouse</li>
   <li class="font-semibold mb-2">Press the space key and the left mouse button to paint (go slow)</li>
-  <li class="font-semibold mb-2">Press the space key and the right mouse button to erase (go slow)</li>
+  <li class="font-semibold mb-2"><b>NEW: </b> Press the "D" key and the left mouse button to erase (go slow)</li>
    <li class="font-semibold mb-2">Painting and erasing are more precise as you zoom in</li>
   <li class="font-semibold mb-2">Press keys 1–9 to switch paint groups (to compare two or more areas)</li>
   <li class="font-semibold mb-2">Scroll down the page to see more reporting</li>
 </ul>
 </div>
-
+ 
   {#each groups as g, i}
   {#if g.stats.count}
     <div class="mb-3 border-b border-gray-300 pb-2">
