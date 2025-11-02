@@ -36,6 +36,10 @@
 import { scaleThreshold } from "d3-scale";
 import { interpolateViridis } from "d3-scale-chromatic";
 
+  let geographies: any[] = [];
+
+
+
 const bins = [0, 1, 5, 10, 20, 50, 100, 200, 500];
 const colorScale = scaleThreshold()
   .domain(bins)
@@ -296,8 +300,9 @@ let groups = $state<Group[]>([]);
 
   onMount(async () => {
 
-    const res = await fetch("/api/geographies");
+    const res = await fetch(`${base}/data/geographies.json`);
     availableGeographies = await res.json();
+
 
     const tiffData = await loadTiff(`${base}/range/hectare_counts.tif`);
     densityArray = tiffData.densityArray;
