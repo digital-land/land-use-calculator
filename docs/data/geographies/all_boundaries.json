@@ -1,0 +1,181 @@
+{
+    "currentVersion": 11.5,
+    "serviceItemId": "0173fa6a9cc74b3598ec9438bb6b7351",
+    "hasChangeTrackingEnabledViews": true,
+    "serviceDescription": "Administrative Boundaries",
+    "hasVersionedData": false,
+    "supportsDisconnectedEditing": false,
+    "hasStaticData": true,
+    "hasSharedDomains": false,
+    "maxRecordCount": 2000,
+    "supportedQueryFormats": "JSON",
+    "supportsVCSProjection": false,
+    "supportedExportFormats": "csv,shapefile,sqlite,geoPackage,filegdb,featureCollection,geojson,kml,excel",
+    "supportedConvertFileFormats": "JSON,PBF",
+    "supportedConvertContentFormats": "LayerEditCollection",
+    "supportedFullTextLocales": [
+        "neutral",
+        "ar-SA",
+        "bg-BG",
+        "bn-IN",
+        "ca-ES",
+        "cs-CZ",
+        "da-DK",
+        "de-DE",
+        "el-GR",
+        "en-GB",
+        "en-US",
+        "es-ES",
+        "fr-FR",
+        "gu-IN",
+        "he-IL",
+        "hi-IN",
+        "hr-HR",
+        "id-ID",
+        "is-IS",
+        "it-IT",
+        "ja-JP",
+        "kn-IN",
+        "ko-KR",
+        "lt-LT",
+        "lv-LV",
+        "ml-IN",
+        "mr-IN",
+        "ms-MY",
+        "nb-NO",
+        "nl-NL",
+        "pa-IN",
+        "pl-PL",
+        "pt-BR",
+        "pt-PT",
+        "ro-RO",
+        "ru-RU",
+        "sk-SK",
+        "sl-SI",
+        "sr-Cyrl-CS",
+        "sr-Latn-CS",
+        "sv-SE",
+        "ta-IN",
+        "te-IN",
+        "th-TH",
+        "tr-TR",
+        "uk-UA",
+        "ur-PK",
+        "vi-VN",
+        "zh-CN",
+        "zh-HK",
+        "zh-MO",
+        "zh-SG",
+        "zh-TW"
+    ],
+    "supportsSharedTemplates": true,
+    "hasSharedTemplates": true,
+    "capabilities": "Query,Extract,ChangeTracking",
+    "description": "",
+    "copyrightText": "",
+    "spatialReference": {
+        "wkid": 27700,
+        "latestWkid": 27700
+    },
+    "initialExtent": {
+        "xmin": -137069.89399005158,
+        "ymin": 3842.1751499992679,
+        "xmax": 921614.49399005214,
+        "ymax": 688667.71985000023,
+        "spatialReference": {
+            "wkid": 27700,
+            "latestWkid": 27700
+        }
+    },
+    "fullExtent": {
+        "xmin": 212711.20260000043,
+        "ymin": 34970.60899999924,
+        "xmax": 571833.39740000037,
+        "ymax": 657539.28599999938,
+        "spatialReference": {
+            "wkid": 27700,
+            "latestWkid": 27700
+        }
+    },
+    "allowGeometryUpdates": true,
+    "supportsTrueCurve": true,
+    "supportedCurveTypes": [
+        "esriGeometryCircularArc"
+    ],
+    "allowTrueCurvesUpdates": true,
+    "onlyAllowTrueCurveUpdatesByTrueCurveClients": false,
+    "units": "esriMeters",
+    "supportsAppend": true,
+    "supportsSharedDomains": true,
+    "supportsWebHooks": true,
+    "supportsTemporalLayers": true,
+    "layerOverridesEnabled": true,
+    "size": 1024000,
+    "syncEnabled": false,
+    "extractChangesCapabilities": {
+        "supportsReturnIdsOnly": true,
+        "supportsReturnExtentOnly": true,
+        "supportsReturnAttachments": true,
+        "supportsLayerQueries": true,
+        "supportsGeometry": true,
+        "supportsFeatureReturn": true,
+        "supportsReturnHasGeometryUpdates": false,
+        "supportsReturnDeletedFeatures": true,
+        "supportsServerGens": true,
+        "supportsFieldsToCompare": true
+    },
+    "supportsApplyEditsWithGlobalIds": true,
+    "supportsReturnDeleteResults": true,
+    "supportsLayerOverrides": true,
+    "supportsTilesAndBasicQueriesMode": true,
+    "supportsQueryContingentValues": true,
+    "supportedContingentValuesFormats": "JSON, PBF",
+    "supportsContingentValuesJson": 2,
+    "advancedEditingCapabilities": {
+        "supportsSplit": false,
+        "supportsReturnServiceEditsInSourceSR": false,
+        "supportsAsyncApplyEdits": true,
+        "supportsReturnEditResults": true,
+        "supportsApplyEditsbyUploadID": true,
+        "supportedApplyEditsUploadIDFormats": "JSON,PBF"
+    },
+    "editorTrackingInfo": {
+        "enableEditorTracking": false,
+        "enableOwnershipAccessControl": false,
+        "allowOthersToQuery": true,
+        "allowOthersToUpdate": true,
+        "allowOthersToDelete": true,
+        "allowAnonymousToQuery": true,
+        "allowAnonymousToUpdate": true,
+        "allowAnonymousToDelete": true
+    },
+    "changeTrackingInfo": {
+        "lastSyncDate": 1751015723634,
+        "layerServerGens": [
+            {
+                "id": 0,
+                "minServerGen": 16645994,
+                "serverGen": 17608693
+            }
+        ]
+    },
+    "xssPreventionInfo": {
+        "xssPreventionEnabled": true,
+        "xssPreventionRule": "InputOnly",
+        "xssInputRule": "rejectInvalid"
+    },
+    "layers": [
+        {
+            "id": 0,
+            "name": "CAUTH_MAY_2025_EN_BGC",
+            "parentLayerId": -1,
+            "defaultVisibility": true,
+            "subLayerIds": null,
+            "minScale": 0,
+            "maxScale": 0,
+            "type": "Feature Layer",
+            "geometryType": "esriGeometryPolygon"
+        }
+    ],
+    "tables": []
+}
