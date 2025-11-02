@@ -23,7 +23,8 @@ const colorScale = scaleThreshold()
   .domain(bins)
   .range(bins.map((_, i) => interpolateViridis(i / (bins.length - 1))));
 const fillOpacity = 0.5; // tweak transparency (0.3–0.8 looks good)
-
+ let opacity = 0.8; // default opacity
+ let layer: VectorLayer;
   let tooltipEl;
 let tooltipVisible = false;
 let tooltipText = "";
@@ -74,9 +75,10 @@ let tooltipY = 0;
     histogram: {},
     layer: new VectorLayer({
       source: new VectorSource(),
+      opacity, 
       style: new Style({
         fill: new Fill({ color   }),
-        stroke: new Stroke({ color: color.replace("0.3", "0.6"), width: 1 }),
+        stroke: new Stroke({ color: color.replace("0.3", "0.6"), width: 0 }),
       }),
     }),
   }));
@@ -292,8 +294,9 @@ let tooltipY = 0;
         center: [400000, 300000],
         zoom: 7,
       }),
+      
     });
-
+    groups.forEach(g => g.layer.setOpacity(opacity));
     map.getTargetElement().addEventListener("contextmenu", (e) => e.preventDefault());
     const dragPan = map.getInteractions().getArray().find((i) => i instanceof DragPan);
 
@@ -369,9 +372,28 @@ window.addEventListener("keyup", (e) => {
 });
 
   });
+
+  function updateOpacity(event: Event) {
+    opacity = +(event.target as HTMLInputElement).value;
+    groups.forEach(g => g.layer.setOpacity(opacity));
+  }
+
 </script>
 
 <div id="map" ></div>
+<div id="slider-container">
+  <label>
+    Opacity: {Math.round(opacity*100)}%
+    <input
+      type="range"
+      min="0"
+      max="1"
+      step="0.01"
+      bind:value={opacity}
+      on:input={updateOpacity}
+    />
+  </label>
+</div>
 <div
   bind:this={tooltipEl}
   class="absolute bg-black text-white text-xs px-2 py-1 rounded pointer-events-none transition-opacity duration-100"
@@ -382,14 +404,15 @@ window.addEventListener("keyup", (e) => {
 <!-- Fixed stats panel -->
 <div class="fixed top-4 right-4 bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-lg text-sm w-[250px] max-h-[90vh] overflow-y-auto z-50">
  <div id="instructions"> 
-  <h2>Title deed counter: Instructions for use</h2>
-  <ul>
+  <h2 style = "margin-top:0">Title deed counter: Instructions for use</h2>
+  <ul style="font-size:0.8em">
   <li class="font-semibold mb-2">Pan and zoom as you normally would with a mouse</li>
   <li class="font-semibold mb-2">Press the space key and the left mouse button to paint (go slow)</li>
   <li class="font-semibold mb-2"><b>NEW: </b> Press the "D" key and the left mouse button to erase (go slow)</li>
    <li class="font-semibold mb-2">Painting and erasing are more precise as you zoom in</li>
   <li class="font-semibold mb-2">Press keys 1–9 to switch paint groups (to compare two or more areas)</li>
   <li class="font-semibold mb-2">Scroll down the page to see more reporting</li>
+  <li class="font-semibold mb-2">Adjust opacity with the top right slider</li>
 </ul>
 </div>
  
@@ -399,12 +422,12 @@ window.addEventListener("keyup", (e) => {
       <div class="font-semibold" style="color:{g.color.replace('0.3', '1')}">
         Area {i + 1} {currentGroupIndex === i ? "(Active)" : ""}
       </div>
-      <div>Area {i + 1} measures {g.stats.count} hectares</div>
-      <div>It contains {g.stats.sum.toFixed(0)} title deeds</div>
+      <div>Area {i + 1} measures {g.stats.count.toLocaleString()} hectares</div>
+      <div>It contains {(+ g.stats.sum.toFixed(0)).toLocaleString()} title deeds</div>
       <div>Which is {g.stats.mean.toFixed(2 )} titles per hectare.</div>
       <div>The median hactare's number of titles is {g.stats.median.toFixed(0)}</div>
       <div>Minimum number in a hectare: {g.stats.min.toFixed(0)}</div>
-      <div>Maximum number in a hectare : {g.stats.max.toFixed(0)}</div>
+      <div>Maximum number in a hectare : {(+g.stats.max.toFixed(0)) .toLocaleString()}</div>
 
       {#if Object.keys(g.histogram).length}
         <Histogram histogram={g.histogram} color={g.color.replace("0.3", "1")} />
@@ -431,4 +454,18 @@ window.addEventListener("keyup", (e) => {
   font-family:Arial, Helvetica, sans-serif
 
   }
+    #slider-container {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(255,255,255,0.8);
+    padding: 8px;
+    border-radius: 4px;
+    font-family: sans-serif;
+  }
+
+  #slider-container input {
+    width: 100px;
+  }
+
 </style>
