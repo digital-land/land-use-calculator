@@ -2,13 +2,13 @@
 import { interpolateViridis } from "d3-scale-chromatic";
 
   let { histogram }: { histogram: Record<string, number> } = $props();
-
+console.log("histogram",histogram)
   let vals: number[] = [];
-  let max = 1;
+  let max = $state()
 
   $effect(() => {
     vals = Object.values(histogram).map(Number);
-    max = Math.max(...vals, 1);
+    max = Math.max(...vals);
   });
 
   const keys = Object.keys(histogram);
@@ -35,23 +35,35 @@ import { interpolateViridis } from "d3-scale-chromatic";
   }
 </script>
 
-<svg width="700" height="130">
+<svg width="700" height="150">
   <!-- Bars -->
   {#each keys as key, i}
     {#if max > 0}
+      <!-- Bar -->
       <rect
         x={(i * 600) / keys.length + 1}
-        y={100 - (histogram[key] / max) * 100}
+        y={120 - (histogram[key] / max) * 100}
         width={(600 / keys.length) - 2}
         height={(histogram[key] / max) * 100}
         fill={viridisForBucket(key)}
       />
+
+      <!-- Value on top of the bar -->
+      <text
+        x={(i * 600) / keys.length + (600 / keys.length) / 2}
+        y={120 - (histogram[key] / max) * 100 - 3} 
+        text-anchor="middle"
+        font-size="10"
+        fill="#333"
+      >
+        {histogram[key].toLocaleString()}
+      </text>
     {/if}
 
     <!-- X-axis labels -->
     <text
       x={(i * 600) / keys.length + (600 / keys.length) / 2}
-      y="115"
+      y=130
       text-anchor="middle"
       font-size="10"
       fill="#333"
@@ -61,7 +73,7 @@ import { interpolateViridis } from "d3-scale-chromatic";
   {/each}
 
   <!-- Axis line -->
-  <line x1="0" y1="100" x2="700" y2="100" stroke="#333" stroke-width="0.5" />
+  <line x1="0" y1="120" x2="600" y2="120" stroke="#333" stroke-width="0.5" />
 </svg>
 
 <style>

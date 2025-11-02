@@ -1,4 +1,21 @@
 <script lang="ts">
+
+  interface Group {
+  color: string;
+  paintedCells: Set<string>;
+  paintedIndices: Set<number>;
+  stats: {
+    count: number;
+    sum: number;
+    mean: number;
+    median: number;
+    min: number;
+    max: number;
+  };
+  histogram: Record<string, number>;
+  layer: import("ol/layer/Vector.js").default;
+}
+
   import { onMount } from "svelte";
   import Map from "ol/Map.js";
   import View from "ol/View.js";
@@ -18,6 +35,7 @@
   import {base} from "$app/paths"
 import { scaleThreshold } from "d3-scale";
 import { interpolateViridis } from "d3-scale-chromatic";
+
 const bins = [0, 1, 5, 10, 20, 50, 100, 200, 500];
 const colorScale = scaleThreshold()
   .domain(bins)
@@ -65,9 +83,9 @@ let tooltipY = 0;
   ];
 
   let currentGroupIndex = 0;
-
+let groups = $state<Group[]>([]);
   // Each group tracks cells, indices, stats, histogram, and its own vector layer
-  let groups = colors.map((color) => ({
+  groups = colors.map((color) => ({
     color,
     paintedCells: new Set<string>(),
     paintedIndices: new Set<number>(),
@@ -82,6 +100,7 @@ let tooltipY = 0;
       }),
     }),
   }));
+
 
   // --- Load GeoTIFF ---
   async function loadTiff(url: string) {
@@ -277,6 +296,9 @@ let tooltipY = 0;
 
   onMount(async () => {
 
+    const res = await fetch("/api/geographies");
+    availableGeographies = await res.json();
+
     const tiffData = await loadTiff(`${base}/range/hectare_counts.tif`);
     densityArray = tiffData.densityArray;
     width = tiffData.width;
@@ -384,11 +406,93 @@ function clearGroup(group) {
   computeStats(group);
   groups = [...groups]; // trigger Svelte reactivity
 }
+
+
+
+  let availableGeographies = $state([]);
+
+  let selected = $state("");
+
+
+ async function importGeography() {
+  if (!selected){console.log("no selection"); return};
+
+  // Fetch binary file of pixel indices
+  const res = await fetch(`${base}/data/geographies/${selected}`);
+  const arrayBuffer = await res.arrayBuffer();
+  const indices = new Uint32Array(arrayBuffer);
+
+  console.log("indices",indices)
+
+  // Name and color
+  const name = selected.replace(".bin", "");
+  const color = colors[groups.length % colors.length]; // reuse your palette
+
+  // Create new vector layer
+  const newLayer = new VectorLayer({
+    source: new VectorSource(),
+    opacity,
+    style: new Style({
+      fill: new Fill({ color }),
+      stroke: new Stroke({ color: color.replace("0.3", "0.6"), width: 0 }),
+    }),
+  });
+
+  const group = {
+    color,
+    paintedCells: new Set<string>(),
+    paintedIndices: new Set<number>(),
+    stats: { count: 0, sum: 0, mean: 0, median: 0, min: 0, max: 0 },
+    histogram: {},
+    layer: newLayer,
+  };
+
+  // Add it to the map
+  map.addLayer(group.layer);
+  groups = [...groups, group];
+
+  // For each pixel index in the .bin file, convert it to map coords and draw it
+for (const i of indices) {
+  const row = Math.floor(i / width);
+  const col = i % width;
+  const x = originX + col * cellSize;
+  const y = originY + (height - row - 1) * cellSize;
+
+  addCellFeature(group, x, y);
+  const idx = coordToIndex(x, y);
+  if (idx !== null) group.paintedIndices.add(idx); // ✅ guarantee inclusion
+}
+
+  // Compute stats and trigger reactivity
+console.log("paintedCells", group.paintedCells.size);
+console.log("paintedIndices", group.paintedIndices.size);
+console.log("first few painted indices", Array.from(group.paintedIndices).slice(0, 10));
+const sampleVals = Array.from(group.paintedIndices).slice(0, 5).map(i => densityArray[i]);
+console.log("sample values", sampleVals);
+  computeStats(group);
+  groups = [...groups];
+}
+
+
 </script>
 
 <div id="map" ></div>
 <div id="slider-container">
-  <button on:click={() => clearGroup(groups[currentGroupIndex])}>
+  <div style="display:flex; align-items:center; gap:10px;">
+<div class="import-geography">
+  <select bind:value={selected}>
+    <option value="">Select geography...</option>
+    {#each availableGeographies as f}
+      <option value={f}>{f.replace('.bin', '')}</option>
+    {/each}
+  </select>
+
+  <button onclick={importGeography} disabled={!selected}>
+    Import
+  </button>
+</div>
+</div>
+  <button onclick={() => clearGroup(groups[currentGroupIndex])}>
   Clear Painted Cells
 </button>
   <label>
@@ -399,7 +503,7 @@ function clearGroup(group) {
       max="1"
       step="0.01"
       bind:value={opacity}
-      on:input={updateOpacity}
+      oninput={updateOpacity}
     />
   </label>
 </div>
@@ -440,7 +544,7 @@ function clearGroup(group) {
       <div>Maximum number in a hectare : {(+g.stats.max.toFixed(0)) .toLocaleString()}</div>
 
       {#if Object.keys(g.histogram).length}
-        <Histogram histogram={g.histogram} color={g.color.replace("0.3", "1")} />
+        <Histogram histogram={g.histogram} />
       {/if}
     </div> 
     {/if}
