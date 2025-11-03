@@ -1,6 +1,7 @@
 <script lang="ts">
 
-  interface Group {
+ interface Group {
+  name?: string; // 👈 add this
   color: string;
   paintedCells: Set<string>;
   paintedIndices: Set<number>;
@@ -14,7 +15,6 @@
   };
   histogram: Record<string, number>;
   layer: import("ol/layer/Vector.js").default;
-  name: string;
 }
 
   import { onMount } from "svelte";
@@ -34,10 +34,9 @@
   import { fromUrl } from "geotiff";
   import Histogram from "$lib/components/Histogram.svelte";
   import {base} from "$app/paths"
-import { scaleThreshold } from "d3-scale";
-import { interpolateViridis } from "d3-scale-chromatic";
-import LALookup from "$lib/LALookup"
-import { tick } from "svelte";
+  import { scaleThreshold } from "d3-scale";
+  import { interpolateViridis } from "d3-scale-chromatic";
+
 
   let geographies: any[] = [];
 
@@ -52,7 +51,7 @@ const fillOpacity = 0.5; // tweak transparency (0.3–0.8 looks good)
  let layer: VectorLayer;
   let tooltipEl;
 let tooltipVisible = false;
-let tooltipText = $state("");
+let tooltipText = "";
 let tooltipX = 0;
 let tooltipY = 0;
 
@@ -98,7 +97,6 @@ let groups = $state<Group[]>([]);
     paintedIndices: new Set<number>(),
     stats: { count: 0, sum: 0, mean: 0, median: 0, min: 0, max: 0 },
     histogram: {},
-    name: "",
     layer: new VectorLayer({
       source: new VectorSource(),
       opacity, 
@@ -106,7 +104,6 @@ let groups = $state<Group[]>([]);
         fill: new Fill({ color   }),
         stroke: new Stroke({ color: color.replace("0.3", "0.6"), width: 0 }),
       }),
-      
     }),
   }));
 
@@ -305,8 +302,35 @@ let groups = $state<Group[]>([]);
 
   onMount(async () => {
 
-    const res = await fetch(`${base}/data/geographies.json`);
-    availableGeographies = await res.json();
+async function loadLpaLookup() {
+  const res = await fetch(`${base}/data/LAs/LPA_lookup.csv`);
+  const text = await res.text();
+  const lines = text.trim().split("\n");
+  const headers = lines.shift().split(",");
+  const lookup: Record<string, { name: string; id: string }> = {};
+
+  for (const line of lines) {
+    const [code, name, globalID, id] = line.split(",");
+    lookup[code] = { name, id };
+  }
+
+  return lookup;
+}
+lookup = await loadLpaLookup() 
+console.log("lookup",lookup)
+  // Derive available geographies as { code, name, file }
+
+  
+  
+  // bins.map(f => {
+  //   const code = f.replace(".bin", "");
+  //   return {
+  //     code,
+  //     name: lookup[code]?.name ?? code,
+  //     file: f
+  //   };
+  // });
+
 
 
     const tiffData = await loadTiff(`${base}/range/hectare_counts.tif`);
@@ -356,25 +380,22 @@ map.on("pointerup", () => {
 });
 
 // --- Pointer move handles both actions + tooltip ---
-map.on("pointermove", async (evt) => {
+map.on("pointermove", (evt) => {
   const pixel = map.getEventPixel(evt.originalEvent);
   const feature = map.forEachFeatureAtPixel(pixel, (f) => f);
 
   if (feature) {
     const value = feature.get("densityValue");
+    tooltipVisible = true;
     tooltipText =
       value !== undefined
-        ? `(Title deeds with centroids in hovered area: ${value})`
+        ? `Title deeds with centroids in this hectare: ${value}`
         : "No data";
     tooltipX = evt.originalEvent.pageX + 10;
     tooltipY = evt.originalEvent.pageY + 10;
-    tooltipVisible = true;
   } else {
     tooltipVisible = false;
   }
-
-  // Tell Svelte to update the DOM
-  await tick();
 
   if (painting) paintAt(groups[currentGroupIndex], evt.coordinate);
   else if (erasing) eraseAt(groups[currentGroupIndex], evt.coordinate);
@@ -422,30 +443,24 @@ function clearGroup(group) {
 
 
 
-  let availableGeographies = $state([]);
+  let lookup = $state([]);
 
   let selected = $state("");
 
 
  async function importGeography() {
-  if (!selected){console.log("no selection"); return};
+  if (!selected) { console.log("no selection"); return }
+console.log("selected", selected)
 
-  // Fetch binary file of pixel indices
+
+  const name = selected.replace(".bin", "");
+
   const res = await fetch(`${base}/data/geographies/${selected}`);
   const arrayBuffer = await res.arrayBuffer();
   const indices = new Uint32Array(arrayBuffer);
 
-  console.log("indices",indices)
+  const color = colors[groups.length % colors.length];
 
-  // Name and color
-  const name = LALookup.find(e=>e.LAD25CD==selected.replace(".bin","")).LAD25NM
-
-  //        "LAD25CD": "E07000222",
- //       "LAD25NM": "Warwick"
-
-  const color = colors[groups.length % colors.length]; // reuse your palette
-
-  // Create new vector layer
   const newLayer = new VectorLayer({
     source: new VectorSource(),
     opacity,
@@ -457,12 +472,12 @@ function clearGroup(group) {
 
   const group = {
     color,
+    name, // 👈 add the name for later display
     paintedCells: new Set<string>(),
     paintedIndices: new Set<number>(),
     stats: { count: 0, sum: 0, mean: 0, median: 0, min: 0, max: 0 },
     histogram: {},
     layer: newLayer,
-    name:name
   };
 
   // Add it to the map
@@ -497,20 +512,19 @@ console.log("sample values", sampleVals);
 <div id="map" ></div>
 <div id="slider-container">
   <div style="display:flex; align-items:center; gap:10px;">
-
 <div class="import-geography">
   <select bind:value={selected}>
-    <option value="">Select Local Authority District...</option>
-    {#each LALookup as f}
-      <option value={f.LAD25CD + ".bin"}>{f.LAD25NM}</option>
-    {/each}
-  </select>
+  <option value="">Select geography...</option>
+  {console.log("GEOGS",lookup)}
+  {#each Object.keys(lookup) as g}
+    <option value={g + ".bin"}>{lookup[g].name}</option>
+  {/each}
+</select>
 
   <button onclick={importGeography} disabled={!selected}>
     Import
   </button>
 </div>
-
 </div>
   <button onclick={() => clearGroup(groups[currentGroupIndex])}>
   Clear Painted Cells
@@ -527,7 +541,13 @@ console.log("sample values", sampleVals);
     />
   </label>
 </div>
-
+<div
+  bind:this={tooltipEl}
+  class="absolute bg-black text-white text-xs px-2 py-1 rounded pointer-events-none transition-opacity duration-100"
+  style="opacity: {tooltipVisible ? 1 : 0}; left: {tooltipX}px; top: {tooltipY}px;"
+>
+  {tooltipText}
+</div>
 <!-- Fixed stats panel -->
 <div class="fixed top-4 right-4 bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-lg text-sm w-[250px] max-h-[90vh] overflow-y-auto z-50">
  <div id="instructions"> 
@@ -541,29 +561,23 @@ console.log("sample values", sampleVals);
   <li class="font-semibold mb-2">Scroll down the page to see more reporting</li>
   <li class="font-semibold mb-2">Adjust opacity with the top right slider</li>
   <li class="font-semibold mb-2">Click "Clear Painted Cells" to clear the current group</li>
-    <li class="font-semibold mb-2">Select a local authority from the dropdown and click Import to see a whole LA</li>
+
 </ul>
 </div>
- <div class="report">
+ 
   {#each groups as g, i}
   {#if g.stats.count}
-  {console.log("g",g)}
     <div class="mb-3 border-b border-gray-300 pb-2">
-      <div class="font-semibold">
-       <b> {g.name?g.name: `Area: + ${i + 1} ${currentGroupIndex === i ? "(Active)" : ""}`}</b>
-      </div>
-      <div>{g.name?g.name: `Area: + ${i + 1}`} measures {g.stats.count.toLocaleString()} hectares</div>
+      <div class="font-semibold" style="color:{g.color.replace('0.3', '1')}">
+ <h2> {g.name ?? `Area ${i + 1}`} {currentGroupIndex === i ? "(Active)" : ""}</h2>
+</div>
+<div>{g.name ?? `Area ${i + 1}`} measures {g.stats.count.toLocaleString()} hectares</div>
+
       <div>It contains {(+ g.stats.sum.toFixed(0)).toLocaleString()} title deeds</div>
-      <div>Density is {g.stats.mean.toFixed(2 )} titles per hectare.</div>
+      <div>Which is {g.stats.mean.toFixed(2 )} titles per hectare.</div>
       <div>The median hactare's number of titles is {g.stats.median.toFixed(0)}</div>
       <div>Minimum number in a hectare: {g.stats.min.toFixed(0)}</div>
       <div>Maximum number in a hectare : {(+g.stats.max.toFixed(0)) .toLocaleString()}</div>
-      <div
-  bind:this={tooltipEl}
-  class="tooltip"
->
-  {tooltipText}
-</div>
 
       {#if Object.keys(g.histogram).length}
         <Histogram histogram={g.histogram} />
@@ -571,7 +585,6 @@ console.log("sample values", sampleVals);
     </div> 
     {/if}
   {/each}
-</div>
 </div>
 
 <style>
@@ -590,10 +603,6 @@ console.log("sample values", sampleVals);
   border:1px solid grey;
   font-family:Arial, Helvetica, sans-serif
 
-  }
-
-  .report{
-    font-family: Arial, Helvetica, sans-serif;
   }
     #slider-container {
     position: absolute;
