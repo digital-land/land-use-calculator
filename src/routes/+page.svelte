@@ -1,4 +1,5 @@
 <script>
+  import init, { binary_and_unpack_simd, binary_buffer, categorical_count_masked, unpack_bitmask, categorical_matrix} from "$lib/raster_ops/pkg/raster_ops";
   import { onMount, tick } from "svelte";
   import { enhance } from "$app/forms";
   import { fromUrl, fromBlob, fromArrayBuffer } from "geotiff";
@@ -106,11 +107,6 @@
       text: "Only land within 1km of built up areas",
       sentenceText: "the land within 1km of built up areas",
     },
-    {
-      value: "Church.tif",
-      text: "Only Church-owned land",
-      sentenceText: "Church-owned land",
-    },
   ];
 
   let policyLens = $state("England");
@@ -136,11 +132,40 @@
   // $inspect(englandArea);
 
   let blendedArray = $state([]);
+
+  let breakdownData = $state(null);
+let breakdownLoading = $state(false);
+let breakdownError = $state(null);
+
+$effect(() => {
+  // Don't run until blendedArray exists and has data
+  if (!blendedArray || blendedArray.length === 0) return;
+
+  breakdownLoading = true;
+  breakdownError = null;
+
+  // Run the async breakdown in the background
+  getLABreakdown(`${base}/data/LAs/lpas_uint16.bin`, blendedArray)
+    .then(result => {
+      breakdownData = result;
+      breakdownLoading = false;
+    })
+    .catch(err => {
+      console.error("Breakdown error:", err);
+      breakdownError = err.message;
+      breakdownLoading = false;
+    });
+});
+
   // $inspect(blendedArray);
   let blendedArrayLength = $state(0);
   let selected = $state([]);
   $inspect({ selected });
   // $inspect({ enrichedLayers });
+
+
+
+
   let tableData = $derived(
     //DERIVED 6
     // if (englandArea && blendedArrayLength) {
@@ -379,6 +404,13 @@
   });
 
   onMount(async () => {
+
+
+  await init(new URL("$lib/raster_ops/pkg/raster_ops_bg.wasm", import.meta.url));
+  console.log("✅ WASM initialized");
+
+
+
     try {
       const response = await fetch(csvLocation);
       if (!response.ok) throw new Error("Failed to fetch CSV");
@@ -535,6 +567,52 @@
     );
   }
 
+
+async function getLABreakdown(cRoute, aArray) {
+  // a: Uint8Array (binary 0/1)
+  // c: Uint32Array (categorical values)
+console.log("doing getLABreakdown")
+// Load the categorical raster as a flat .bin file
+const catBuffer = await fetch(cRoute).then(r =>r.arrayBuffer())
+// Convert to typed array (matches the WASM expectation)
+const c = new Uint16Array(catBuffer);
+console.log("categorical", c)
+let a = aArray
+// Load bitpacked mask
+// const maskBuffer = await fetch(aRoute).then(r => r.arrayBuffer());
+// const rawMask = new Uint8Array(maskBuffer);
+// Unpack efficiently in WASM
+// const a = unpack_bitmask(rawMask, c.length);
+// console.log("binary", a)
+
+  const breakdownWorker = new Worker(
+    new URL("$lib/workers/breakdownWorker.js", import.meta.url),
+    { type: "module" }
+  );
+
+  // Send arrays + transfer underlying ArrayBuffers (zero-copy)
+  breakdownWorker.postMessage(
+    {
+      bitArray: a,
+      categoricalArray: c,
+    },
+    [a.buffer, c.buffer] // transfer list: just the ArrayBuffers
+  );
+
+  breakdownWorker.onmessage = (e) => {
+    if (e.data?.json !== undefined) {
+      console.log(e.data.json);
+    } else {
+      console.log("Worker message:", e.data);
+    }
+  };
+
+  return {a:1, b:2, c:3}
+}
+
+
+
+
   function blendLayers() {
     console.time("blendLayers");
     const blendWorker = new Worker(
@@ -567,6 +645,8 @@
       } else if (e.data.type === "done") {
         blendedArrayLength = e.data.activeCount;
         blendedArray = new Uint8Array(e.data.result); // re-wrap transferred buffer
+
+
         // occurrences = e.data.occurrences;
         blending = false;
         blendingProgress.set(100);
@@ -787,7 +867,7 @@
           name="policyLensInput"
           items={policyLensItems}
           bind:value={policyLens}
-          label={"Show"}
+          label={"Select area to explore"}
           onchange={() =>
             Object.keys(tiffArrayBuffersFromZip).length > 0
               ? unpackZippedLayers()
@@ -1139,6 +1219,50 @@
                   const link = document.createElement("a");
                   link.href = URL.createObjectURL(blob);
                   link.download = "land-data.csv";
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  URL.revokeObjectURL(link.href);
+                }}
+              ></Button>
+              <Button
+                buttonType="default"
+                textContent="Download Local Authority breakdown of data (.csv)"
+                onClickFunction={function () {
+                  function jsonToCsv(items) {
+                    const footer =
+                      "\r\n Notes: \r\n 1. All figures are in hectares. \r\n 2. This is an experimental product under development.";
+                    const caveat =
+                      "Figures relate to the area within " +
+                      policyLensItems.find((d) => d.value == policyLens)
+                        .sentenceText;
+                    const header = Object.keys(items[0]);
+                    const headerString = header.join(",");
+                    // handle null or undefined values here
+                    const replacer = (key, value) => value ?? "";
+                    const rowItems = items.map((row) =>
+                      header
+                        .map((fieldName) =>
+                          JSON.stringify(row[fieldName], replacer)
+                        )
+                        .join(",")
+                    );
+                    // join header and body, and break into separate lines
+                    const csv = [
+                      headerString,
+                      ...rowItems,
+                      footer,
+                      caveat,
+                    ].join("\r\n");
+                    return csv;
+                  }
+
+                  // const jsonStr = JSON.stringify(wrapped, null, 2);
+                  const csvStr = jsonToCsv(breakdownData);
+                  const blob = new Blob([csvStr], { type: "text/csv" });
+                  const link = document.createElement("a");
+                  link.href = URL.createObjectURL(blob);
+                  link.download = "land-data-by-la.csv";
                   document.body.appendChild(link);
                   link.click();
                   document.body.removeChild(link);
