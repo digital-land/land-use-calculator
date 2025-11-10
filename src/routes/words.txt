@@ -1,0 +1,78 @@
+"Ownership" - a key and a hand
+"Use and cover" - a tree
+"Protections" - a legal document
+"Density" - a circular cluster of circles of different sizes
+"Economics" - A £
+"Availability" - A For Sale sign
+"Environmental" - A factory chimney with smoke
+"Activity" - a person running
+"Utilities" - an electricity symbol
+"User added layers" - a paintbrush
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none;">
+  <!-- 1. Ownership -->
+  <symbol id="icon-ownership" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="7" cy="12" r="2"/>
+    <line x1="9" y1="12" x2="15" y2="12"/>
+    <line x1="15" y1="12" x2="15" y2="14"/>
+  </symbol>
+
+  <!-- 2. Use and Cover -->
+  <symbol id="icon-use-cover" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="8" r="4"/>
+    <line x1="12" y1="12" x2="12" y2="18"/>
+  </symbol>
+
+  <!-- 3. Protections -->
+  <symbol id="icon-protections" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="6" y="4" width="12" height="16" rx="2"/>
+    <line x1="8" y1="8" x2="16" y2="8"/>
+    <line x1="8" y1="12" x2="16" y2="12"/>
+  </symbol>
+
+  <!-- 4. Density -->
+  <symbol id="icon-density" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="8" cy="8" r="2"/>
+    <circle cx="12" cy="10" r="3"/>
+    <circle cx="16" cy="8" r="2"/>
+    <circle cx="10" cy="14" r="2"/>
+  </symbol>
+
+  <!-- 5. Economics -->
+  <symbol id="icon-economics" viewBox="0 0 24 24" fill="currentColor">
+    <text x="4" y="18" font-size="16" font-family="Arial, sans-serif">£</text>
+  </symbol>
+
+  <!-- 6. Availability -->
+  <symbol id="icon-availability" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="6" y="6" width="12" height="12"/>
+    <line x1="12" y1="18" x2="12" y2="20"/>
+  </symbol>
+
+  <!-- 7. Environmental -->
+  <symbol id="icon-environmental" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="6" y="10" width="12" height="10"/>
+    <line x1="10" y1="10" x2="10" y2="6"/>
+    <line x1="14" y1="10" x2="14" y2="6"/>
+    <path d="M10 6c1-2 3-2 4 0"/>
+  </symbol>
+
+  <!-- 8. Activity -->
+  <symbol id="icon-activity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="4" r="2"/>
+    <line x1="12" y1="6" x2="12" y2="12"/>
+    <line x1="12" y1="10" x2="8" y2="14"/>
+    <line x1="12" y1="12" x2="16" y2="18"/>
+  </symbol>
+
+  <!-- 9. Utilities -->
+  <symbol id="icon-utilities" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="12 2 8 12 14 12 10 22"/>
+  </symbol>
+
+  <!-- 10. User Added Layers -->
+  <symbol id="icon-user-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="6" y1="18" x2="18" y2="6"/>
+    <line x1="14" y1="2" x2="22" y2="10"/>
+  </symbol>
+</svg>
