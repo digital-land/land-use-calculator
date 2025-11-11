@@ -145,7 +145,7 @@ $effect(() => {
   breakdownError = null;
 
   // Run the async breakdown in the background
-  getLABreakdown(`${base}/data/LAs/lpas_uint16.bin`, blendedArray)
+  getLABreakdown(`${base}/data/LAs/lad_may_2025_index.bin`, blendedArray)
     .then(result => {
       breakdownData = result;
       breakdownLoading = false;
