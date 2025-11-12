@@ -1,4 +1,7 @@
 <script>
+
+  //trigger deploy
+  
   import init, {
     binary_and_unpack_simd,
     binary_buffer,
