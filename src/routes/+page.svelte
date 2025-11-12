@@ -1,5 +1,11 @@
 <script>
-  import init, { binary_and_unpack_simd, binary_buffer, categorical_count_masked, unpack_bitmask, categorical_matrix} from "$lib/raster_ops/pkg/raster_ops";
+  import init, {
+    binary_and_unpack_simd,
+    binary_buffer,
+    categorical_count_masked,
+    unpack_bitmask,
+    categorical_matrix,
+  } from "$lib/raster_ops/pkg/raster_ops";
   import { onMount, tick } from "svelte";
   import { enhance } from "$app/forms";
   import { fromUrl, fromBlob, fromArrayBuffer } from "geotiff";
@@ -25,6 +31,7 @@
   import { csvParse } from "d3-dsv";
   // import LALookup from "$lib/LALookup.js";
   import JSZip from "jszip";
+  import { parseCsv } from "$lib/utils";
 
   const mobile = new MediaQuery("max-width: 600px");
   // let pageLayout = $state("grid-template-columns: 23% 40% 37%");
@@ -134,37 +141,36 @@
   let blendedArray = $state([]);
 
   let breakdownData = $state(null);
-let breakdownLoading = $state(false);
-let breakdownError = $state(null);
+  let breakdownLoading = $state(false);
+  let breakdownError = $state(null);
 
-$effect(() => {
-  // Don't run until blendedArray exists and has data
-  if (!blendedArray || blendedArray.length === 0) return;
+  // function generateBreakdown() {
+  //   // Don't run until blendedArray exists and has data
+  //   if (!blendedArray || blendedArray.length === 0) return;
 
-  breakdownLoading = true;
-  breakdownError = null;
+  //   breakdownLoading = true;
+  //   breakdownError = null;
 
-  // Run the async breakdown in the background
-  getLABreakdown(`${base}/data/LAs/la_boundaries100_rnm.bin`, blendedArray)
-    .then(result => {
-      breakdownData = result;
-      breakdownLoading = false;
-    })
-    .catch(err => {
-      console.error("Breakdown error:", err);
-      breakdownError = err.message;
-      breakdownLoading = false;
-    });
-});
+  //   // Run the async breakdown in the background
+  //   getLABreakdown(`${base}/data/LAs/la_boundaries100.bin`, blendedArray)
+  //     .then((result) => {
+  //       breakdownData = result.json;
+  //       console.log(blendedArrayLength);
+  //       breakdownLoading = false;
+  //       // makeAndPaintCombinedCanvas();
+  //     })
+  //     .catch((err) => {
+  //       console.error("Breakdown error:", err);
+  //       breakdownError = err.message;
+  //       breakdownLoading = false;
+  //     });
+  // }
 
   // $inspect(blendedArray);
   let blendedArrayLength = $state(0);
   let selected = $state([]);
   $inspect({ selected });
   // $inspect({ enrichedLayers });
-
-
-
 
   let tableData = $derived(
     //DERIVED 6
@@ -334,7 +340,7 @@ $effect(() => {
 
         metadataCsv = csvText;
 
-        startingPosition = parseMetadataCsv(csvText);
+        startingPosition = parseCsv(csvText);
         // .filter(
         //   (d) => d.filename !== "ENGLAND_100M.tif"
         // );
@@ -372,19 +378,19 @@ $effect(() => {
       : `${base}/data/PUBLIC_LAYERS/ultimate_land_metadata.csv`
   );
 
-  function parseMetadataCsv(csvText) {
-    const lines = csvText.trim().split("\n");
-    const headers = lines[0].trim().split(",");
+  // function parseCsv(csvText) {
+  //   const lines = csvText.trim().split("\n");
+  //   const headers = lines[0].trim().split(",");
 
-    return lines.slice(1).map((line) => {
-      // console.log(line);
-      const values = line.split(",");
-      const row = {};
-      headers.forEach((h, i) => (row[h] = values[i].replace("\r", "")));
-      // console.log(row);
-      return row;
-    });
-  }
+  //   return lines.slice(1).map((line) => {
+  //     // console.log(line);
+  //     const values = line.split(",");
+  //     const row = {};
+  //     headers.forEach((h, i) => (row[h] = values[i].replace("\r", "")));
+  //     // console.log(row);
+  //     return row;
+  //   });
+  // }
 
   let geotiff = $state();
   let metadataCsv = $state();
@@ -404,12 +410,13 @@ $effect(() => {
   });
 
   onMount(async () => {
-
-
-  await init(new URL("$lib/raster_ops/pkg/raster_ops_bg.wasm", import.meta.url));
-  console.log("✅ WASM initialized");
-
-
+    await init({
+      module_or_path: new URL(
+        "$lib/raster_ops/pkg/raster_ops_bg.wasm",
+        import.meta.url
+      ),
+    });
+    console.log("✅ WASM initialized");
 
     try {
       const response = await fetch(csvLocation);
@@ -417,7 +424,7 @@ $effect(() => {
       metadataCsv = await response.text();
       // console.log(metadataCsv);
 
-      startingPosition = parseMetadataCsv(metadataCsv);
+      startingPosition = parseCsv(metadataCsv);
       // .filter(
       //   (d) => d.filename !== "ENGLAND_100M.tif"
       // );
@@ -438,7 +445,7 @@ $effect(() => {
     message = "Processing layers...";
 
     layersToUnpack = selected.map((d) =>
-      parseMetadataCsv(metadataCsv).find((layer) => layer.filename === d)
+      parseCsv(metadataCsv).find((layer) => layer.filename === d)
     );
   }
 
@@ -528,7 +535,7 @@ $effect(() => {
       (layer) => (layer.arrayBuffer = tiffArrayBuffersFromZip[layer.filename])
     );
 
-    let policyLensLayerToUnpack = parseMetadataCsv(metadataCsv).find(
+    let policyLensLayerToUnpack = parseCsv(metadataCsv).find(
       (layer) => layer.filename === policyLens
     );
 
@@ -567,51 +574,57 @@ $effect(() => {
     );
   }
 
+  async function getLABreakdown(cRoute, aArray) {
+    // a: Uint8Array (binary 0/1)
+    // c: Uint32Array (categorical values)
+    console.log("doing getLABreakdown");
+    // Load the categorical raster as a flat .bin file
+    const catBuffer = await fetch(cRoute).then((r) => r.arrayBuffer());
+    // Convert to typed array (matches the WASM expectation)
+    const c = new Uint16Array(catBuffer);
+    console.log("categorical", c);
+    let a = aArray;
+    // Load bitpacked mask
+    // const maskBuffer = await fetch(aRoute).then(r => r.arrayBuffer());
+    // const rawMask = new Uint8Array(maskBuffer);
+    // Unpack efficiently in WASM
+    // const a = unpack_bitmask(rawMask, c.length);
+    // console.log("binary", a)
 
-async function getLABreakdown(cRoute, aArray) {
-  // a: Uint8Array (binary 0/1)
-  // c: Uint32Array (categorical values)
-console.log("doing getLABreakdown")
-// Load the categorical raster as a flat .bin file
-const catBuffer = await fetch(cRoute).then(r =>r.arrayBuffer())
-// Convert to typed array (matches the WASM expectation)
-const c = new Uint16Array(catBuffer);
-console.log("categorical", c)
-let a = aArray
-// Load bitpacked mask
-// const maskBuffer = await fetch(aRoute).then(r => r.arrayBuffer());
-// const rawMask = new Uint8Array(maskBuffer);
-// Unpack efficiently in WASM
-// const a = unpack_bitmask(rawMask, c.length);
-// console.log("binary", a)
+    const breakdownWorker = new Worker(
+      new URL("$lib/workers/breakdownWorker.js", import.meta.url),
+      { type: "module" }
+    );
 
-  const breakdownWorker = new Worker(
-    new URL("$lib/workers/breakdownWorker.js", import.meta.url),
-    { type: "module" }
-  );
+    const result = await new Promise((resolve, reject) => {
+      breakdownWorker.onmessage = (e) => {
+        const { json, bitArray, categoricalArray } = e.data;
+        if (json !== undefined) {
+          console.log("Worker returned:", e.data);
 
-  // Send arrays + transfer underlying ArrayBuffers (zero-copy)
-  breakdownWorker.postMessage(
-    {
-      bitArray: a,
-      categoricalArray: c,
-    },
-    [a.buffer, c.buffer] // transfer list: just the ArrayBuffers
-  );
+          // Ownership returned — arrays usable again
+          resolve({ json, a: bitArray, c: categoricalArray });
+        } else {
+          console.log("Worker message:", e.data);
+        }
+        breakdownWorker.terminate();
+      };
 
-  breakdownWorker.onmessage = (e) => {
-    if (e.data?.json !== undefined) {
-      console.log(e.data.json);
-    } else {
-      console.log("Worker message:", e.data);
-    }
-  };
+      breakdownWorker.onerror = (err) => {
+        reject(err); // ✅ reject on error
+      };
 
-  return {a:1, b:2, c:3}
-}
+      breakdownWorker.postMessage(
+        {
+          bitArray: a,
+          categoricalArray: c,
+        },
+        [a.buffer, c.buffer] // transfer buffers
+      );
+    });
 
-
-
+    return result; // ✅ return after worker resolves
+  }
 
   function blendLayers() {
     console.time("blendLayers");
@@ -645,7 +658,6 @@ let a = aArray
       } else if (e.data.type === "done") {
         blendedArrayLength = e.data.activeCount;
         blendedArray = new Uint8Array(e.data.result); // re-wrap transferred buffer
-
 
         // occurrences = e.data.occurrences;
         blending = false;
@@ -1257,16 +1269,37 @@ let a = aArray
                     return csv;
                   }
 
-                  // const jsonStr = JSON.stringify(wrapped, null, 2);
-                  const csvStr = jsonToCsv(breakdownData);
-                  const blob = new Blob([csvStr], { type: "text/csv" });
-                  const link = document.createElement("a");
-                  link.href = URL.createObjectURL(blob);
-                  link.download = "land-data-by-la.csv";
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-                  URL.revokeObjectURL(link.href);
+                  if (!blendedArray || blendedArray.length === 0) return;
+
+                  breakdownLoading = true;
+                  breakdownError = null;
+
+                  // Run the async breakdown in the background
+                  getLABreakdown(
+                    `${base}/data/LAs/la_boundaries100.bin`,
+                    blendedArray
+                  )
+                    .then((result) => {
+                      breakdownData = result.json;
+                      console.log(blendedArrayLength);
+                      breakdownLoading = false;
+
+                      // const jsonStr = JSON.stringify(wrapped, null, 2);
+                      const csvStr = jsonToCsv(breakdownData);
+                      const blob = new Blob([csvStr], { type: "text/csv" });
+                      const link = document.createElement("a");
+                      link.href = URL.createObjectURL(blob);
+                      link.download = "land-data-by-la.csv";
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      URL.revokeObjectURL(link.href);
+                    })
+                    .catch((err) => {
+                      console.error("Breakdown error:", err);
+                      breakdownError = err.message;
+                      breakdownLoading = false;
+                    });
                 }}
               ></Button>
             {/if}
