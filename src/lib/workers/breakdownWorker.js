@@ -1,14 +1,14 @@
 import init, { categorical_count_masked } from "$lib/raster_ops/pkg/raster_ops.js";
 
-function unpackBitmask(rawMask, nPixels) {
-  const unpacked = new Uint8Array(nPixels);
-  for (let i = 0; i < nPixels; i++) {
-    const byte = rawMask[i >> 3]; // 8 pixels per byte
-    const bit = (byte >> (i & 7)) & 1;
-    unpacked[i] = bit;
-  }
-  return unpacked;
-}
+// function unpackBitmask(rawMask, nPixels) {
+//   const unpacked = new Uint8Array(nPixels);
+//   for (let i = 0; i < nPixels; i++) {
+//     const byte = rawMask[i >> 3]; // 8 pixels per byte
+//     const bit = (byte >> (i & 7)) & 1;
+//     unpacked[i] = bit;
+//   }
+//   return unpacked;
+// }
 
 let wasmReady = false;
 
@@ -26,16 +26,16 @@ self.onmessage = async (e) => {
 
   const { categoricalArray, bitArray } = e.data;
 
-  const a = unpackBitmask(bitArray, categoricalArray.length);
+  // const a = bitArray
 
   const c = new Uint16Array(categoricalArray.buffer);
   const b = new Uint8Array(bitArray.buffer);
 
-  console.log("Received arrays:", c.length, a.length);
+  console.log("Received arrays C:", c.length, "B: ",b.length);
 
   // 🔍 Check lengths
-  if (c.length !== a.length) {
-    console.error("❌ Length mismatch:", c.length, a.length);
+  if (c.length !== b.length) {
+    console.error("❌ Length mismatch:", c.length, b.length);
     self.postMessage({ error: "Length mismatch" });
     return;
   }
@@ -52,7 +52,7 @@ self.onmessage = async (e) => {
 
 
   try {
-    const result = categorical_count_masked(c, a, 400);
+    const result = categorical_count_masked(c, b, 400);
     self.postMessage({ json: result });
   } catch (err) {
     console.error("categorical_count_masked failed:", err);
