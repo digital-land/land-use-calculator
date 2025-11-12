@@ -1276,7 +1276,7 @@
 
                   // Run the async breakdown in the background
                   getLABreakdown(
-                    `${base}/data/LAs/la_boundaries100.bin`,
+                    `${base}/data/LAs/la_boundaries100_rnm.bin`,
                     blendedArray
                   )
                     .then((result) => {
