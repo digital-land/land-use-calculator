@@ -7,5 +7,7 @@ node_modules/
 *.bin
 
 # But explicitly allow chunked files
+!docs/data/LAs/chunks/
+!docs/data/LAs/chunks/*.bin
 !static/data/LAs/chunks/
 !static/data/LAs/chunks/*.bin
