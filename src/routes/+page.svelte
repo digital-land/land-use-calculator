@@ -575,6 +575,7 @@
   }
 
  async function getLABreakdown(cRoutes, bitArray) {
+
   const urls = Array.isArray(cRoutes) ? cRoutes : [cRoutes];
   const width = 5728;
 
@@ -596,14 +597,24 @@
         else console.log("Worker sent ignored message:", e.data);
       };
       breakdownWorker.onerror = (err) => reject(err);
+// main thread
+const csvUrl = `${base}/data/LAs/lad_may_2025_lookup.csv`;
 
-      breakdownWorker.postMessage({ categoricalArray: cChunk, bitArray: aChunk });
+breakdownWorker.postMessage({
+  categoricalArray: cChunk,
+  bitArray: aChunk,
+  csvUrl, // ✅ pass explicitly
+});
+
     });
 
   for (const url of urls) {
     console.log("Fetching chunk:", url);
-    const catBuffer = await fetch(url).then(r => r.arrayBuffer());
-    const cChunk = new Uint16Array(catBuffer);
+const catBuffer = await fetch(url).then((r) => r.arrayBuffer());
+const evenLength = catBuffer.byteLength & ~1; // drop 1 byte if odd
+const safeBuffer = catBuffer.slice(0, evenLength);
+const cChunk = new Uint16Array(safeBuffer);
+
 
     const chunkRows = cChunk.length / width;
     const bitStart = rowOffset * width;
@@ -1285,7 +1296,7 @@ const chunkResult = await processChunk(cChunkTrimmed, aChunkTrimmed);
                   breakdownLoading = true;
                   breakdownError = null;
 
-const baseUrl = "/data/LAs/chunks/";
+const baseUrl = "data/LAs/chunks/";
 const numChunks = 8; // update with actual number of chunks
 
 const chunkUrls = Array.from({ length: numChunks }, (_, i) => `${baseUrl}chunk_${i}.bin`);
