@@ -1,4 +1,6 @@
 import init, { categorical_count_masked } from "$lib/raster_ops/pkg/raster_ops.js";
+import { parseCsv } from "$lib/utils";
+import { base } from "$app/paths";
 
 // function unpackBitmask(rawMask, nPixels) {
 //   const unpacked = new Uint8Array(nPixels);
@@ -15,7 +17,9 @@ let wasmReady = false;
 self.onmessage = async (e) => {
   if (!wasmReady) {
     try {
-      await init(new URL("$lib/raster_ops/pkg/raster_ops_bg.wasm", import.meta.url));
+      await init({
+  module_or_path: new URL("$lib/raster_ops/pkg/raster_ops_bg.wasm", import.meta.url)
+});
       wasmReady = true;
       console.log("✅ WASM initialized in worker");
     } catch (err) {
@@ -50,10 +54,21 @@ self.onmessage = async (e) => {
     return;
   }
 
+  const response = await fetch(`${base}/data/LAs/lad_may_2025_lookup.csv`);
+    if (!response.ok) throw new Error("Failed to fetch CSV");
+    let lookupCsv = await response.text();
+      // console.log(metadataCsv);
+
+    let laLookup = parseCsv(lookupCsv);
+      // console.log(laLookup)
 
   try {
     const result = categorical_count_masked(c, b, 400);
-    self.postMessage({ json: result });
+    let total = result.reduce((a, b) => a + b, 0);
+    // console.log("Total masked elements counted:", total);
+    const jsonResult = laLookup.map((d, i) => {return {"area_code": d.area_code ,'area_name': d.area_name, "value": result[+d.index]}} ) 
+    // console.log(result, laLookup.map((d, i) => {return {[d.area_name]: result[+d.index]}} ))
+    self.postMessage({ json: jsonResult, categoricalArray, bitArray},[categoricalArray.buffer, bitArray.buffer]);
   } catch (err) {
     console.error("categorical_count_masked failed:", err);
     self.postMessage({ error: err.message });
