@@ -28,7 +28,8 @@ self.onmessage = async (e) => {
 
   // const a = bitArray
 
-  const c = new Uint16Array(categoricalArray.buffer);
+const expectedLength = 5728 * 6521;
+const c = new Uint16Array(categoricalArray.buffer.slice(0, expectedLength * 2));
   const b = new Uint8Array(bitArray.buffer);
 
   console.log("Received arrays C:", c.length, "B: ",b.length);
