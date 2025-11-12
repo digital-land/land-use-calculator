@@ -1,7 +1,7 @@
 <script>
 
   //trigger deploy
-  
+
   import init, {
     binary_and_unpack_simd,
     binary_buffer,
@@ -1299,7 +1299,7 @@ const chunkResult = await processChunk(cChunkTrimmed, aChunkTrimmed);
                   breakdownLoading = true;
                   breakdownError = null;
 
-const baseUrl = "data/LAs/chunks/";
+const baseUrl = `${base}data/LAs/chunks/`;
 const numChunks = 8; // update with actual number of chunks
 
 const chunkUrls = Array.from({ length: numChunks }, (_, i) => `${baseUrl}chunk_${i}.bin`);
