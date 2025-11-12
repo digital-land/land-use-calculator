@@ -574,57 +574,68 @@
     );
   }
 
-  async function getLABreakdown(cRoute, aArray) {
-    // a: Uint8Array (binary 0/1)
-    // c: Uint32Array (categorical values)
-    console.log("doing getLABreakdown");
-    // Load the categorical raster as a flat .bin file
-    const catBuffer = await fetch(cRoute).then((r) => r.arrayBuffer());
-    // Convert to typed array (matches the WASM expectation)
-    const c = new Uint16Array(catBuffer);
-    console.log("categorical", c);
-    let a = aArray;
-    // Load bitpacked mask
-    // const maskBuffer = await fetch(aRoute).then(r => r.arrayBuffer());
-    // const rawMask = new Uint8Array(maskBuffer);
-    // Unpack efficiently in WASM
-    // const a = unpack_bitmask(rawMask, c.length);
-    // console.log("binary", a)
+ async function getLABreakdown(cRoutes, bitArray) {
+  const urls = Array.isArray(cRoutes) ? cRoutes : [cRoutes];
+  const width = 5728;
 
-    const breakdownWorker = new Worker(
-      new URL("$lib/workers/breakdownWorker.js", import.meta.url),
-      { type: "module" }
-    );
+  let accumulatedResult = null;
+  let rowOffset = 0;
 
-    const result = await new Promise((resolve, reject) => {
+  // Single persistent worker
+  const breakdownWorker = new Worker(
+    new URL("$lib/workers/breakdownWorker.js", import.meta.url),
+    { type: "module" }
+  );
+
+  const processChunk = (cChunk, aChunk) =>
+    new Promise((resolve, reject) => {
       breakdownWorker.onmessage = (e) => {
-        const { json, bitArray, categoricalArray } = e.data;
-        if (json !== undefined) {
-          console.log("Worker returned:", e.data);
-
-          // Ownership returned — arrays usable again
-          resolve({ json, a: bitArray, c: categoricalArray });
-        } else {
-          console.log("Worker message:", e.data);
-        }
-        breakdownWorker.terminate();
+        const { json, error } = e.data;
+        if (error) reject(new Error(error));
+        else if (json) resolve(json);
+        else console.log("Worker sent ignored message:", e.data);
       };
+      breakdownWorker.onerror = (err) => reject(err);
 
-      breakdownWorker.onerror = (err) => {
-        reject(err); // ✅ reject on error
-      };
-
-      breakdownWorker.postMessage(
-        {
-          bitArray: a,
-          categoricalArray: c,
-        },
-        [a.buffer, c.buffer] // transfer buffers
-      );
+      breakdownWorker.postMessage({ categoricalArray: cChunk, bitArray: aChunk });
     });
 
-    return result; // ✅ return after worker resolves
+  for (const url of urls) {
+    console.log("Fetching chunk:", url);
+    const catBuffer = await fetch(url).then(r => r.arrayBuffer());
+    const cChunk = new Uint16Array(catBuffer);
+
+    const chunkRows = cChunk.length / width;
+    const bitStart = rowOffset * width;
+    const bitEnd = bitStart + chunkRows * width;
+    const aChunk = bitArray.subarray(bitStart, bitEnd);
+
+    console.log("Sending chunk to worker:", cChunk.length, aChunk.length);
+
+const minLength = Math.min(cChunk.length, aChunk.length);
+const cChunkTrimmed = cChunk.subarray(0, minLength);
+const aChunkTrimmed = aChunk.subarray(0, minLength);
+
+const chunkResult = await processChunk(cChunkTrimmed, aChunkTrimmed);
+
+
+    // Accumulate results
+    if (!accumulatedResult) {
+      accumulatedResult = chunkResult;
+    } else {
+      for (let i = 0; i < accumulatedResult.length; i++) {
+        accumulatedResult[i].value += chunkResult[i].value;
+      }
+    }
+
+    rowOffset += chunkRows;
   }
+
+  breakdownWorker.terminate();
+  console.log("All chunks processed, worker terminated");
+
+  return { json: accumulatedResult, bitArray };
+}
 
   function blendLayers() {
     console.time("blendLayers");
@@ -1274,9 +1285,14 @@
                   breakdownLoading = true;
                   breakdownError = null;
 
+const baseUrl = "/data/LAs/chunks/";
+const numChunks = 8; // update with actual number of chunks
+
+const chunkUrls = Array.from({ length: numChunks }, (_, i) => `${baseUrl}chunk_${i}.bin`);
+
                   // Run the async breakdown in the background
                   getLABreakdown(
-                    `${base}/data/LAs/la_boundaries100_rnm.bin`,
+                    chunkUrls,
                     blendedArray
                   )
                     .then((result) => {

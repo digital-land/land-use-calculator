@@ -2,81 +2,61 @@ import init, { categorical_count_masked } from "$lib/raster_ops/pkg/raster_ops.j
 import { parseCsv } from "$lib/utils";
 import { base } from "$app/paths";
 
-// function unpackBitmask(rawMask, nPixels) {
-//   const unpacked = new Uint8Array(nPixels);
-//   for (let i = 0; i < nPixels; i++) {
-//     const byte = rawMask[i >> 3]; // 8 pixels per byte
-//     const bit = (byte >> (i & 7)) & 1;
-//     unpacked[i] = bit;
-//   }
-//   return unpacked;
-// }
-
 let wasmReady = false;
 
+// Worker receives { categoricalArray: Uint16Array, bitArray: Uint16Array }
 self.onmessage = async (e) => {
+  const { categoricalArray, bitArray } = e.data;
+  console.log("Worker received chunk:", categoricalArray.length, bitArray.length);
+
+  // Initialize WASM once
   if (!wasmReady) {
     try {
+      console.log("Initializing WASM...");
       await init({
-  module_or_path: new URL("$lib/raster_ops/pkg/raster_ops_bg.wasm", import.meta.url)
-});
+        module_or_path: new URL("$lib/raster_ops/pkg/raster_ops_bg.wasm", import.meta.url),
+      });
       wasmReady = true;
-      console.log("✅ WASM initialized in worker");
+      console.log("WASM ready");
     } catch (err) {
       console.error("WASM init error:", err);
+      self.postMessage({ error: err.message });
       return;
     }
   }
 
-  const { categoricalArray, bitArray } = e.data;
-
-  // const a = bitArray
-
-const bytesPerPixel = 2; // UInt16
-const width = 5728;
-const height = 6521;
-const oneRowBytes = width * bytesPerPixel;
-
-const trimmedBuffer = categoricalArray.buffer.slice(0, oneRowBytes)//, oneRowBytes + width * height * bytesPerPixel);
-const c = new Uint16Array(trimmedBuffer);
-  const b = new Uint8Array(bitArray.buffer);
-
-  console.log("Received arrays C:", c.length, "B: ",b.length);
-
-  // 🔍 Check lengths
-  if (c.length !== b.length) {
-    console.error("❌ Length mismatch:", c.length, b.length);
-    self.postMessage({ error: "Length mismatch" });
-    return;
-  }
-
-  // 🔍 Check for invalid values
-  
-  const uniqueMask = [...new Set(b)];
-  console.log("unique mask values:", uniqueMask);
-
-  if (uniqueMask.some(v => v > 1)) {
-    console.error("❌ Mask contains non-binary values");
-    return;
-  }
-
-  const response = await fetch(`${base}/data/LAs/lad_may_2025_lookup.csv`);
-    if (!response.ok) throw new Error("Failed to fetch CSV");
-    let lookupCsv = await response.text();
-      // console.log(metadataCsv);
-
-    let laLookup = parseCsv(lookupCsv);
-      // console.log(laLookup)
-
   try {
+    // Trim extra rows if needed (assumes full raster: width*height)
+    const width = 5728;
+    const height = 6521;
+    const expectedLength = width * height;
+
+    const c = categoricalArray.length > expectedLength
+      ? categoricalArray.subarray(0, expectedLength)
+      : categoricalArray;
+
+    const b = bitArray; // already full length
+
+    console.log("Processing chunk:", c.length, b.length);
+
+    // Fetch CSV lookup once per message
+    const response = await fetch(`${base}/data/LAs/lad_may_2025_lookup.csv`);
+    if (!response.ok) throw new Error("Failed to fetch CSV");
+    const lookupCsv = await response.text();
+    const laLookup = parseCsv(lookupCsv);
+
     const result = categorical_count_masked(c, b, 400);
-    let total = result.reduce((a, b) => a + b, 0);
-    // console.log("Total masked elements counted:", total);
-    const jsonResult = laLookup.map((d, i) => {return {"area_code": d.area_code ,'area_name': d.area_name, "value": result[+d.index]}} ) 
-    // console.log(result, laLookup.map((d, i) => {return {[d.area_name]: result[+d.index]}} ))
-    self.postMessage({ json: jsonResult, categoricalArray, bitArray},[categoricalArray.buffer, bitArray.buffer]);
+
+    const jsonResult = laLookup.map((d, i) => ({
+      area_code: d.area_code,
+      area_name: d.area_name,
+      value: result[+d.index],
+    }));
+
+    // Post results back — do NOT transfer buffers
+    self.postMessage({ json: jsonResult });
   } catch (err) {
-    console.error("categorical_count_masked failed:", err);
+    console.error("Worker processing error:", err);
     self.postMessage({ error: err.message });
   }
 };
