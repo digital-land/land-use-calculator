@@ -11,3 +11,6 @@ node_modules/
 !docs/data/LAs/chunks/*.bin
 !static/data/LAs/chunks/
 !static/data/LAs/chunks/*.bin
+
+static/data/ALL_LAYERS/
+docs/data/ALL_LAYERS/

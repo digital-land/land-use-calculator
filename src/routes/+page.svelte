@@ -1,5 +1,4 @@
 <script>
-
   //trigger deploy
 
   import init, {
@@ -34,7 +33,7 @@
   import { csvParse } from "d3-dsv";
   // import LALookup from "$lib/LALookup.js";
   import JSZip from "jszip";
-  import { parseCsv } from "$lib/utils";
+  import { parseCsv, jsonToCsv } from "$lib/utils";
 
   const mobile = new MediaQuery("max-width: 600px");
   // let pageLayout = $state("grid-template-columns: 23% 40% 37%");
@@ -205,8 +204,8 @@
     unique: {
       explainer:
         "Sort by hectares where this is the only barrier to development",
-      label: "Uniquely this (ha)",
-      shortLabel: "Uniquely this (ha)",
+      label: "Exclusive to this category (ha)",
+      shortLabel: "Exclusive to this category (ha)",
     },
     subLayers: {
       explainer: "",
@@ -577,79 +576,78 @@
     );
   }
 
- async function getLABreakdown(cRoutes, bitArray) {
+  async function getLABreakdown(cRoutes, bitArray) {
+    const urls = Array.isArray(cRoutes) ? cRoutes : [cRoutes];
+    const width = 5728;
 
-  const urls = Array.isArray(cRoutes) ? cRoutes : [cRoutes];
-  const width = 5728;
+    let accumulatedResult = null;
+    let rowOffset = 0;
 
-  let accumulatedResult = null;
-  let rowOffset = 0;
+    // Single persistent worker
+    const breakdownWorker = new Worker(
+      new URL("$lib/workers/breakdownWorker.js", import.meta.url),
+      { type: "module" }
+    );
 
-  // Single persistent worker
-  const breakdownWorker = new Worker(
-    new URL("$lib/workers/breakdownWorker.js", import.meta.url),
-    { type: "module" }
-  );
+    const processChunk = (cChunk, aChunk) =>
+      new Promise((resolve, reject) => {
+        breakdownWorker.onmessage = (e) => {
+          const { json, error } = e.data;
+          if (error) reject(new Error(error));
+          else if (json) resolve(json);
+          else console.log("Worker sent ignored message:", e.data);
+        };
+        breakdownWorker.onerror = (err) => reject(err);
+        // main thread
+        const csvUrl = `${base}/data/LAs/lad_may_2025_lookup.csv`;
 
-  const processChunk = (cChunk, aChunk) =>
-    new Promise((resolve, reject) => {
-      breakdownWorker.onmessage = (e) => {
-        const { json, error } = e.data;
-        if (error) reject(new Error(error));
-        else if (json) resolve(json);
-        else console.log("Worker sent ignored message:", e.data);
-      };
-      breakdownWorker.onerror = (err) => reject(err);
-// main thread
-const csvUrl = `${base}/data/LAs/lad_may_2025_lookup.csv`;
+        breakdownWorker.postMessage({
+          categoricalArray: cChunk,
+          bitArray: aChunk,
+          csvUrl, // ✅ pass explicitly
+        });
+      });
 
-breakdownWorker.postMessage({
-  categoricalArray: cChunk,
-  bitArray: aChunk,
-  csvUrl, // ✅ pass explicitly
-});
+    for (const url of urls) {
+      console.log("Fetching chunk:", url);
+      const catBuffer = await fetch(url).then((r) => r.arrayBuffer());
+      const evenLength = catBuffer.byteLength & ~1; // drop 1 byte if odd
+      const safeBuffer = catBuffer.slice(0, evenLength);
+      const cChunk = new Uint16Array(safeBuffer);
 
-    });
+      const chunkRows = cChunk.length / width;
+      const bitStart = rowOffset * width;
+      const bitEnd = bitStart + chunkRows * width;
+      const aChunk = bitArray.subarray(bitStart, bitEnd);
 
-  for (const url of urls) {
-    console.log("Fetching chunk:", url);
-const catBuffer = await fetch(url).then((r) => r.arrayBuffer());
-const evenLength = catBuffer.byteLength & ~1; // drop 1 byte if odd
-const safeBuffer = catBuffer.slice(0, evenLength);
-const cChunk = new Uint16Array(safeBuffer);
+      console.log("Sending chunk to worker:", cChunk.length, aChunk.length);
 
+      const minLength = Math.min(cChunk.length, aChunk.length);
+      const cChunkTrimmed = cChunk.subarray(0, minLength);
+      const aChunkTrimmed = aChunk.subarray(0, minLength);
 
-    const chunkRows = cChunk.length / width;
-    const bitStart = rowOffset * width;
-    const bitEnd = bitStart + chunkRows * width;
-    const aChunk = bitArray.subarray(bitStart, bitEnd);
+      const chunkResult = await processChunk(cChunkTrimmed, aChunkTrimmed);
 
-    console.log("Sending chunk to worker:", cChunk.length, aChunk.length);
-
-const minLength = Math.min(cChunk.length, aChunk.length);
-const cChunkTrimmed = cChunk.subarray(0, minLength);
-const aChunkTrimmed = aChunk.subarray(0, minLength);
-
-const chunkResult = await processChunk(cChunkTrimmed, aChunkTrimmed);
-
-
-    // Accumulate results
-    if (!accumulatedResult) {
-      accumulatedResult = chunkResult;
-    } else {
-      for (let i = 0; i < accumulatedResult.length; i++) {
-        accumulatedResult[i].value += chunkResult[i].value;
+      // Accumulate results
+      if (!accumulatedResult) {
+        accumulatedResult = chunkResult;
+      } else {
+        for (let i = 0; i < accumulatedResult.length; i++) {
+          accumulatedResult[i].selected_area += chunkResult[i].selected_area;
+          accumulatedResult[i].total_area += chunkResult[i].total_area;
+          accumulatedResult[i].selected_area_as_a_proportion_of_total_area +=
+            chunkResult[i].selected_area_as_a_proportion_of_total_area;
+        }
       }
+
+      rowOffset += chunkRows;
     }
 
-    rowOffset += chunkRows;
+    breakdownWorker.terminate();
+    console.log("All chunks processed, worker terminated");
+
+    return { json: accumulatedResult, bitArray };
   }
-
-  breakdownWorker.terminate();
-  console.log("All chunks processed, worker terminated");
-
-  return { json: accumulatedResult, bitArray };
-}
 
   function blendLayers() {
     console.time("blendLayers");
@@ -701,7 +699,9 @@ const chunkResult = await processChunk(cChunkTrimmed, aChunkTrimmed);
           // console.log("Occurrences:", occurrences);
           blendWorker.terminate();
           // makeAndPaintCanvases();
-          makeAndPaintCombinedCanvas();
+          mobile.current
+            ? makeAndPaintCombinedCanvasMobile()
+            : makeAndPaintCombinedCanvas();
         });
         // .then();
       } else if (e.data.error) {
@@ -765,6 +765,115 @@ const chunkResult = await processChunk(cChunkTrimmed, aChunkTrimmed);
     done = true;
     console.timeEnd("canvas-combined");
   }
+
+  //iOS-safe version of the canvas but has some issues at the edges that need to worked out...
+
+  async function makeAndPaintCombinedCanvasMobile() {
+    console.time("canvas-combined");
+    done = false;
+
+    // --- CONFIG ---
+    const MAX_TILE_PIXELS = 10_000_000; // ~3160×3160 per tile
+    const MAX_FINAL_PIXELS = 16_000_000; // Safari hard limit
+    // ---------------
+
+    // Precompute tile grid
+    const tileSize = Math.floor(Math.sqrt(MAX_TILE_PIXELS));
+    const cols = Math.ceil(width / tileSize);
+    const rows = Math.ceil(height / tileSize);
+
+    // Determine if we must scale the final output
+    let scale = 1;
+    const totalPixels = width * height;
+    if (totalPixels > MAX_FINAL_PIXELS) {
+      scale = Math.sqrt(MAX_FINAL_PIXELS / totalPixels);
+    }
+
+    // --- Prepare per-tile rendering ---
+    const tileBlobs = [];
+    const hasSelection = selectedRestrictionIndex >= 0 && renderUnique;
+    const currentBitArray = hasSelection
+      ? currentBitArrays[selectedRestrictionIndex]
+      : null;
+
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const x0 = col * tileSize;
+        const y0 = row * tileSize;
+        const w = Math.min(tileSize, width - x0);
+        const h = Math.min(tileSize, height - y0);
+
+        // ---- Render one tile ----
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        const imageData = ctx.createImageData(w, h);
+        const pixels = new Uint32Array(imageData.data.buffer);
+
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            const i = (y0 + y) * width + (x0 + x);
+            const lensValue = policyLensLayer ? policyLensLayer[i] : 0;
+            const blended = blendedArray[i];
+            const area = hasSelection ? currentBitArray[i] : 0;
+            const unique = hasSelection ? (uniqueArray[i] === 1 ? 1 : 0) : 0;
+
+            let color;
+            if (blended === 0 && lensValue === 0) color = NO_DATA_COLOR;
+            else if (blended === 0 && lensValue === 1) color = OFF_COLOR;
+            else if (area && unique) color = UNIQUE_AREA_COLOR;
+            else if (area) color = SELECTED_AREA_COLOR;
+            else color = TOTAL_COLOR;
+
+            pixels[y * w + x] = color;
+          }
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+
+        // Export the tile to a blob (sequentially to save memory)
+        const blob = await new Promise((r) => canvas.toBlob(r, "image/png"));
+        tileBlobs.push({ row, col, blob, w, h });
+      }
+    }
+
+    // --- Merge all tiles into one final canvas ---
+    const finalW = Math.floor(width * scale);
+    const finalH = Math.floor(height * scale);
+    const finalCanvas = document.createElement("canvas");
+    finalCanvas.width = finalW;
+    finalCanvas.height = finalH;
+    const finalCtx = finalCanvas.getContext("2d");
+
+    finalCtx.imageSmoothingEnabled = scale !== 1;
+    finalCtx.imageSmoothingQuality = "high";
+
+    const drawTilePromises = tileBlobs.map(async ({ row, col, blob, w, h }) => {
+      const img = await createImageBitmap(blob);
+
+      // Use exact float positions—no Math.floor
+      const x = col * tileSize * scale;
+      const y = row * tileSize * scale;
+      const drawW = w * scale;
+      const drawH = h * scale;
+
+      finalCtx.drawImage(img, x, y, drawW, drawH);
+    });
+    await Promise.all(drawTilePromises);
+
+    // Export final PNG blob
+    const finalBlob = await new Promise((r) =>
+      finalCanvas.toBlob(r, "image/png")
+    );
+    dataURL = URL.createObjectURL(finalBlob);
+    // console.log(dataURL);
+    done = true;
+    console.timeEnd("canvas-combined");
+
+    return { dataURL, scale };
+  }
+  // $inspect({ dataURL });
 
   function countOccurrences(uint8Array) {
     const counts = {};
@@ -1222,36 +1331,41 @@ const chunkResult = await processChunk(cChunkTrimmed, aChunkTrimmed);
                 buttonType="default"
                 textContent="Download data (.csv)"
                 onClickFunction={function () {
-                  function jsonToCsv(items) {
-                    const footer =
-                      "\r\n Notes: \r\n 1. All figures are in hectares. \r\n 2. This is an experimental product under development.";
-                    const caveat =
-                      "Figures relate to the area within " +
-                      policyLensItems.find((d) => d.value == policyLens)
-                        .sentenceText;
-                    const header = Object.keys(items[0]);
-                    const headerString = header.join(",");
-                    // handle null or undefined values here
-                    const replacer = (key, value) => value ?? "";
-                    const rowItems = items.map((row) =>
-                      header
-                        .map((fieldName) =>
-                          JSON.stringify(row[fieldName], replacer)
-                        )
-                        .join(",")
-                    );
-                    // join header and body, and break into separate lines
-                    const csv = [
-                      headerString,
-                      ...rowItems,
-                      footer,
-                      caveat,
-                    ].join("\r\n");
-                    return csv;
-                  }
+                  // function jsonToCsv(items) {
+                  //   const footer =
+                  //     "\r\n Notes: \r\n 1. All figures are in hectares. \r\n 2. This is an experimental product under development.";
+                  //   const caveat =
+                  //     "Figures relate to the area within " +
+                  //     policyLensItems.find((d) => d.value == policyLens)
+                  //       .sentenceText;
+                  //   const header = Object.keys(items[0]);
+                  //   const headerString = header.join(",");
+                  //   // handle null or undefined values here
+                  //   const replacer = (key, value) => value ?? "";
+                  //   const rowItems = items.map((row) =>
+                  //     header
+                  //       .map((fieldName) =>
+                  //         JSON.stringify(row[fieldName], replacer)
+                  //       )
+                  //       .join(",")
+                  //   );
+                  //   // join header and body, and break into separate lines
+                  //   const csv = [
+                  //     headerString,
+                  //     ...rowItems,
+                  //     footer,
+                  //     caveat,
+                  //   ].join("\r\n");
+                  //   return csv;
+                  // }
 
                   // const jsonStr = JSON.stringify(wrapped, null, 2);
-                  const csvStr = jsonToCsv(tableData);
+                  const csvStr = jsonToCsv(
+                    tableData,
+                    policyLens,
+                    policyLensItems,
+                    selected
+                  );
                   const blob = new Blob([csvStr], { type: "text/csv" });
                   const link = document.createElement("a");
                   link.href = URL.createObjectURL(blob);
@@ -1266,56 +1380,61 @@ const chunkResult = await processChunk(cChunkTrimmed, aChunkTrimmed);
                 buttonType="default"
                 textContent="Download Local Authority breakdown of data (.csv)"
                 onClickFunction={function () {
-                  function jsonToCsv(items) {
-                    const footer =
-                      "\r\n Notes: \r\n 1. All figures are in hectares. \r\n 2. This is an experimental product under development.";
-                    const caveat =
-                      "Figures relate to the area within " +
-                      policyLensItems.find((d) => d.value == policyLens)
-                        .sentenceText;
-                    const header = Object.keys(items[0]);
-                    const headerString = header.join(",");
-                    // handle null or undefined values here
-                    const replacer = (key, value) => value ?? "";
-                    const rowItems = items.map((row) =>
-                      header
-                        .map((fieldName) =>
-                          JSON.stringify(row[fieldName], replacer)
-                        )
-                        .join(",")
-                    );
-                    // join header and body, and break into separate lines
-                    const csv = [
-                      headerString,
-                      ...rowItems,
-                      footer,
-                      caveat,
-                    ].join("\r\n");
-                    return csv;
-                  }
+                  // function jsonToCsv(items) {
+                  //   const footer =
+                  //     "\r\n Notes: \r\n 1. All figures are in hectares. \r\n 2. This is an experimental product under development.";
+                  //   const caveat =
+                  //     "Figures relate to the area within " +
+                  //     policyLensItems.find((d) => d.value == policyLens)
+                  //       .sentenceText;
+                  //   const header = Object.keys(items[0]);
+                  //   const headerString = header.join(",");
+                  //   // handle null or undefined values here
+                  //   const replacer = (key, value) => value ?? "";
+                  //   const rowItems = items.map((row) =>
+                  //     header
+                  //       .map((fieldName) =>
+                  //         JSON.stringify(row[fieldName], replacer)
+                  //       )
+                  //       .join(",")
+                  //   );
+                  //   // join header and body, and break into separate lines
+                  //   const csv = [
+                  //     headerString,
+                  //     ...rowItems,
+                  //     footer,
+                  //     caveat,
+                  //   ].join("\r\n");
+                  //   return csv;
+                  // }
 
                   if (!blendedArray || blendedArray.length === 0) return;
 
                   breakdownLoading = true;
                   breakdownError = null;
 
-const baseUrl = `${base}/data/LAs/chunks/`;
-const numChunks = 8; // update with actual number of chunks
+                  const baseUrl = `${base}/data/LAs/chunks/`;
+                  const numChunks = 8; // update with actual number of chunks
 
-const chunkUrls = Array.from({ length: numChunks }, (_, i) => `${baseUrl}chunk_${i}.bin`);
+                  const chunkUrls = Array.from(
+                    { length: numChunks },
+                    (_, i) => `${baseUrl}chunk_${i}.bin`
+                  );
 
                   // Run the async breakdown in the background
-                  getLABreakdown(
-                    chunkUrls,
-                    blendedArray
-                  )
+                  getLABreakdown(chunkUrls, blendedArray)
                     .then((result) => {
                       breakdownData = result.json;
                       console.log(blendedArrayLength);
                       breakdownLoading = false;
 
                       // const jsonStr = JSON.stringify(wrapped, null, 2);
-                      const csvStr = jsonToCsv(breakdownData);
+                      const csvStr = jsonToCsv(
+                        breakdownData,
+                        policyLens,
+                        policyLensItems,
+                        selected
+                      );
                       const blob = new Blob([csvStr], { type: "text/csv" });
                       const link = document.createElement("a");
                       link.href = URL.createObjectURL(blob);

@@ -2,6 +2,7 @@ import init, { categorical_count_masked } from "$lib/raster_ops/pkg/raster_ops.j
 import { parseCsv } from "$lib/utils";
 // import { base } from "$app/paths";
 const base = import.meta.env.BASE_URL || "/";
+import areaSizeLookup from '$lib/data/areas_las_pixels.json';
 
 let wasmReady = false;
 
@@ -57,9 +58,11 @@ const lookupCsv = await response.text();
     const jsonResult = laLookup.map((d, i) => ({
       area_code: d.area_code,
       area_name: d.area_name,
-      value: result[+d.index],
+      selected_area: result[+d.index],
+      total_area: areaSizeLookup?.[d.index]?.["Pixel count"],
+      selected_area_as_a_proportion_of_total_area: (result[+d.index]/areaSizeLookup?.[d.index]?.["Pixel count"]),
     }));
-
+console.log(jsonResult[0])
     // Post results back — do NOT transfer buffers
     self.postMessage({ json: jsonResult });
   } catch (err) {
