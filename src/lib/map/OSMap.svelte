@@ -1,5 +1,10 @@
 <script>
-  let { dataURL, bbox, selectedAreaName = $bindable() } = $props();
+  let {
+    dataURL,
+    bbox,
+    selectedAreaName = $bindable(),
+    breakdownData,
+  } = $props();
 
   import { onMount } from "svelte";
   import { onDestroy } from "svelte";
@@ -74,7 +79,7 @@
     );
 
     const geoJsonVectorSource = new ol.source.Vector({
-      url: "local-planning-authority.geojson",
+      url: "LAD_MAY_2025_UK_BGC_England.geojson",
       format: new ol.format.GeoJSON({
         dataProjection: "EPSG:4326", // projection of the GeoJSON file
         featureProjection: "EPSG:27700", // projection of the map
@@ -130,9 +135,9 @@
       map.forEachFeatureAtPixel(evt.pixel, function (feature, layer) {
         const props = feature.getProperties();
 
-        console.log("Feature clicked:", props);
-        if (props.name) {
-          selectedAreaName = props.name;
+        console.log("Feature clicked:", props, evt.pixel);
+        if (props.LAD25NM) {
+          selectedAreaName = props.LAD25NM;
 
           // map.getView().fit(props.geometry?.extent_, { duration: 1000 });
         }
@@ -140,7 +145,66 @@
         return true; // stop after first match
       });
     });
+
+    const info = document.getElementById("info");
+    let currentFeature;
+
+    const displayFeatureInfo = function (pixel, target) {
+      const feature = target.closest(".ol-control")
+        ? undefined
+        : map.forEachFeatureAtPixel(pixel, function (feature) {
+            return feature?.values_;
+          });
+      if (feature) {
+        info.style.left = pixel[0] + 15 + "px";
+        info.style.top = pixel[1] + 15 + "px";
+        if (feature !== currentFeature) {
+          info.style.visibility = "visible";
+          info.innerHTML =
+            "<b>" +
+            feature.LAD25NM +
+            "</b>" +
+            "<br>" +
+            "Area covered by the current selections: " +
+            Number(
+              breakdownData.find((d) => d.area_code === feature.LAD25CD)?.[
+                "selected_area"
+              ]
+            ).toLocaleString() +
+            "ha" +
+            "<br> (" +
+            Number(
+              breakdownData.find((d) => d.area_code === feature.LAD25CD)?.[
+                "selected_area_as_a_proportion_of_total_area"
+              ]
+            ).toPrecision(2) *
+              100 +
+            "%)";
+        }
+      } else {
+        info.style.visibility = "hidden";
+      }
+      currentFeature = feature;
+    };
+    map.on("pointermove", function (evt) {
+      if (evt.dragging) {
+        info.style.visibility = "hidden";
+        currentFeature = undefined;
+        return;
+      }
+      displayFeatureInfo(evt.pixel, evt.originalEvent.target);
+    });
+
+    map.on("click", function (evt) {
+      displayFeatureInfo(evt.pixel, evt.originalEvent.target);
+    });
+
+    map.getTargetElement().addEventListener("pointerleave", function () {
+      currentFeature = undefined;
+      info.style.visibility = "hidden";
+    });
   });
+  $inspect(selectedAreaName);
 
   $effect(() => {
     if (map) {
@@ -168,7 +232,9 @@
   });
 </script>
 
-<div bind:this={mapElement} class="map-container" tabindex="0"></div>
+<div bind:this={mapElement} class="map-container" tabindex="0">
+  <div id="info"></div>
+</div>
 
 <style>
   .map-container {
@@ -176,5 +242,28 @@
     height: calc(100% - 20px);
     width: calc(100% - 20px);
     padding: 10px;
+    position: relative;
+  }
+
+  :global(.ol-control button) {
+    min-height: 24px;
+    min-width: 24px;
+  }
+
+  #info {
+    position: absolute;
+    display: inline-block;
+    height: auto;
+    width: auto;
+    z-index: 100;
+    background-color: #333;
+    color: #fff;
+    text-align: left;
+    border-radius: 4px;
+    padding: 5px;
+    left: 50%;
+    transform: translateX(3%);
+    visibility: hidden;
+    pointer-events: none;
   }
 </style>

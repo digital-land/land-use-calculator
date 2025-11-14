@@ -576,6 +576,15 @@
     );
   }
 
+  //Constants used for getting the LA breakdown
+  const baseUrl = `${base}/data/LAs/chunks/`;
+  const numChunks = 8; // update with actual number of chunks
+
+  const chunkUrls = Array.from(
+    { length: numChunks },
+    (_, i) => `${baseUrl}chunk_${i}.bin`
+  );
+
   async function getLABreakdown(cRoutes, bitArray) {
     const urls = Array.isArray(cRoutes) ? cRoutes : [cRoutes];
     const width = 5728;
@@ -634,7 +643,7 @@
       } else {
         for (let i = 0; i < accumulatedResult.length; i++) {
           accumulatedResult[i].selected_area += chunkResult[i].selected_area;
-          accumulatedResult[i].total_area += chunkResult[i].total_area;
+          accumulatedResult[i].total_area = chunkResult[i].total_area;
           accumulatedResult[i].selected_area_as_a_proportion_of_total_area +=
             chunkResult[i].selected_area_as_a_proportion_of_total_area;
         }
@@ -699,6 +708,11 @@
           // console.log("Occurrences:", occurrences);
           blendWorker.terminate();
           // makeAndPaintCanvases();
+          getLABreakdown(chunkUrls, blendedArray).then((result) => {
+            breakdownData = result.json;
+            console.log("done breaking down: ", breakdownData);
+            breakdownLoading = false;
+          });
           mobile.current
             ? makeAndPaintCombinedCanvasMobile()
             : makeAndPaintCombinedCanvas();
@@ -1168,7 +1182,7 @@
         <!-- {console.log("Rendering the map!")} -->
 
         <div id="map" class={["os-map-container", { done }]}>
-          <OsMap {dataURL} {bbox} />
+          <OsMap {dataURL} {bbox} {breakdownData} />
         </div>
       {:else if bbox}
         <div id="map" style="height: calc(100vh - 150px);">
@@ -1413,14 +1427,6 @@
                   breakdownLoading = true;
                   breakdownError = null;
 
-                  const baseUrl = `${base}/data/LAs/chunks/`;
-                  const numChunks = 8; // update with actual number of chunks
-
-                  const chunkUrls = Array.from(
-                    { length: numChunks },
-                    (_, i) => `${baseUrl}chunk_${i}.bin`
-                  );
-
                   // Run the async breakdown in the background
                   getLABreakdown(chunkUrls, blendedArray)
                     .then((result) => {
@@ -1471,6 +1477,13 @@
   div.header-left {
     display: grid;
     grid-template-columns: 1fr 2fr;
+  }
+
+  @media (max-width: 600px) {
+    div.header-left {
+      display: flex;
+      flex-direction: column;
+    }
   }
 
   div.firstSelections {
