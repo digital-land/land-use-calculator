@@ -33,7 +33,7 @@
   import { csvParse } from "d3-dsv";
   // import LALookup from "$lib/LALookup.js";
   import JSZip from "jszip";
-  import { parseCsv, jsonToCsv } from "$lib/utils";
+  import { parseCsv, jsonToCsv, makeFileNameReadable } from "$lib/utils";
 
   const mobile = new MediaQuery("max-width: 600px");
   // let pageLayout = $state("grid-template-columns: 23% 40% 37%");
@@ -179,7 +179,7 @@
     // if (englandArea && blendedArrayLength) {
     selected?.map((layer, i) => {
       return {
-        name: layer.replace(".tif", "").replaceAll("_", " "),
+        name: makeFileNameReadable(layer),
         area: enrichedLayers?.find((d) => d.filename == layer)?.area
           ? enrichedLayers?.find((d) => d.filename == layer)?.area
           : "-",
@@ -274,8 +274,8 @@
       const value = startingPosition
         .filter(
           (d) =>
-            (d.Tier == sel.replaceAll("_", " ").replace(".tif", "") ||
-              d.Category == sel.replaceAll("_", " ").replace(".tif", "")) &&
+            (d.Tier == makeFileNameReadable(sel) ||
+              d.Category == makeFileNameReadable(sel)) &&
             d.Data_layer !== "All data layers"
         )
         .map((d) => d.Data_layer);
@@ -295,16 +295,14 @@
   let selectedRestrictionIndex = $derived(
     selectedRestriction
       ? selected
-          ?.map((d) => d.replace(".tif", "").replaceAll("_", " "))
+          ?.map((d) => makeFileNameReadable(d))
           // .filter((d) => !d.includes("ENGLAND"))
           .indexOf(selectedRestriction)
       : undefined
   );
   // $inspect({ selectedRestrictionIndex });
   let renderUnique = $derived(
-    selected
-      .map((d) => d.replaceAll(".tif", "").replaceAll("_", " "))
-      .includes(selectedRestriction)
+    selected.map((d) => makeFileNameReadable(d)).includes(selectedRestriction)
       ? selectedRestrictionIndex >= 0
         ? true
         : false

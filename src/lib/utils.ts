@@ -32,3 +32,7 @@ export function jsonToCsv(items, policyLens, policyLensItems, selected: string[]
   const csv = [title, headerString, ...rowItems, footer, caveat].join("\r\n");
   return csv;
 }
+
+export function makeFileNameReadable(filename: string): string {
+  return filename.replace(".tif", "").replaceAll("_", " ")
+}

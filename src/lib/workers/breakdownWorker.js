@@ -62,7 +62,7 @@ const lookupCsv = await response.text();
       total_area: areaSizeLookup?.[d.index]?.["Pixel count"],
       selected_area_as_a_proportion_of_total_area: (result[+d.index]/areaSizeLookup?.[d.index]?.["Pixel count"]),
     }));
-console.log(jsonResult[0])
+
     // Post results back — do NOT transfer buffers
     self.postMessage({ json: jsonResult });
   } catch (err) {

@@ -86,19 +86,41 @@
       }),
     });
 
+    // const geoJsonVectorLayer = new ol.layer.Vector({
+    //   source: geoJsonVectorSource,
+    //   style: (feature, resolution) => {
+    //     // Set line width based on 'resolution' which is the inverse of zoom level
+    //     const width = resolution < 1 ? 5 : resolution < 5 ? 4 : 1; // fallback
+
+    //     return new Style({
+    //       stroke: new Stroke({
+    //         color: "teal",
+    //         width: width,
+    //       }),
+    //       fill: new Fill({
+    //         color: "rgba(0,123,0,0)",
+    //       }),
+    //     });
+    //   },
+    // });
+
     const geoJsonVectorLayer = new ol.layer.Vector({
       source: geoJsonVectorSource,
       style: (feature, resolution) => {
-        // Set line width based on 'resolution' which is the inverse of zoom level
-        const width = resolution < 1 ? 3 : resolution < 5 ? 2 : 0.5; // fallback
+        const isHovered = feature.get("hover") === true;
 
+        const width =
+          resolution < 1 ? 5 : resolution < 5 ? 4 : isHovered ? 3 : 1;
         return new Style({
           stroke: new Stroke({
             color: "teal",
             width: width,
           }),
           fill: new Fill({
-            color: "rgba(0,123,0,0)",
+            // Subtle hover effect: higher opacity when hovered
+            color: isHovered
+              ? "rgba(0, 123, 0, 0.15)" // hovered
+              : "rgba(0, 123, 0, 0)", // normal (transparent)
           }),
         });
       },
@@ -147,48 +169,120 @@
     });
 
     const info = document.getElementById("info");
+    //   let currentFeature;
+
+    //   const displayFeatureInfo = function (pixel, target) {
+    //     // const feature = target.closest(".ol-control")
+    //     //   ? undefined
+    //     //   : map.forEachFeatureAtPixel(pixel, function (feature) {
+    //     //       return feature?.values_;
+    //     //     });
+    //     const feature = target.closest(".ol-control")
+    // ? undefined
+    // : map.forEachFeatureAtPixel(pixel, (feature) => feature);
+
+    //     if (feature) {
+    //       info.style.left = pixel[0] + 15 + "px";
+    //       info.style.top = pixel[1] + 15 + "px";
+    //       if (feature !== currentFeature) {
+    //         info.style.visibility = "visible";
+    //         info.innerHTML =
+    //           "<b>" +
+    //           feature.LAD25NM +
+    //           "</b>" +
+    //           "<br>" +
+    //           "Area covered by the current selections: " +
+    //           Number(
+    //             breakdownData.find((d) => d.area_code === feature.LAD25CD)?.[
+    //               "selected_area"
+    //             ]
+    //           ).toLocaleString() +
+    //           "ha" +
+    //           "<br> (" +
+    //           Number(
+    //             breakdownData.find((d) => d.area_code === feature.LAD25CD)?.[
+    //               "selected_area_as_a_proportion_of_total_area"
+    //             ]
+    //           ).toPrecision(2) *
+    //             100 +
+    //           "%)";
+    //       }
+    //     } else {
+    //       info.style.visibility = "hidden";
+    //     }
+    //     currentFeature = feature;
+    // };
+
     let currentFeature;
+
+    function isFeature(obj) {
+      return (
+        obj && typeof obj.get === "function" && typeof obj.set === "function"
+      );
+    }
 
     const displayFeatureInfo = function (pixel, target) {
       const feature = target.closest(".ol-control")
         ? undefined
-        : map.forEachFeatureAtPixel(pixel, function (feature) {
-            return feature?.values_;
-          });
-      if (feature) {
+        : map.forEachFeatureAtPixel(pixel, (feature) => feature);
+
+      // Handle hover state
+      if (feature !== currentFeature) {
+        if (isFeature(currentFeature)) {
+          currentFeature.set("hover", false);
+        }
+
+        if (isFeature(feature)) {
+          feature.set("hover", true);
+        }
+
+        currentFeature = feature;
+        // geoJsonVectorSource.changed();
+      }
+
+      // Tooltip UI
+      if (isFeature(feature)) {
         info.style.left = pixel[0] + 15 + "px";
         info.style.top = pixel[1] + 15 + "px";
-        if (feature !== currentFeature) {
-          info.style.visibility = "visible";
-          info.innerHTML =
-            "<b>" +
-            feature.LAD25NM +
-            "</b>" +
-            "<br>" +
-            "Area covered by the current selections: " +
+        info.style.visibility = "visible";
+
+        info.innerHTML =
+          "<b>" +
+          feature.get("LAD25NM") +
+          "</b>" +
+          "<br>" +
+          "Area covered by the current selections: " +
+          Number(
+            breakdownData.find((d) => d.area_code === feature.get("LAD25CD"))
+              ?.selected_area
+          ).toLocaleString() +
+          "ha" +
+          "<br> (" +
+          (
             Number(
-              breakdownData.find((d) => d.area_code === feature.LAD25CD)?.[
-                "selected_area"
-              ]
-            ).toLocaleString() +
-            "ha" +
-            "<br> (" +
-            Number(
-              breakdownData.find((d) => d.area_code === feature.LAD25CD)?.[
-                "selected_area_as_a_proportion_of_total_area"
-              ]
-            ).toPrecision(2) *
-              100 +
-            "%)";
-        }
+              breakdownData.find((d) => d.area_code === feature.get("LAD25CD"))
+                ?.selected_area_as_a_proportion_of_total_area
+            ) * 100
+          ).toFixed(0) +
+          "%)";
       } else {
         info.style.visibility = "hidden";
       }
-      currentFeature = feature;
     };
+
+    // map.on("pointermove", function (evt) {
+    //   if (evt.dragging) {
+    //     info.style.visibility = "hidden";
+    //     currentFeature = undefined;
+    //     return;
+    //   }
+    //   displayFeatureInfo(evt.pixel, evt.originalEvent.target);
+    // });
+
     map.on("pointermove", function (evt) {
       if (evt.dragging) {
         info.style.visibility = "hidden";
+        if (currentFeature) currentFeature.set("hover", false);
         currentFeature = undefined;
         return;
       }
@@ -199,7 +293,13 @@
       displayFeatureInfo(evt.pixel, evt.originalEvent.target);
     });
 
+    // map.getTargetElement().addEventListener("pointerleave", function () {
+    //   currentFeature = undefined;
+    //   info.style.visibility = "hidden";
+    // });
+
     map.getTargetElement().addEventListener("pointerleave", function () {
+      if (currentFeature) currentFeature.set("hover", false);
       currentFeature = undefined;
       info.style.visibility = "hidden";
     });
