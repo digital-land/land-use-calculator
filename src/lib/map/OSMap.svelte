@@ -16,7 +16,7 @@
   import ImageStatic from "ol/source/ImageStatic";
   // let geotiffData = null; // to hold the raster data info
   import ImageCanvasSource from "ol/source/ImageCanvas";
-  import * as topojson from "topojson-client";
+  // import * as topojson from "topojson-client";
   import { Style, Stroke, Fill } from "ol/style";
   import FullScreen from "ol/control/FullScreen.js";
   import { defaults as defaultControls } from "ol/control/defaults.js";
@@ -289,7 +289,7 @@
       displayFeatureInfo(evt.pixel, evt.originalEvent.target);
     });
 
-    map.on("click", function (evt) {
+    map.on("singleclick", function (evt) {
       displayFeatureInfo(evt.pixel, evt.originalEvent.target);
     });
 

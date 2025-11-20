@@ -43,6 +43,14 @@
   let mapSize = $state();
   // $inspect(mapSize);
 
+  $effect(() => {
+    document.documentElement.style.setProperty("--mapWidth", `${mapSize}%`);
+    document.documentElement.style.setProperty(
+      "--tw-translate-x",
+      `${showFilters ? 0 : -100}%`
+    );
+  });
+
   let done = $state(false);
   $inspect({ done });
 
@@ -51,10 +59,10 @@
   let containerLayout = $derived(
     mobile.current
       ? ""
-      : showFilters
-        ? // ? "grid-template-columns: 23% 40% 37%;"
-          `grid-template-columns: 23% 77%;`
-        : `grid-template-columns: 100%;`
+      : // : showFilters
+        //   ? // ? "grid-template-columns: 23% 40% 37%;"
+        //     `grid-template-columns: 23% 77%;`
+        `grid-template-columns: 100%;`
   );
   let pageLayout = $derived(
     mobile.current
@@ -1065,7 +1073,7 @@
       </div>
     </div>
 
-    <div>
+    <!-- <div>
       <Button
         buttonType="secondary"
         textContent={(showFilters ? "Hide" : "Show") + " filters"}
@@ -1074,7 +1082,7 @@
           // pageLayout = "grid-template-columns: 0% 50% 50%";
         }}
       />
-    </div>
+    </div> -->
   </div>
 
   <div>
@@ -1096,7 +1104,13 @@
 {/snippet}
 
 <div class="container" style={containerLayout}>
-  <div class="output" style={showFilters ? "" : "display: none"}>
+  <div
+    class="absolute {showFilters
+      ? '-translate-x-0'
+      : '-translate-x-full'} z-10 h-dvh w-[90%] transform bg-white transition-transform duration-200 ease-in-out md:w-[45%] lg:w-[40%]
+            xl:w-[35%]"
+    id="side-panel"
+  >
     <!-- <div
       style="
     color: white;
@@ -1158,6 +1172,51 @@
         }}
       />
     {/if}
+    <div class="collapse-filters-div">
+      <button
+        class="collapse-filters-button"
+        onclick={() => (showFilters = !showFilters)}
+        aria-expanded={showFilters}
+        aria-label={showFilters ? "Close side panel" : "Open side panel"}
+        aria-controls="side-panel"
+      >
+        {#if showFilters}
+          <div class="text-gray-700">
+            <!-- Close icon - arrow pointing in direction of panel -->
+            <svg
+              class="h-6 w-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M15 19l-7-7 7-7"
+              ></path>
+            </svg>
+          </div>
+        {:else}
+          <div class="flex items-center px-2">
+            <!-- Menu icon -->
+            <svg
+              class="h-6 w-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M4 6h16M4 12h16M4 18h16"
+              ></path>
+            </svg>
+          </div>
+        {/if}
+      </button>
+    </div>
   </div>
 
   <div class="map-and-table" style={pageLayout}>
@@ -1472,6 +1531,347 @@
 <!-- <p>{message}</p> -->
 
 <style>
+  #map {
+    scroll-margin-top: 10px;
+  }
+
+  #side-panel {
+    --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+      "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+      "Liberation Mono", "Courier New", monospace;
+    --color-gray-50: oklch(98.5% 0.002 247.839);
+    --color-gray-400: oklch(70.7% 0.022 261.325);
+    --color-gray-700: oklch(37.3% 0.034 259.733);
+    --color-black: #000;
+    --color-white: #fff;
+    --spacing: 0.25rem;
+    --text-xl: 1.25rem;
+    --text-xl--line-height: calc(1.75 / 1.25);
+    --text-2xl: 1.5rem;
+    --text-2xl--line-height: calc(2 / 1.5);
+    --font-weight-bold: 700;
+    --radius-sm: 0.25rem;
+    --radius-md: 0.375rem;
+    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+    --default-transition-duration: 150ms;
+    --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    --default-font-family: var(--font-sans);
+    --default-mono-font-family: var(--font-mono);
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+    tab-size: 4;
+    font-family: var(
+      --default-font-family,
+      ui-sans-serif,
+      system-ui,
+      sans-serif,
+      "Apple Color Emoji",
+      "Segoe UI Emoji",
+      "Segoe UI Symbol",
+      "Noto Color Emoji"
+    );
+    font-feature-settings: var(--default-font-feature-settings, normal);
+    font-variation-settings: var(--default-font-variation-settings, normal);
+    -webkit-tap-highlight-color: transparent;
+    --govuk-breakpoint-mobile: 20rem;
+    --govuk-breakpoint-tablet: 40.0625rem;
+    --govuk-breakpoint-desktop: 48.0625rem;
+    --govuk-frontend-version: "5.9.0";
+    --govuk-frontend-breakpoint-mobile: 20rem;
+    --govuk-frontend-breakpoint-tablet: 40.0625rem;
+    --govuk-frontend-breakpoint-desktop: 48.0625rem;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border: 0 solid;
+    position: absolute;
+    z-index: 10;
+    /* height: 100dvh; */
+    height: calc(100vh - 150px);
+    translate: var(--tw-translate-x) 0;
+    transform: var(--tw-rotate-x,) var(--tw-rotate-y,) var(--tw-rotate-z,)
+      var(--tw-skew-x,) var(--tw-skew-y,);
+    background-color: var(--color-white);
+    transition-property: transform, translate, scale, rotate;
+    --tw-duration: 200ms;
+    transition-duration: 200ms;
+    --tw-ease: var(--ease-in-out);
+    transition-timing-function: var(--ease-in-out);
+    /* width: 45%; */
+    max-width: min(calc(100vw - 70px), 360px);
+    /* border-right: solid 1px #1d70b8; */
+  }
+
+  div.collapse-filters-div {
+    /* width: 40px;
+    height: 6rem;
+    margin-block: auto;
+    bottom: 0px;
+    right: -40px;
+    top: 0px;
+    position: absolute; */
+    --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+      "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+      "Liberation Mono", "Courier New", monospace;
+    --color-gray-50: oklch(98.5% 0.002 247.839);
+    --color-gray-400: oklch(70.7% 0.022 261.325);
+    --color-gray-700: oklch(37.3% 0.034 259.733);
+    --color-black: #000;
+    --color-white: #fff;
+    --spacing: 0.25rem;
+    --text-xl: 1.25rem;
+    --text-xl--line-height: calc(1.75 / 1.25);
+    --text-2xl: 1.5rem;
+    --text-2xl--line-height: calc(2 / 1.5);
+    --font-weight-bold: 700;
+    --radius-sm: 0.25rem;
+    --radius-md: 0.375rem;
+    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+    --default-transition-duration: 150ms;
+    --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    --default-font-family: var(--font-sans);
+    --default-mono-font-family: var(--font-mono);
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+    tab-size: 4;
+    font-family: var(
+      --default-font-family,
+      ui-sans-serif,
+      system-ui,
+      sans-serif,
+      "Apple Color Emoji",
+      "Segoe UI Emoji",
+      "Segoe UI Symbol",
+      "Noto Color Emoji"
+    );
+    font-feature-settings: var(--default-font-feature-settings, normal);
+    font-variation-settings: var(--default-font-variation-settings, normal);
+    -webkit-tap-highlight-color: transparent;
+    --govuk-breakpoint-mobile: 20rem;
+    --govuk-breakpoint-tablet: 40.0625rem;
+    --govuk-breakpoint-desktop: 48.0625rem;
+    --govuk-frontend-version: "5.9.0";
+    --govuk-frontend-breakpoint-mobile: 20rem;
+    --govuk-frontend-breakpoint-tablet: 40.0625rem;
+    --govuk-frontend-breakpoint-desktop: 48.0625rem;
+    --tw-duration: 200ms;
+    --tw-ease: var(--ease-in-out);
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border: 0 solid;
+    position: absolute;
+    top: calc(var(--spacing) * 0);
+    right: calc(40px * -1);
+    bottom: calc(var(--spacing) * 0);
+    margin-block: auto;
+    height: calc(var(--spacing) * 24);
+    width: 40px;
+  }
+
+  button.collapse-filters-button {
+    /* cursor: pointer;
+    flex-direction: column;
+    width: 40px;
+    height: 76px;
+    display: flex;
+    z-index: 50;
+    position: relative;
+    padding-block: 0.75rem;
+    background-color: white;
+    border-top-right-radius: 0.375rem;
+    border-bottom-right-radius: 0.375rem;
+    justify-content: center;
+    align-items: center;
+    --tw-shadow: 6px 4px 10px -1px var(--tw-shadow-color, rgba(0, 0, 0, 0.3));
+    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
+      var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow); */
+
+    --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+      "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+      "Liberation Mono", "Courier New", monospace;
+    --color-gray-50: oklch(98.5% 0.002 247.839);
+    --color-gray-400: oklch(70.7% 0.022 261.325);
+    --color-gray-700: oklch(37.3% 0.034 259.733);
+    --color-black: #000;
+    --color-white: #fff;
+    --spacing: 0.25rem;
+    --text-xl: 1.25rem;
+    --text-xl--line-height: calc(1.75 / 1.25);
+    --text-2xl: 1.5rem;
+    --text-2xl--line-height: calc(2 / 1.5);
+    --font-weight-bold: 700;
+    --radius-sm: 0.25rem;
+    --radius-md: 0.375rem;
+    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+    --default-transition-duration: 150ms;
+    --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    --default-font-family: var(--font-sans);
+    --default-mono-font-family: var(--font-mono);
+    -webkit-text-size-adjust: 100%;
+    tab-size: 4;
+    -webkit-tap-highlight-color: transparent;
+    --govuk-breakpoint-mobile: 20rem;
+    --govuk-breakpoint-tablet: 40.0625rem;
+    --govuk-breakpoint-desktop: 48.0625rem;
+    --govuk-frontend-version: "5.9.0";
+    --govuk-frontend-breakpoint-mobile: 20rem;
+    --govuk-frontend-breakpoint-tablet: 40.0625rem;
+    --govuk-frontend-breakpoint-desktop: 48.0625rem;
+    --tw-duration: 200ms;
+    --tw-ease: var(--ease-in-out);
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border: 0 solid;
+    font: inherit;
+    font-feature-settings: inherit;
+    font-variation-settings: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    border-radius: 0;
+    opacity: 1;
+    appearance: button;
+    position: relative;
+    z-index: 50;
+    display: flex;
+    height: 76px;
+    width: 40px;
+    transform: translateZ(0) var(--tw-rotate-x,) var(--tw-rotate-y,)
+      var(--tw-rotate-z,) var(--tw-skew-x,) var(--tw-skew-y,);
+    cursor: pointer;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-top-right-radius: var(--radius-md);
+    border-bottom-right-radius: var(--radius-md);
+    background-color: #f3f2f1;
+    padding-block: calc(var(--spacing) * 3);
+    --tw-shadow: 6px 4px 10px -1px var(--tw-shadow-color, rgba(0, 0, 0, 0.3));
+    box-shadow: var(--tw-shadow);
+  }
+
+  button.collapse-filters-button:focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 1px black,
+      0 0 0 4px #ffdd00;
+  }
+
+  button.collapse-filters-button:hover {
+    background-color: #eeeceb;
+  }
+
+  .text-gray-700 {
+    color: oklch(37.3% 0.034 259.733);
+  }
+
+  svg.h-6.w-6 {
+    --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+      "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+      "Liberation Mono", "Courier New", monospace;
+    --color-gray-50: oklch(98.5% 0.002 247.839);
+    --color-gray-400: oklch(70.7% 0.022 261.325);
+    --color-gray-700: oklch(37.3% 0.034 259.733);
+    --color-black: #000;
+    --color-white: #fff;
+    --spacing: 0.25rem;
+    --text-xl: 1.25rem;
+    --text-xl--line-height: calc(1.75 / 1.25);
+    --text-2xl: 1.5rem;
+    --text-2xl--line-height: calc(2 / 1.5);
+    --font-weight-bold: 700;
+    --radius-sm: 0.25rem;
+    --radius-md: 0.375rem;
+    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+    --default-transition-duration: 150ms;
+    --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    --default-font-family: var(--font-sans);
+    --default-mono-font-family: var(--font-mono);
+    -webkit-text-size-adjust: 100%;
+    tab-size: 4;
+    -webkit-tap-highlight-color: transparent;
+    --govuk-breakpoint-mobile: 20rem;
+    --govuk-breakpoint-tablet: 40.0625rem;
+    --govuk-breakpoint-desktop: 48.0625rem;
+    --govuk-frontend-version: "5.9.0";
+    --govuk-frontend-breakpoint-mobile: 20rem;
+    --govuk-frontend-breakpoint-tablet: 40.0625rem;
+    --govuk-frontend-breakpoint-desktop: 48.0625rem;
+    --tw-duration: 200ms;
+    --tw-ease: var(--ease-in-out);
+    font: inherit;
+    font-feature-settings: inherit;
+    font-variation-settings: inherit;
+    letter-spacing: inherit;
+    cursor: pointer;
+    color: var(--color-gray-700);
+    fill: none;
+    stroke: currentcolor;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border: 0 solid;
+    display: block;
+    vertical-align: middle;
+    height: calc(var(--spacing) * 6);
+    width: calc(var(--spacing) * 6);
+  }
+
+  div.flex.items-center.px-2 {
+    --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+      "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+      "Liberation Mono", "Courier New", monospace;
+    --color-gray-50: oklch(98.5% 0.002 247.839);
+    --color-gray-400: oklch(70.7% 0.022 261.325);
+    --color-gray-700: oklch(37.3% 0.034 259.733);
+    --color-black: #000;
+    --color-white: #fff;
+    --spacing: 0.25rem;
+    --text-xl: 1.25rem;
+    --text-xl--line-height: calc(1.75 / 1.25);
+    --text-2xl: 1.5rem;
+    --text-2xl--line-height: calc(2 / 1.5);
+    --font-weight-bold: 700;
+    --radius-sm: 0.25rem;
+    --radius-md: 0.375rem;
+    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+    --default-transition-duration: 150ms;
+    --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    --default-font-family: var(--font-sans);
+    --default-mono-font-family: var(--font-mono);
+    -webkit-text-size-adjust: 100%;
+    tab-size: 4;
+    -webkit-tap-highlight-color: transparent;
+    --govuk-breakpoint-mobile: 20rem;
+    --govuk-breakpoint-tablet: 40.0625rem;
+    --govuk-breakpoint-desktop: 48.0625rem;
+    --govuk-frontend-version: "5.9.0";
+    --govuk-frontend-breakpoint-mobile: 20rem;
+    --govuk-frontend-breakpoint-tablet: 40.0625rem;
+    --govuk-frontend-breakpoint-desktop: 48.0625rem;
+    --tw-duration: 200ms;
+    --tw-ease: var(--ease-in-out);
+    font: inherit;
+    font-feature-settings: inherit;
+    font-variation-settings: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    cursor: pointer;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border: 0 solid;
+    display: flex;
+    align-items: center;
+    padding-inline: calc(var(--spacing) * 2);
+  }
+
   div.header-left {
     display: grid;
     grid-template-columns: 1fr 2fr;
@@ -1536,11 +1936,13 @@
     /* max-height: 85vh; */
     /* overflow: scroll; */
     transition: all 500ms;
+    position: relative;
   }
 
   .map-and-table {
     display: grid;
     grid-template-rows: minmax(0, 0px) 1fr;
+    position: relative;
   }
 
   @media (max-width: 600px) {
@@ -1562,7 +1964,14 @@
     /* overflow-y: auto; */
     /* overflow-x: scroll; */
     /* width: 100%; */
+    height: calc(100vh - 150px);
     transition: all 500ms;
+    max-width: calc(var(--mapWidth) - 50px);
+    position: absolute;
+    top: 10px;
+    z-index: 10;
+    background-color: white;
+    min-width: 260px;
   }
 
   .slider {

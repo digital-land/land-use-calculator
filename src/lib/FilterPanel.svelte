@@ -422,7 +422,7 @@
 <style>
   /* Test comment to see if line 1 error changes */
   .app-c-filter-panel {
-    padding-top: 15px;
+    /* padding-top: 15px; */
     margin-bottom: 10px;
   }
 
