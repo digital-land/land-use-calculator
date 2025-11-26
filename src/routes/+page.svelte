@@ -30,10 +30,16 @@
   import proj4 from "proj4";
   import { base } from "$app/paths";
   import Table from "$lib/Table.svelte";
-  import { csvParse } from "d3-dsv";
+  // import { csvParse } from "d3-dsv";
   // import LALookup from "$lib/LALookup.js";
   import JSZip from "jszip";
-  import { parseCsv, jsonToCsv, makeFileNameReadable } from "$lib/utils";
+  import {
+    parseCsv,
+    jsonToCsv,
+    makeFileNameReadable,
+    colors,
+  } from "$lib/utils";
+  import FilterChipParent from "$lib/components/FilterChipParent.svelte";
 
   const mobile = new MediaQuery("max-width: 600px");
   // let pageLayout = $state("grid-template-columns: 23% 40% 37%");
@@ -107,7 +113,7 @@
   // const TOTAL_OFF_COLOR = 0x00000000;
 
   const NO_DATA_COLOR = 0x00000000; // Transparent
-  const OFF_COLOR = 0x44ff00ff; // Pale pink
+  const LENS_HIGHLIGHT_COLOR = 0x44ff00ff; // Pale pink
   const TOTAL_COLOR = 0x88000000; // Grey
   const SELECTED_AREA_COLOR = 0x990000ff; // Pink
   const UNIQUE_AREA_COLOR = 0xff0000ff; // Red
@@ -226,6 +232,18 @@
 
   let startingPosition = $state();
 
+  let categoryToColor = $derived(
+    [...new Set(startingPosition?.map((d) => d.Tier))].reduce(
+      (acc, item, i) => {
+        acc[item] = colors[i];
+        return acc;
+      },
+      {}
+    )
+  );
+
+  // $inspect(categoryToColor);
+
   let filterSections = $derived(
     [...new Set(startingPosition?.map((d) => d.Tier))]?.map((section, i) => {
       const thisSectionData = startingPosition?.filter(
@@ -294,6 +312,31 @@
   );
 
   // $inspect(selectedSubLayers, startingPosition);
+
+  let selectedFilterChipData = $derived(
+    selected
+      ? Object.fromEntries(
+          selected
+            ?.map((item) => {
+              const found = startingPosition?.find((d) => d.filename === item);
+              return found
+                ? [
+                    found.filename, // key
+                    {
+                      id: found.filename,
+                      title: makeFileNameReadable(found.filename),
+                      category: found.Tier,
+                      color: categoryToColor[found.Tier],
+                    },
+                  ]
+                : null;
+            })
+            .filter(Boolean) // remove nulls)
+        )
+      : null
+  );
+
+  $inspect({ selectedFilterChipData });
 
   let uniqueArray = $state([]);
   // let selectedRestrictionIndex = 0;
@@ -410,7 +453,7 @@
   $effect(() => {
     if (restrictionChanged) {
       console.log("effect 1 - restriction changed - update blending");
-      done = false;
+      // done = false;
 
       restrictionChanged = !restrictionChanged;
       blendLayers();
@@ -619,7 +662,7 @@
         breakdownWorker.postMessage({
           categoricalArray: cChunk,
           bitArray: aChunk,
-          csvUrl, // ✅ pass explicitly
+          csvUrl,
         });
       });
 
@@ -649,7 +692,7 @@
       } else {
         for (let i = 0; i < accumulatedResult.length; i++) {
           accumulatedResult[i].selected_area += chunkResult[i].selected_area;
-          accumulatedResult[i].total_area = chunkResult[i].total_area;
+          accumulatedResult[i].total_area = chunkResult[i].total_area; //Don't accumulate total area!
           accumulatedResult[i].selected_area_as_a_proportion_of_total_area +=
             chunkResult[i].selected_area_as_a_proportion_of_total_area;
         }
@@ -665,6 +708,7 @@
   }
 
   function blendLayers() {
+    done = selected.length > 0 ? false : true;
     console.time("blendLayers");
     const blendWorker = new Worker(
       new URL("$lib/workers/blendWorker.js", import.meta.url),
@@ -761,7 +805,7 @@
       if (blended === 0 && lensValue === 0) {
         color = NO_DATA_COLOR;
       } else if (blended === 0 && lensValue === 1) {
-        color = OFF_COLOR;
+        color = LENS_HIGHLIGHT_COLOR;
       } else if (area && unique) {
         color = UNIQUE_AREA_COLOR;
       } else if (area) {
@@ -841,7 +885,8 @@
 
             let color;
             if (blended === 0 && lensValue === 0) color = NO_DATA_COLOR;
-            else if (blended === 0 && lensValue === 1) color = OFF_COLOR;
+            else if (blended === 0 && lensValue === 1)
+              color = LENS_HIGHLIGHT_COLOR;
             else if (area && unique) color = UNIQUE_AREA_COLOR;
             else if (area) color = SELECTED_AREA_COLOR;
             else color = TOTAL_COLOR;
@@ -990,6 +1035,11 @@
 </script>
 
 <svelte:head>
+  <title>Development Land Analysis Platform</title>
+  <meta
+    name="description"
+    content="This tool brings together datasets on land use and development constraints to provide statistical insight into land supply in England. It is designed to show how physical constraints, planning restrictions and land use trade-offs overlap and impact the overall supply of land for various uses."
+  />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.5.0/ol.css" />
   <link
     rel="stylesheet"
@@ -1044,33 +1094,6 @@
           detailedText={detailsContent}
         />
       </div>
-      <div class="summaryStats">
-        {#if blending && $blendingProgress < 100}
-          <p>Blending... {$blendingProgress.toFixed(1)}%</p>
-          <progress max="100" value={$blendingProgress}></progress>
-        {:else if $blendingProgress == 100}
-          <p>
-            The total area in England is 13,046,002 ha.
-            <!-- {#if blendedArrayLength > 0}
-          {blendedArrayLength.toLocaleString()} ha is covered by the selected categories.
-        {/if} -->
-          </p>
-        {/if}
-        {#if policyLensArea && policyLens !== "England"}
-          <p>
-            The total area in England within {policyLensItems.find(
-              (d) => d.value == policyLens
-            ).sentenceText} is {policyLensArea.toLocaleString()}
-            ha.
-          </p>
-          <div class="stacked-bar">
-            <div
-              class="stacked-bar-inner"
-              style="width: {(policyLensArea / 13046002) * 100}%"
-            ></div>
-          </div>
-        {/if}
-      </div>
     </div>
 
     <!-- <div>
@@ -1088,6 +1111,22 @@
   <div>
     <div class="header-right">
       <!-- <a href="./" target="_blank">Send feedback (opens in a new tab)</a> -->
+      {#key selectedFilterChipData}
+        <FilterChipParent
+          {selectedFilterChipData}
+          bind:selected
+          bind:policyLens
+          {categoryToColor}
+          on:itemRemoved={() => {
+            // console.log(startingPosition);
+            startingPosition.forEach((d) =>
+              selected.includes(d.filename) ? d : (d.initially_checked = false)
+            );
+            // done = false;
+            blendLayers();
+          }}
+        />
+      {/key}
     </div>
   </div>
 </div>
@@ -1143,7 +1182,7 @@
           document.getElementById("map").scrollIntoView({
             behavior: "smooth",
           });
-
+          showFilters = !showFilters;
           // Cancel server submission and process client-side
           cancel();
 
@@ -1168,7 +1207,7 @@
           dataURL = null;
           startingPosition.forEach((d) => (d.initially_checked = false));
           bbox = null;
-          console.log(startingPosition, selected);
+          // console.log(startingPosition, selected);
         }}
       />
     {/if}
@@ -1251,6 +1290,33 @@
     </div>
     <div class="table">
       {#if done && dataURL}
+        <div class="summaryStats">
+          {#if blending && $blendingProgress < 100}
+            <p>Blending... {$blendingProgress.toFixed(1)}%</p>
+            <progress max="100" value={$blendingProgress}></progress>
+          {:else if $blendingProgress == 100}
+            <p>
+              The total area in England is 13,046,002 ha.
+              <!-- {#if blendedArrayLength > 0}
+          {blendedArrayLength.toLocaleString()} ha is covered by the selected categories.
+        {/if} -->
+            </p>
+          {/if}
+          {#if policyLensArea && policyLens !== "England"}
+            <p>
+              The total area in England within {policyLensItems.find(
+                (d) => d.value == policyLens
+              ).sentenceText} is {policyLensArea.toLocaleString()}
+              ha.
+            </p>
+            <!-- <div class="stacked-bar">
+              <div
+                class="stacked-bar-inner"
+                style="width: {(policyLensArea / 13046002) * 100}%"
+              ></div>
+            </div> -->
+          {/if}
+        </div>
         {#if policyLens !== "England"}
           <h2>
             Within <span class="lens-area"
@@ -1582,7 +1648,7 @@
     --govuk-frontend-breakpoint-tablet: 40.0625rem;
     --govuk-frontend-breakpoint-desktop: 48.0625rem;
     box-sizing: border-box;
-    margin: 0;
+    margin: 10px 0 0 0;
     padding: 0;
     border: 0 solid;
     position: absolute;
@@ -1592,7 +1658,7 @@
     translate: var(--tw-translate-x) 0;
     transform: var(--tw-rotate-x,) var(--tw-rotate-y,) var(--tw-rotate-z,)
       var(--tw-skew-x,) var(--tw-skew-y,);
-    background-color: var(--color-white);
+    background-color: #f3f2f1;
     transition-property: transform, translate, scale, rotate;
     --tw-duration: 200ms;
     transition-duration: 200ms;
@@ -1891,10 +1957,10 @@
     /* margin: 25px; */
   }
 
-  div.summaryStats {
+  /* div.summaryStats {
     margin: 25px;
-    /* max-width: 50%; */
-  }
+    max-width: 50%;
+  } */
 
   :global(div.header-section div.p-4) {
     max-height: 2rem;
@@ -1907,7 +1973,7 @@
 
   .header-section {
     display: grid;
-    grid-template-columns: 67% 33%;
+    grid-template-columns: 1fr 2fr;
     font-family: sans-serif;
     padding: 10px;
     min-height: 200px;

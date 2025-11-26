@@ -1,21 +1,20 @@
 <script lang="ts">
-
   interface Group {
-  color: string;
-  paintedCells: Set<string>;
-  paintedIndices: Set<number>;
-  stats: {
-    count: number;
-    sum: number;
-    mean: number;
-    median: number;
-    min: number;
-    max: number;
-  };
-  histogram: Record<string, number>;
-  layer: import("ol/layer/Vector.js").default;
-  name: string;
-}
+    color: string;
+    paintedCells: Set<string>;
+    paintedIndices: Set<number>;
+    stats: {
+      count: number;
+      sum: number;
+      mean: number;
+      median: number;
+      min: number;
+      max: number;
+    };
+    histogram: Record<string, number>;
+    layer: import("ol/layer/Vector.js").default;
+    name: string;
+  }
 
   import { onMount } from "svelte";
   import Map from "ol/Map.js";
@@ -33,28 +32,26 @@
   import DragPan from "ol/interaction/DragPan.js";
   import { fromUrl } from "geotiff";
   import Histogram from "$lib/components/Histogram.svelte";
-  import {base} from "$app/paths"
-import { scaleThreshold } from "d3-scale";
-import { interpolateViridis } from "d3-scale-chromatic";
-import LALookup from "$lib/LALookup"
-import { tick } from "svelte";
+  import { base } from "$app/paths";
+  import { scaleThreshold } from "d3-scale";
+  import { interpolateViridis } from "d3-scale-chromatic";
+  import LALookup from "$lib/LALookup";
+  import { tick } from "svelte";
 
   let geographies: any[] = [];
 
-
-
-const bins = [0, 1, 5, 10, 20, 50, 100, 200, 500];
-const colorScale = scaleThreshold()
-  .domain(bins)
-  .range(bins.map((_, i) => interpolateViridis(i / (bins.length - 1))));
-const fillOpacity = 0.5; // tweak transparency (0.3–0.8 looks good)
- let opacity = 0.8; // default opacity
- let layer: VectorLayer;
+  const bins = [0, 1, 5, 10, 20, 50, 100, 200, 500];
+  const colorScale = scaleThreshold()
+    .domain(bins)
+    .range(bins.map((_, i) => interpolateViridis(i / (bins.length - 1))));
+  const fillOpacity = 0.5; // tweak transparency (0.3–0.8 looks good)
+  let opacity = 0.8; // default opacity
+  let layer: VectorLayer;
   let tooltipEl;
-let tooltipVisible = false;
-let tooltipText = $state("");
-let tooltipX = 0;
-let tooltipY = 0;
+  let tooltipVisible = false;
+  let tooltipText = $state("");
+  let tooltipX = 0;
+  let tooltipY = 0;
 
   // --- Constants ---
   const originX = 82668;
@@ -90,7 +87,7 @@ let tooltipY = 0;
   ];
 
   let currentGroupIndex = 0;
-let groups = $state<Group[]>([]);
+  let groups = $state<Group[]>([]);
   // Each group tracks cells, indices, stats, histogram, and its own vector layer
   groups = colors.map((color) => ({
     color,
@@ -101,22 +98,24 @@ let groups = $state<Group[]>([]);
     name: "",
     layer: new VectorLayer({
       source: new VectorSource(),
-      opacity, 
+      opacity,
       style: new Style({
-        fill: new Fill({ color   }),
+        fill: new Fill({ color }),
         stroke: new Stroke({ color: color.replace("0.3", "0.6"), width: 0 }),
       }),
-      
     }),
   }));
-
 
   // --- Load GeoTIFF ---
   async function loadTiff(url: string) {
     const tiff = await fromUrl(url);
     const image = await tiff.getImage();
     const rasters = await image.readRasters();
-    return { densityArray: rasters[0], width: image.getWidth(), height: image.getHeight() };
+    return {
+      densityArray: rasters[0],
+      width: image.getWidth(),
+      height: image.getHeight(),
+    };
   }
 
   // --- Helper functions ---
@@ -128,64 +127,61 @@ let groups = $state<Group[]>([]);
     return row * width + col;
   }
 
- function addCellFeature(group, x: number, y: number) {
-  const key = `${x}_${y}`;
-  if (group.paintedCells.has(key)) return;
+  function addCellFeature(group, x: number, y: number) {
+    const key = `${x}_${y}`;
+    if (group.paintedCells.has(key)) return;
 
-  const index = coordToIndex(x, y);
-  if (index === null || !densityArray) return;
+    const index = coordToIndex(x, y);
+    if (index === null || !densityArray) return;
 
-  const value = densityArray[index];
-  if (value === undefined) return;
+    const value = densityArray[index];
+    if (value === undefined) return;
 
-  group.paintedCells.add(key);
-  group.paintedIndices.add(index);
+    group.paintedCells.add(key);
+    group.paintedIndices.add(index);
 
-  // --- Match histogram buckets ---
-  let normalized;
-  if (value <= 1) normalized = 0.0;
-  else if (value <= 5) normalized = 0.1;
-  else if (value <= 10) normalized = 0.2;
-  else if (value <= 20) normalized = 0.35;
-  else if (value <= 50) normalized = 0.45;
-  else if (value <= 100) normalized = 0.55;
-  else if (value <= 200) normalized = 0.65;
-  else if (value <= 500) normalized = 0.8;
-  else normalized = 1.0;
+    // --- Match histogram buckets ---
+    let normalized;
+    if (value <= 1) normalized = 0.0;
+    else if (value <= 5) normalized = 0.1;
+    else if (value <= 10) normalized = 0.2;
+    else if (value <= 20) normalized = 0.35;
+    else if (value <= 50) normalized = 0.45;
+    else if (value <= 100) normalized = 0.55;
+    else if (value <= 200) normalized = 0.65;
+    else if (value <= 500) normalized = 0.8;
+    else normalized = 1.0;
 
-  const rgb = interpolateViridis(1-normalized); // e.g. "rgb(68, 1, 84)"
-  const rgba = rgb.replace("rgb(", "rgba(").replace(")", `, ${fillOpacity})`);
+    const rgb = interpolateViridis(1 - normalized); // e.g. "rgb(68, 1, 84)"
+    const rgba = rgb.replace("rgb(", "rgba(").replace(")", `, ${fillOpacity})`);
 
-  const square = new Polygon([
-    [
-      [x, y],
-      [x + cellSize, y], 
-      [x + cellSize, y + cellSize],
-      [x, y + cellSize],
-      [x, y],
-    ],
-  ]);
+    const square = new Polygon([
+      [
+        [x, y],
+        [x + cellSize, y],
+        [x + cellSize, y + cellSize],
+        [x, y + cellSize],
+        [x, y],
+      ],
+    ]);
 
-  const feature = new Feature({ geometry: square });
-  feature.set("densityValue", value);
-  feature.setStyle(
-    new Style({
-      fill: new Fill({ color: rgba }),
-      stroke: new Stroke({ color: "rgba(0,0,0,0.3)", width: 0.5 }),
-    })
-  );
+    const feature = new Feature({ geometry: square });
+    feature.set("densityValue", value);
+    feature.setStyle(
+      new Style({
+        fill: new Fill({ color: rgba }),
+        stroke: new Stroke({ color: "rgba(0,0,0,0.3)", width: 0.5 }),
+      })
+    );
 
-  group.layer.getSource().addFeature(feature);
-}
-
-
-
+    group.layer.getSource().addFeature(feature);
+  }
 
   function computeStats(group) {
     if (!densityArray || group.paintedIndices.size === 0) {
       group.stats = { count: 0, sum: 0, mean: 0, median: 0, min: 0, max: 0 };
       group.histogram = {};
-      groups = [...groups]; // trigger reactivity          
+      groups = [...groups]; // trigger reactivity
       return;
     }
 
@@ -212,7 +208,7 @@ let groups = $state<Group[]>([]);
       "21 to 50": 0,
       "51 to 100": 0,
       "101 to 200": 0,
-      "201 to 500": 0,     
+      "201 to 500": 0,
       "over 500": 0,
     };
 
@@ -223,8 +219,8 @@ let groups = $state<Group[]>([]);
       else if (v <= 20) bins["11 to 20"]++;
       else if (v <= 50) bins["21 to 50"]++;
       else if (v <= 100) bins["51 to 100"]++;
-      else if (v <= 200) bins["101 to 200"]++;            
-      else if (v <= 500) bins["201 to 500"]++;      
+      else if (v <= 200) bins["101 to 200"]++;
+      else if (v <= 500) bins["201 to 500"]++;
       else if (v > 500) bins["over 500"]++;
     }
 
@@ -249,7 +245,8 @@ let groups = $state<Group[]>([]);
       for (let j = -cellRadius; j <= cellRadius; j++) {
         const newCol = colCenter + i;
         const newRow = rowCenter + j;
-        if (newCol < 0 || newCol >= width || newRow < 0 || newRow >= height) continue;
+        if (newCol < 0 || newCol >= width || newRow < 0 || newRow >= height)
+          continue;
         if (Math.sqrt(i * i + j * j) > cellRadius) continue;
         const cellX = originX + newCol * cellSize;
         const cellY = originY + newRow * cellSize;
@@ -278,7 +275,8 @@ let groups = $state<Group[]>([]);
       for (let j = -cellRadius; j <= cellRadius; j++) {
         const newCol = colCenter + i;
         const newRow = rowCenter + j;
-        if (newCol < 0 || newCol >= width || newRow < 0 || newRow >= height) continue;
+        if (newCol < 0 || newCol >= width || newRow < 0 || newRow >= height)
+          continue;
         if (Math.sqrt(i * i + j * j) > cellRadius) continue;
         const cellX = originX + newCol * cellSize;
         const cellY = originY + newRow * cellSize;
@@ -290,7 +288,10 @@ let groups = $state<Group[]>([]);
           const features = group.layer.getSource().getFeatures();
           for (const f of features) {
             const geom = f.getGeometry();
-            if (geom.getCoordinates()[0][0][0] === cellX && geom.getCoordinates()[0][0][1] === cellY) {
+            if (
+              geom.getCoordinates()[0][0][0] === cellX &&
+              geom.getCoordinates()[0][0][1] === cellY
+            ) {
               group.layer.getSource().removeFeature(f);
               break;
             }
@@ -304,10 +305,8 @@ let groups = $state<Group[]>([]);
   }
 
   onMount(async () => {
-
     const res = await fetch(`${base}/data/geographies.json`);
     availableGeographies = await res.json();
-
 
     const tiffData = await loadTiff(`${base}/range/hectare_counts.tif`);
     densityArray = tiffData.densityArray;
@@ -315,7 +314,9 @@ let groups = $state<Group[]>([]);
     height = tiffData.height;
 
     const baseLayer = new TileLayer({
-      source: new XYZ({ url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png" }),
+      source: new XYZ({
+        url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+      }),
     });
 
     map = new Map({
@@ -326,197 +327,209 @@ let groups = $state<Group[]>([]);
         center: [400000, 300000],
         zoom: 7,
       }),
-      
     });
-    groups.forEach(g => g.layer.setOpacity(opacity));
-    map.getTargetElement().addEventListener("contextmenu", (e) => e.preventDefault());
-    const dragPan = map.getInteractions().getArray().find((i) => i instanceof DragPan);
+    groups.forEach((g) => g.layer.setOpacity(opacity));
+    map
+      .getTargetElement()
+      .addEventListener("contextmenu", (e) => e.preventDefault());
+    const dragPan = map
+      .getInteractions()
+      .getArray()
+      .find((i) => i instanceof DragPan);
 
-  // --- Painting / Erasing controls ---
-let dPressed = false;
+    // --- Painting / Erasing controls ---
+    let dPressed = false;
 
-map.on("pointerdown", (evt) => {
-  if (spacePressed && evt.originalEvent.button === 0) {
-    // Paint with Space + Left Mouse
-    painting = true;
-    erasing = false;
-    dragPan.setActive(false);
-  } else if (dPressed && evt.originalEvent.button === 0) {
-    // Erase with D + Left Mouse
-    erasing = true;
-    painting = false;
-    dragPan.setActive(false);
-  }
-});
+    map.on("pointerdown", (evt) => {
+      if (spacePressed && evt.originalEvent.button === 0) {
+        // Paint with Space + Left Mouse
+        painting = true;
+        erasing = false;
+        dragPan.setActive(false);
+      } else if (dPressed && evt.originalEvent.button === 0) {
+        // Erase with D + Left Mouse
+        erasing = true;
+        painting = false;
+        dragPan.setActive(false);
+      }
+    });
 
-map.on("pointerup", () => {
-  painting = false;
-  erasing = false;
-  dragPan.setActive(true);
-});
+    map.on("pointerup", () => {
+      painting = false;
+      erasing = false;
+      dragPan.setActive(true);
+    });
 
-// --- Pointer move handles both actions + tooltip ---
-map.on("pointermove", async (evt) => {
-  const pixel = map.getEventPixel(evt.originalEvent);
-  const feature = map.forEachFeatureAtPixel(pixel, (f) => f);
+    // --- Pointer move handles both actions + tooltip ---
+    map.on("pointermove", async (evt) => {
+      const pixel = map.getEventPixel(evt.originalEvent);
+      const feature = map.forEachFeatureAtPixel(pixel, (f) => f);
 
-  if (feature) {
-    const value = feature.get("densityValue");
-    tooltipText =
-      value !== undefined
-        ? `(Title deeds with centroids in hovered area: ${value})`
-        : "No data";
-    tooltipX = evt.originalEvent.pageX + 10;
-    tooltipY = evt.originalEvent.pageY + 10;
-    tooltipVisible = true;
-  } else {
-    tooltipVisible = false;
-  }
+      if (feature) {
+        const value = feature.get("densityValue");
+        tooltipText =
+          value !== undefined
+            ? `(Title deeds with centroids in hovered area: ${value})`
+            : "No data";
+        tooltipX = evt.originalEvent.pageX + 10;
+        tooltipY = evt.originalEvent.pageY + 10;
+        tooltipVisible = true;
+      } else {
+        tooltipVisible = false;
+      }
 
-  // Tell Svelte to update the DOM
-  await tick();
+      // Tell Svelte to update the DOM
+      await tick();
 
-  if (painting) paintAt(groups[currentGroupIndex], evt.coordinate);
-  else if (erasing) eraseAt(groups[currentGroupIndex], evt.coordinate);
-});
+      if (painting) paintAt(groups[currentGroupIndex], evt.coordinate);
+      else if (erasing) eraseAt(groups[currentGroupIndex], evt.coordinate);
+    });
 
-// --- Key listeners ---
-window.addEventListener("keydown", (e) => {
-  if (e.code === "Space") {
-    e.preventDefault();
-    spacePressed = true;
-  }
-  if (e.key.toLowerCase() === "d") {
-    e.preventDefault();
-    dPressed = true;
-  }
-  if (e.key >= "1" && e.key <= "9") {
-    currentGroupIndex = Number(e.key) - 1;
-  }
-});
+    // --- Key listeners ---
+    window.addEventListener("keydown", (e) => {
+      if (e.code === "Space") {
+        e.preventDefault();
+        spacePressed = true;
+      }
+      if (e.key.toLowerCase() === "d") {
+        e.preventDefault();
+        dPressed = true;
+      }
+      if (e.key >= "1" && e.key <= "9") {
+        currentGroupIndex = Number(e.key) - 1;
+      }
+    });
 
-window.addEventListener("keyup", (e) => {
-  if (e.code === "Space") {
-    e.preventDefault();
-    spacePressed = false;
-  }
-  if (e.key.toLowerCase() === "d") {
-    e.preventDefault();
-    dPressed = false;
-  }
-});
-
+    window.addEventListener("keyup", (e) => {
+      if (e.code === "Space") {
+        e.preventDefault();
+        spacePressed = false;
+      }
+      if (e.key.toLowerCase() === "d") {
+        e.preventDefault();
+        dPressed = false;
+      }
+    });
   });
 
   function updateOpacity(event: Event) {
     opacity = +(event.target as HTMLInputElement).value;
-    groups.forEach(g => g.layer.setOpacity(opacity));
+    groups.forEach((g) => g.layer.setOpacity(opacity));
   }
-function clearGroup(group) {
-  group.paintedCells.clear();
-  group.paintedIndices.clear();
-  group.layer.getSource().clear(); // removes all features
-  computeStats(group);
-  groups = [...groups]; // trigger Svelte reactivity
-}
-
-
+  function clearGroup(group) {
+    group.paintedCells.clear();
+    group.paintedIndices.clear();
+    group.layer.getSource().clear(); // removes all features
+    computeStats(group);
+    groups = [...groups]; // trigger Svelte reactivity
+  }
 
   let availableGeographies = $state([]);
 
   let selected = $state("");
 
+  async function importGeography() {
+    if (!selected) {
+      console.log("no selection");
+      return;
+    }
 
- async function importGeography() {
-  if (!selected){console.log("no selection"); return};
+    // Fetch binary file of pixel indices
+    const res = await fetch(`${base}/data/geographies/${selected}`);
+    const arrayBuffer = await res.arrayBuffer();
+    const indices = new Uint32Array(arrayBuffer);
 
-  // Fetch binary file of pixel indices
-  const res = await fetch(`${base}/data/geographies/${selected}`);
-  const arrayBuffer = await res.arrayBuffer();
-  const indices = new Uint32Array(arrayBuffer);
+    console.log("indices", indices);
 
-  console.log("indices",indices)
+    // Name and color
+    const name = LALookup.find(
+      (e) => e.LAD25CD == selected.replace(".bin", "")
+    ).LAD25NM;
 
-  // Name and color
-  const name = LALookup.find(e=>e.LAD25CD==selected.replace(".bin","")).LAD25NM
+    //        "LAD25CD": "E07000222",
+    //       "LAD25NM": "Warwick"
 
-  //        "LAD25CD": "E07000222",
- //       "LAD25NM": "Warwick"
+    const color = colors[groups.length % colors.length]; // reuse your palette
 
-  const color = colors[groups.length % colors.length]; // reuse your palette
+    // Create new vector layer
+    const newLayer = new VectorLayer({
+      source: new VectorSource(),
+      opacity,
+      style: new Style({
+        fill: new Fill({ color }),
+        stroke: new Stroke({ color: color.replace("0.3", "0.6"), width: 0 }),
+      }),
+    });
 
-  // Create new vector layer
-  const newLayer = new VectorLayer({
-    source: new VectorSource(),
-    opacity,
-    style: new Style({
-      fill: new Fill({ color }),
-      stroke: new Stroke({ color: color.replace("0.3", "0.6"), width: 0 }),
-    }),
-  });
+    const group = {
+      color,
+      paintedCells: new Set<string>(),
+      paintedIndices: new Set<number>(),
+      stats: { count: 0, sum: 0, mean: 0, median: 0, min: 0, max: 0 },
+      histogram: {},
+      layer: newLayer,
+      name: name,
+    };
 
-  const group = {
-    color,
-    paintedCells: new Set<string>(),
-    paintedIndices: new Set<number>(),
-    stats: { count: 0, sum: 0, mean: 0, median: 0, min: 0, max: 0 },
-    histogram: {},
-    layer: newLayer,
-    name:name
-  };
+    // Add it to the map
+    map.addLayer(group.layer);
+    groups = [...groups, group];
 
-  // Add it to the map
-  map.addLayer(group.layer);
-  groups = [...groups, group];
+    // For each pixel index in the .bin file, convert it to map coords and draw it
+    for (const i of indices) {
+      const row = Math.floor(i / width);
+      const col = i % width;
+      const x = originX + col * cellSize;
+      const y = originY + (height - row - 1) * cellSize;
 
-  // For each pixel index in the .bin file, convert it to map coords and draw it
-for (const i of indices) {
-  const row = Math.floor(i / width);
-  const col = i % width;
-  const x = originX + col * cellSize;
-  const y = originY + (height - row - 1) * cellSize;
+      addCellFeature(group, x, y);
+      const idx = coordToIndex(x, y);
+      if (idx !== null) group.paintedIndices.add(idx); // ✅ guarantee inclusion
+    }
 
-  addCellFeature(group, x, y);
-  const idx = coordToIndex(x, y);
-  if (idx !== null) group.paintedIndices.add(idx); // ✅ guarantee inclusion
-}
-
-  // Compute stats and trigger reactivity
-console.log("paintedCells", group.paintedCells.size);
-console.log("paintedIndices", group.paintedIndices.size);
-console.log("first few painted indices", Array.from(group.paintedIndices).slice(0, 10));
-const sampleVals = Array.from(group.paintedIndices).slice(0, 5).map(i => densityArray[i]);
-console.log("sample values", sampleVals);
-  computeStats(group);
-  groups = [...groups];
-}
-
-
+    // Compute stats and trigger reactivity
+    console.log("paintedCells", group.paintedCells.size);
+    console.log("paintedIndices", group.paintedIndices.size);
+    console.log(
+      "first few painted indices",
+      Array.from(group.paintedIndices).slice(0, 10)
+    );
+    const sampleVals = Array.from(group.paintedIndices)
+      .slice(0, 5)
+      .map((i) => densityArray[i]);
+    console.log("sample values", sampleVals);
+    computeStats(group);
+    groups = [...groups];
+  }
 </script>
 
-<div id="map" ></div>
+<svelte:head>
+  <title>Experimental painting app</title>
+  <meta
+    name="description"
+    content="Experimental tool for calculating the number of title deeds in a painted area."
+  />
+</svelte:head>
+
+<div id="map"></div>
 <div id="slider-container">
   <div style="display:flex; align-items:center; gap:10px;">
+    <div class="import-geography">
+      <select bind:value={selected}>
+        <option value="">Select Local Authority District...</option>
+        {#each LALookup as f}
+          <option value={f.LAD25CD + ".bin"}>{f.LAD25NM}</option>
+        {/each}
+      </select>
 
-<div class="import-geography">
-  <select bind:value={selected}>
-    <option value="">Select Local Authority District...</option>
-    {#each LALookup as f}
-      <option value={f.LAD25CD + ".bin"}>{f.LAD25NM}</option>
-    {/each}
-  </select>
-
-  <button onclick={importGeography} disabled={!selected}>
-    Import
-  </button>
-</div>
-
-</div>
+      <button onclick={importGeography} disabled={!selected}> Import </button>
+    </div>
+  </div>
   <button onclick={() => clearGroup(groups[currentGroupIndex])}>
-  Clear Painted Cells
-</button>
+    Clear Painted Cells
+  </button>
   <label>
-    Opacity: {Math.round(opacity*100)}%
+    Opacity: {Math.round(opacity * 100)}%
     <input
       type="range"
       min="0"
@@ -529,49 +542,84 @@ console.log("sample values", sampleVals);
 </div>
 
 <!-- Fixed stats panel -->
-<div class="fixed top-4 right-4 bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-lg text-sm w-[250px] max-h-[90vh] overflow-y-auto z-50">
- <div id="instructions"> 
-  <h2 style = "margin-top:0">Title deed counter: Instructions for use</h2>
-  <ul style="font-size:0.8em">
-  <li class="font-semibold mb-2">Pan and zoom as you normally would with a mouse</li>
-  <li class="font-semibold mb-2">Press the space key and the left mouse button to paint (go slow)</li>
-  <li class="font-semibold mb-2"><b>NEW:  Press the "D" key and the left mouse button to erase (go slow)</b></li>
-   <li class="font-semibold mb-2">Painting and erasing are more precise as you zoom in</li>
-  <li class="font-semibold mb-2">Press keys 1–9 to switch paint groups (to compare two or more areas)</li>
-  <li class="font-semibold mb-2">Scroll down the page to see more reporting</li>
-  <li class="font-semibold mb-2">Adjust opacity with the top right slider</li>
-  <li class="font-semibold mb-2">Click "Clear Painted Cells" to clear the current group</li>
-    <li class="font-semibold mb-2">Select a local authority from the dropdown and click Import to see a whole LA</li>
-</ul>
-</div>
- <div class="report">
-  {#each groups as g, i}
-  {#if g.stats.count}
-  {console.log("g",g)}
-    <div class="mb-3 border-b border-gray-300 pb-2">
-      <div class="font-semibold">
-       <b> {g.name?g.name: `Area: + ${i + 1} ${currentGroupIndex === i ? "(Active)" : ""}`}</b>
-      </div>
-      <div>{g.name?g.name: `Area: + ${i + 1}`} measures {g.stats.count.toLocaleString()} hectares</div>
-      <div>It contains {(+ g.stats.sum.toFixed(0)).toLocaleString()} title deeds</div>
-      <div>Density is {g.stats.mean.toFixed(2 )} titles per hectare.</div>
-      <div>The median hactare's number of titles is {g.stats.median.toFixed(0)}</div>
-      <div>Minimum number in a hectare: {g.stats.min.toFixed(0)}</div>
-      <div>Maximum number in a hectare : {(+g.stats.max.toFixed(0)) .toLocaleString()}</div>
-      <div
-  bind:this={tooltipEl}
-  class="tooltip"
+<div
+  class="fixed top-4 right-4 bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-lg text-sm w-[250px] max-h-[90vh] overflow-y-auto z-50"
 >
-  {tooltipText}
-</div>
+  <div id="instructions">
+    <h2 style="margin-top:0">Title deed counter: Instructions for use</h2>
+    <ul style="font-size:0.8em">
+      <li class="font-semibold mb-2">
+        Pan and zoom as you normally would with a mouse
+      </li>
+      <li class="font-semibold mb-2">
+        Press the space key and the left mouse button to paint (go slow)
+      </li>
+      <li class="font-semibold mb-2">
+        <b
+          >NEW: Press the "D" key and the left mouse button to erase (go slow)</b
+        >
+      </li>
+      <li class="font-semibold mb-2">
+        Painting and erasing are more precise as you zoom in
+      </li>
+      <li class="font-semibold mb-2">
+        Press keys 1–9 to switch paint groups (to compare two or more areas)
+      </li>
+      <li class="font-semibold mb-2">
+        Scroll down the page to see more reporting
+      </li>
+      <li class="font-semibold mb-2">
+        Adjust opacity with the top right slider
+      </li>
+      <li class="font-semibold mb-2">
+        Click "Clear Painted Cells" to clear the current group
+      </li>
+      <li class="font-semibold mb-2">
+        Select a local authority from the dropdown and click Import to see a
+        whole LA
+      </li>
+    </ul>
+  </div>
+  <div class="report">
+    {#each groups as g, i}
+      {#if g.stats.count}
+        {console.log("g", g)}
+        <div class="mb-3 border-b border-gray-300 pb-2">
+          <div class="font-semibold">
+            <b>
+              {g.name
+                ? g.name
+                : `Area: + ${i + 1} ${currentGroupIndex === i ? "(Active)" : ""}`}</b
+            >
+          </div>
+          <div>
+            {g.name ? g.name : `Area: + ${i + 1}`} measures {g.stats.count.toLocaleString()}
+            hectares
+          </div>
+          <div>
+            It contains {(+g.stats.sum.toFixed(0)).toLocaleString()} title deeds
+          </div>
+          <div>Density is {g.stats.mean.toFixed(2)} titles per hectare.</div>
+          <div>
+            The median hactare's number of titles is {g.stats.median.toFixed(0)}
+          </div>
+          <div>Minimum number in a hectare: {g.stats.min.toFixed(0)}</div>
+          <div>
+            Maximum number in a hectare : {(+g.stats.max.toFixed(
+              0
+            )).toLocaleString()}
+          </div>
+          <div bind:this={tooltipEl} class="tooltip">
+            {tooltipText}
+          </div>
 
-      {#if Object.keys(g.histogram).length}
-        <Histogram histogram={g.histogram} />
+          {#if Object.keys(g.histogram).length}
+            <Histogram histogram={g.histogram} />
+          {/if}
+        </div>
       {/if}
-    </div> 
-    {/if}
-  {/each}
-</div>
+    {/each}
+  </div>
 </div>
 
 <style>
@@ -580,26 +628,25 @@ console.log("sample values", sampleVals);
     height: 50vh;
   }
 
-  #instructions{
+  #instructions {
     position: absolute;
-    top:120px;
-    right:15px;
-    width:250px;
-  background-color: white;
-  padding:5px;
-  border:1px solid grey;
-  font-family:Arial, Helvetica, sans-serif
-
-  }
-
-  .report{
+    top: 120px;
+    right: 15px;
+    width: 250px;
+    background-color: white;
+    padding: 5px;
+    border: 1px solid grey;
     font-family: Arial, Helvetica, sans-serif;
   }
-    #slider-container {
+
+  .report {
+    font-family: Arial, Helvetica, sans-serif;
+  }
+  #slider-container {
     position: absolute;
     top: 10px;
     right: 10px;
-    background: rgba(255,255,255,0.8);
+    background: rgba(255, 255, 255, 0.8);
     padding: 8px;
     border-radius: 4px;
     font-family: sans-serif;
@@ -608,5 +655,4 @@ console.log("sample values", sampleVals);
   #slider-container input {
     width: 100px;
   }
-
 </style>

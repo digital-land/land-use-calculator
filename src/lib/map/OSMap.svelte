@@ -60,13 +60,6 @@
 
     const vectorTileLayer = new ol.layer.VectorTile({ declutter: true });
 
-    await olms.applyStyle(
-      vectorTileLayer,
-      `${serviceUrl}/${service.defaultStyles}?key=${apiKey}`,
-      "",
-      { resolutions }
-    );
-
     await vectorTileLayer.setSource(
       new ol.source.VectorTile({
         format: new ol.format.MVT(),
@@ -78,6 +71,13 @@
       })
     );
 
+    await olms.applyStyle(
+      vectorTileLayer,
+      `${serviceUrl}/${service.defaultStyles}?key=${apiKey}`,
+      "",
+      { resolutions }
+    );
+
     const geoJsonVectorSource = new ol.source.Vector({
       url: "LAD_MAY_2025_UK_BGC_England.geojson",
       format: new ol.format.GeoJSON({
@@ -86,23 +86,24 @@
       }),
     });
 
-    // const geoJsonVectorLayer = new ol.layer.Vector({
-    //   source: geoJsonVectorSource,
-    //   style: (feature, resolution) => {
-    //     // Set line width based on 'resolution' which is the inverse of zoom level
-    //     const width = resolution < 1 ? 5 : resolution < 5 ? 4 : 1; // fallback
+    const scotlandAndWales = new ol.source.Vector({
+      url: "ScotlandAndWalesSimplified.geojson",
+      format: new ol.format.GeoJSON({
+        dataProjection: "EPSG:4326", // projection of the GeoJSON file
+        featureProjection: "EPSG:27700", // projection of the map
+      }),
+    });
 
-    //     return new Style({
-    //       stroke: new Stroke({
-    //         color: "teal",
-    //         width: width,
-    //       }),
-    //       fill: new Fill({
-    //         color: "rgba(0,123,0,0)",
-    //       }),
-    //     });
-    //   },
-    // });
+    const scotlandAndWalesVectorLayer = new ol.layer.Vector({
+      source: scotlandAndWales,
+      style: (feature, resolution) => {
+        return new Style({
+          fill: new Fill({
+            color: "rgba(255,255,255,0.8)",
+          }),
+        });
+      },
+    });
 
     const geoJsonVectorLayer = new ol.layer.Vector({
       source: geoJsonVectorSource,
@@ -138,7 +139,12 @@
     map = new ol.Map({
       controls: defaultControls().extend([new FullScreen()]),
       target: mapElement,
-      layers: [vectorTileLayer, geoJsonVectorLayer, tiffLayer],
+      layers: [
+        vectorTileLayer,
+        geoJsonVectorLayer,
+        scotlandAndWalesVectorLayer,
+        tiffLayer,
+      ],
       view: new ol.View({
         projection: "EPSG:27700",
         extent: [-238375.0, 0.0, 900000.0, 1376256.0],
@@ -241,7 +247,7 @@
       }
 
       // Tooltip UI
-      if (isFeature(feature)) {
+      if (isFeature(feature) && feature.get("LAD25NM")) {
         info.style.left = pixel[0] + 15 + "px";
         info.style.top = pixel[1] + 15 + "px";
         info.style.visibility = "visible";
@@ -299,7 +305,7 @@
     // });
 
     map.getTargetElement().addEventListener("pointerleave", function () {
-      if (currentFeature) currentFeature.set("hover", false);
+      if (isFeature(currentFeature)) currentFeature.set("hover", false);
       currentFeature = undefined;
       info.style.visibility = "hidden";
     });

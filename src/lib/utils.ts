@@ -13,7 +13,7 @@ export function parseCsv(csvText) {
 }
 
 export function jsonToCsv(items, policyLens, policyLensItems, selected: string[]) {
-  const title = `"Selected area covers : ${selected.join(', ')}"\r\n`
+  const title = `"Selected area covers : ${selected.map(d => makeFileNameReadable(d)).join(', ')}"\r\n`
   const footer =
     "\r\n Notes: \r\n 1. All figures are in hectares. \r\n 2. This is an experimental product under development.";
   const caveat =
@@ -36,3 +36,5 @@ export function jsonToCsv(items, policyLens, policyLensItems, selected: string[]
 export function makeFileNameReadable(filename: string): string {
   return filename.replace(".tif", "").replaceAll("_", " ")
 }
+
+export const colors = ['#00625E', '#932A72', '#85292A', '#BF4A1D', '#40611f', '#205083', '#333366']

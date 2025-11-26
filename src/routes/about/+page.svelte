@@ -1,3 +1,10 @@
+<svelte:head>
+  <title>About and user guide</title>
+  <meta
+    name="description"
+    content="About the Development Land Analysis Platform and how to use it."
+  />
+</svelte:head>
 <div class="govuk-width-container govuk-main-wrapper govuk-main-wrapper--l">
   <h2 class="govuk-heading-l">About</h2>
   <p class="govuk-body">
