@@ -132,6 +132,7 @@
         url: dataURL,
         imageExtent: bbox,
         projection: "EPSG:27700",
+        interpolate: false,
       }),
       opacity: 0.8,
     });
@@ -175,49 +176,6 @@
     });
 
     const info = document.getElementById("info");
-    //   let currentFeature;
-
-    //   const displayFeatureInfo = function (pixel, target) {
-    //     // const feature = target.closest(".ol-control")
-    //     //   ? undefined
-    //     //   : map.forEachFeatureAtPixel(pixel, function (feature) {
-    //     //       return feature?.values_;
-    //     //     });
-    //     const feature = target.closest(".ol-control")
-    // ? undefined
-    // : map.forEachFeatureAtPixel(pixel, (feature) => feature);
-
-    //     if (feature) {
-    //       info.style.left = pixel[0] + 15 + "px";
-    //       info.style.top = pixel[1] + 15 + "px";
-    //       if (feature !== currentFeature) {
-    //         info.style.visibility = "visible";
-    //         info.innerHTML =
-    //           "<b>" +
-    //           feature.LAD25NM +
-    //           "</b>" +
-    //           "<br>" +
-    //           "Area covered by the current selections: " +
-    //           Number(
-    //             breakdownData.find((d) => d.area_code === feature.LAD25CD)?.[
-    //               "selected_area"
-    //             ]
-    //           ).toLocaleString() +
-    //           "ha" +
-    //           "<br> (" +
-    //           Number(
-    //             breakdownData.find((d) => d.area_code === feature.LAD25CD)?.[
-    //               "selected_area_as_a_proportion_of_total_area"
-    //             ]
-    //           ).toPrecision(2) *
-    //             100 +
-    //           "%)";
-    //       }
-    //     } else {
-    //       info.style.visibility = "hidden";
-    //     }
-    //     currentFeature = feature;
-    // };
 
     let currentFeature;
 
@@ -276,15 +234,6 @@
       }
     };
 
-    // map.on("pointermove", function (evt) {
-    //   if (evt.dragging) {
-    //     info.style.visibility = "hidden";
-    //     currentFeature = undefined;
-    //     return;
-    //   }
-    //   displayFeatureInfo(evt.pixel, evt.originalEvent.target);
-    // });
-
     map.on("pointermove", function (evt) {
       if (evt.dragging) {
         info.style.visibility = "hidden";
@@ -299,18 +248,13 @@
       displayFeatureInfo(evt.pixel, evt.originalEvent.target);
     });
 
-    // map.getTargetElement().addEventListener("pointerleave", function () {
-    //   currentFeature = undefined;
-    //   info.style.visibility = "hidden";
-    // });
-
     map.getTargetElement().addEventListener("pointerleave", function () {
       if (isFeature(currentFeature)) currentFeature.set("hover", false);
       currentFeature = undefined;
       info.style.visibility = "hidden";
     });
   });
-  $inspect(selectedAreaName);
+  // $inspect(selectedAreaName);
 
   $effect(() => {
     if (map) {
@@ -324,6 +268,7 @@
           url: dataURL,
           imageExtent: bbox,
           projection: "EPSG:27700",
+          interpolate: false,
         }),
         opacity: 0.8,
       });

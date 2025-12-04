@@ -1,9 +1,11 @@
 <script>
   import { createEventDispatcher } from "svelte";
   import FilterChip from "./FilterChip.svelte";
+  import { makeFileNameReadable } from "$lib/utils";
 
   let {
-    selectedFilterChipData,
+    startingPosition,
+    selectedSubLayers,
     selected = $bindable(),
     policyLens = $bindable(),
     categoryToColor,
@@ -11,72 +13,88 @@
 
   const dispatch = createEventDispatcher();
 
-  let zones = $state({
-    zone1: [],
-    zone2: selected,
+  // Unified chip data for both zones
+  const chipData = $derived.by(() => {
+    const all = {};
+    const ids = [...(selected ?? []), policyLens].filter(Boolean);
+    for (const id of ids) {
+      const found = startingPosition?.find((d) => d.filename === id);
+      if (found) {
+        all[id] = {
+          id: found.filename,
+          title: makeFileNameReadable(found.filename),
+          category: found.Tier,
+          color: categoryToColor[found.Tier],
+          subLayers: selectedSubLayers[found.filename],
+        };
+      }
+    }
+    return all;
   });
+  //   $inspect(chipData);
 
-  let zoneCategories = $derived.by(() =>
+  // Zones derived from selected + policyLens
+  const zones = $derived.by(() => ({
+    zone1: policyLens ? [policyLens] : [],
+    zone2: selected ?? [],
+  }));
+
+  // Categories per zone
+  const zoneCategories = $derived.by(() =>
     Object.fromEntries(
       Object.entries(zones).map(([zoneName, chipIds]) => [
         zoneName,
-        [...new Set(chipIds.map((id) => selectedFilterChipData[id]?.category))],
+        [...new Set(chipIds.map((id) => chipData[id]?.category))],
       ])
     )
   );
 
+  // Update functions only change selected/policyLens
   function moveChip(id, newZone) {
-    // Remove from any zone it was in
-    for (const zone in zones) {
-      zones[zone] = zones[zone].filter((c) => c !== id);
+    if (newZone === "zone1") {
+      if (policyLens !== "England") selected.push(policyLens);
+      policyLens = id;
+      selected = selected.filter((c) => c !== id);
+    } else {
+      selected = [...selected.filter((c) => c !== id), id];
+      if (policyLens === id) policyLens = "England";
     }
-
-    // Add to target zone
-    zones[newZone] = [...zones[newZone], id];
-  }
-
-  function moveExclusive(id, newZone) {
-    // Remove from any zone it was in
-    for (const zone in zones) {
-      zones[zone] = zones[zone].filter((c) => c !== id);
-    }
-
-    // Remove old item and add it to the other zone
-    let oldChip = zones[newZone].pop();
-    if (oldChip) zones["zone2"].push(oldChip); // Hard coded!
-
-    // Add to target zone
-    zones[newZone] = [...zones[newZone], id];
-    console.log(zones);
+    dispatch("lensChanged");
   }
 
   function removeFromSelected(id) {
-    const index = selected.indexOf(id); // Find the index of the item to remove
-    // console.log(index);
-    if (index !== -1) {
-      selected.splice(index, 1); // Remove one element at the found index
-      //   console.log("parent");
-      dispatch("itemRemoved");
-    }
+    selected = selected.filter((c) => c !== id);
+    dispatch("itemRemoved");
+  }
+
+  function removePolicyLens() {
+    policyLens = "England";
+    dispatch("lensChanged");
   }
 </script>
 
+<div id="filter-tooltip"></div>
 <!-- <h3 style="margin: 0 0 0 10px; padding-left: 10px">Selected area</h3>
 <div class="filters-and-legend-container">
   <div class="drop-zone" data-zone="zone1">
+    {#key policyLens}
     {#each zones.zone1 as id}
-      <FilterChip
-        {...selectedFilterChipData[id]}
-        currentZone="zone1"
-        on:drop={(e) => {
-          // console.log("DROPPED!", id, e.detail.zone, "about to move exclusive");
-          moveChip(id, e.detail.zone);
-        }}
-        on:deselect={(e) => {
-          removeFromSelected(e.detail.id);
-        }}
-      />
+      {#if id !== "England"}
+        <FilterChip
+          {...chipData[id]}
+          currentZone="zone1"
+          on:drop={(e) => {
+            //   console.log("DROPPED!", id, e.detail.zone);
+            // addToSelected(id);
+            moveChip(id, e.detail.zone);
+          }}
+          on:deselect={(e) => {
+            removePolicyLens(e.detail.id);
+          }}
+        />
+      {/if}
     {/each}
+    {/key}
   </div>
   <div>
     <p>Category:</p>
@@ -98,17 +116,20 @@
 <div class="filters-and-legend-container">
   <div class="drop-zone" data-zone="zone2">
     {#each zones.zone2 as id}
-      <FilterChip
-        {...selectedFilterChipData[id]}
-        currentZone="zone2"
-        on:drop={(e) => {
-          //   console.log("DROPPED!", id, e.detail.zone);
-          moveExclusive(id, e.detail.zone);
-        }}
-        on:deselect={(e) => {
-          removeFromSelected(e.detail.id);
-        }}
-      />
+      {#if id !== "England"}
+        <FilterChip
+          {...chipData[id]}
+          currentZone="zone2"
+          on:drop={(e) => {
+            // console.log("DROPPED!", id, e.detail.zone);
+            moveChip(id, e.detail.zone);
+            // removeFromSelected(id);
+          }}
+          on:deselect={(e) => {
+            removeFromSelected(e.detail.id);
+          }}
+        />
+      {/if}
     {/each}
   </div>
   <div>
@@ -157,5 +178,22 @@
 
   .categories-legend-item {
     display: flex;
+  }
+
+  #filter-tooltip {
+    position: absolute;
+    display: inline-block;
+    height: auto;
+    width: auto;
+    z-index: 100;
+    background-color: #333;
+    color: #fff;
+    text-align: left;
+    border-radius: 4px;
+    padding: 5px;
+    left: 50%;
+    transform: translateX(3%);
+    visibility: hidden;
+    pointer-events: none;
   }
 </style>

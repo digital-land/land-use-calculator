@@ -229,7 +229,9 @@
                       >
                     </div>
                     <br />
-                    <span class="subLayers">(made up of {row.subLayers})</span>
+                    <span class="subLayers"
+                      >(made up of {row.subLayers.join(", ")})</span
+                    >
                   {/if}
                 </td>
               {/if}

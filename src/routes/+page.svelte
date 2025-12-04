@@ -292,10 +292,12 @@
       };
     })
   );
-  $inspect({ filterSections });
+  // $inspect({ filterSections });
 
-  let selectedSubLayers = $derived(
-    selected?.reduce((acc, sel) => {
+  let selectedSubLayers = $derived.by(() => {
+    const subLayersToInclude =
+      policyLens === "England" ? selected : [...selected, policyLens];
+    return subLayersToInclude?.reduce((acc, sel) => {
       const key = sel;
       const value = startingPosition
         .filter(
@@ -308,35 +310,35 @@
 
       acc[key] = value;
       return acc;
-    }, {})
-  );
+    }, {});
+  });
 
-  // $inspect(selectedSubLayers, startingPosition);
+  $inspect(selectedSubLayers);
 
-  let selectedFilterChipData = $derived(
-    selected
-      ? Object.fromEntries(
-          selected
-            ?.map((item) => {
-              const found = startingPosition?.find((d) => d.filename === item);
-              return found
-                ? [
-                    found.filename, // key
-                    {
-                      id: found.filename,
-                      title: makeFileNameReadable(found.filename),
-                      category: found.Tier,
-                      color: categoryToColor[found.Tier],
-                    },
-                  ]
-                : null;
-            })
-            .filter(Boolean) // remove nulls)
-        )
-      : null
-  );
+  // let selectedFilterChipData = $derived(
+  //   selected
+  //     ? Object.fromEntries(
+  //         selected
+  //           ?.map((item) => {
+  //             const found = startingPosition?.find((d) => d.filename === item);
+  //             return found
+  //               ? [
+  //                   found.filename, // key
+  //                   {
+  //                     id: found.filename,
+  //                     title: makeFileNameReadable(found.filename),
+  //                     category: found.Tier,
+  //                     color: categoryToColor[found.Tier],
+  //                   },
+  //                 ]
+  //               : null;
+  //           })
+  //           .filter(Boolean) // remove nulls)
+  //       )
+  //     : null
+  // );
 
-  $inspect({ selectedFilterChipData });
+  // $inspect({ selectedFilterChipData });
 
   let uniqueArray = $state([]);
   // let selectedRestrictionIndex = 0;
@@ -667,7 +669,7 @@
       });
 
     for (const url of urls) {
-      console.log("Fetching chunk:", url);
+      // console.log("Fetching chunk:", url);
       const catBuffer = await fetch(url).then((r) => r.arrayBuffer());
       const evenLength = catBuffer.byteLength & ~1; // drop 1 byte if odd
       const safeBuffer = catBuffer.slice(0, evenLength);
@@ -678,7 +680,7 @@
       const bitEnd = bitStart + chunkRows * width;
       const aChunk = bitArray.subarray(bitStart, bitEnd);
 
-      console.log("Sending chunk to worker:", cChunk.length, aChunk.length);
+      // console.log("Sending chunk to worker:", cChunk.length, aChunk.length);
 
       const minLength = Math.min(cChunk.length, aChunk.length);
       const cChunkTrimmed = cChunk.subarray(0, minLength);
@@ -760,7 +762,7 @@
           // makeAndPaintCanvases();
           getLABreakdown(chunkUrls, blendedArray).then((result) => {
             breakdownData = result.json;
-            console.log("done breaking down: ", breakdownData);
+            // console.log("done breaking down: ", breakdownData);
             breakdownLoading = false;
           });
           mobile.current
@@ -1111,19 +1113,33 @@
   <div>
     <div class="header-right">
       <!-- <a href="./" target="_blank">Send feedback (opens in a new tab)</a> -->
-      {#key selectedFilterChipData}
+      {#key startingPosition}
         <FilterChipParent
-          {selectedFilterChipData}
+          {startingPosition}
+          {selectedSubLayers}
           bind:selected
           bind:policyLens
           {categoryToColor}
           on:itemRemoved={() => {
             // console.log(startingPosition);
             startingPosition.forEach((d) =>
-              selected.includes(d.filename) ? d : (d.initially_checked = false)
+              selected.includes(d.filename) || policyLens === d.filename
+                ? (d.initially_checked = "y")
+                : (d.initially_checked = false)
             );
             // done = false;
             blendLayers();
+          }}
+          on:lensChanged={() => {
+            // console.log(startingPosition);
+            startingPosition.forEach((d) =>
+              selected.includes(d.filename) || policyLens === d.filename
+                ? (d.initially_checked = "y")
+                : (d.initially_checked = false)
+            );
+            Object.keys(tiffArrayBuffersFromZip).length > 0
+              ? unpackZippedLayers()
+              : unpackSelectedLayers();
           }}
         />
       {/key}
@@ -1306,7 +1322,8 @@
             <p>
               The total area in England within {policyLensItems.find(
                 (d) => d.value == policyLens
-              ).sentenceText} is {policyLensArea.toLocaleString()}
+              )?.sentenceText ?? '"' + makeFileNameReadable(policyLens) + '"'} is
+              {policyLensArea.toLocaleString()}
               ha.
             </p>
             <!-- <div class="stacked-bar">
@@ -1321,7 +1338,8 @@
           <h2>
             Within <span class="lens-area"
               >{policyLensItems.find((d) => d.value == policyLens)
-                .sentenceText}</span
+                ?.sentenceText ??
+                'the "' + makeFileNameReadable(policyLens) + '" layer'}</span
             >
           </h2>
         {/if}
@@ -1347,15 +1365,19 @@
               selections, or about
               <b>{((blendedArrayLength / policyLensArea) * 100).toFixed(0)}%</b>
               of
-              {policyLensItems.find((d) => d.value == policyLens).sentenceText},
-              which means that {(
+              {policyLensItems.find((d) => d.value == policyLens)
+                ?.sentenceText ??
+                'the "' + makeFileNameReadable(policyLens) + '" layer'}, which
+              means that {(
                 policyLensArea - blendedArrayLength
               ).toLocaleString()} hectares ({(
                 ((policyLensArea - blendedArrayLength) / policyLensArea) *
                 100
               ).toFixed(0)}%) of {policyLensItems.find(
                 (d) => d.value == policyLens
-              ).sentenceText} is not in the area covered by the current selections.
+              )?.sentenceText ??
+                'the "' + makeFileNameReadable(policyLens) + '" layer'} is not in
+              the area covered by the current selections.
             </p>
             <!-- Un-snippet this if we want it back -->
             {#snippet stackedBar()}
@@ -1430,7 +1452,7 @@
                   >
                     <p>
                       {policyLensItems.find((d) => d.value == policyLens)
-                        .sentenceText}, but not covered by the selected
+                        ?.sentenceText}, but not covered by the selected
                       categories
                     </p>
                   </div>
@@ -1973,7 +1995,7 @@
 
   .header-section {
     display: grid;
-    grid-template-columns: 1fr 2fr;
+    grid-template-columns: 1fr 3fr;
     font-family: sans-serif;
     padding: 10px;
     min-height: 200px;

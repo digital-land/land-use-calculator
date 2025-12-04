@@ -17,8 +17,8 @@ export function jsonToCsv(items, policyLens, policyLensItems, selected: string[]
   const footer =
     "\r\n Notes: \r\n 1. All figures are in hectares. \r\n 2. This is an experimental product under development.";
   const caveat =
-    "Figures relate to the area within " +
-    policyLensItems.find((d) => d.value == policyLens).sentenceText;
+    "Selected area figures relate to the area within " +
+    (policyLensItems.find((d) => d.value == policyLens)?.sentenceText ?? 'the "' + makeFileNameReadable(policyLens) + '" layer') + " \r\n";
   const header = Object.keys(items[0]);
   const headerString = header.join(",");
   // handle null or undefined values here
@@ -29,7 +29,7 @@ export function jsonToCsv(items, policyLens, policyLensItems, selected: string[]
       .join(",")
   );
   // join header and body, and break into separate lines
-  const csv = [title, headerString, ...rowItems, footer, caveat].join("\r\n");
+  const csv = [title, caveat, headerString, ...rowItems, footer].join("\r\n");
   return csv;
 }
 

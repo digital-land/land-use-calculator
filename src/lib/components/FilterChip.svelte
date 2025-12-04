@@ -1,7 +1,8 @@
 <script>
   import { createEventDispatcher } from "svelte";
 
-  let { title, id, category, color } = $props();
+  let { title, id, category, color, subLayers } = $props();
+  //   $inspect(subLayers);
   const dispatch = createEventDispatcher();
 
   let el;
@@ -83,6 +84,33 @@
       el.style.zIndex = "";
     });
   }
+
+  let filterTooltip = $derived(document.getElementById("filter-tooltip"));
+
+  let tooltipContent = $derived(
+    subLayers.length > 0
+      ? "Made up of:" + "<ul><li>" + subLayers.join("</li><li>") + "</li></ul>"
+      : ""
+  );
+
+  function showTooltip(e) {
+    // console.log(filterTooltip);
+    let position = [e.pageX, e.pageY];
+
+    if (subLayers && filterTooltip) {
+      filterTooltip.style.left = position[0] + 15 + "px";
+      filterTooltip.style.top = position[1] + 15 + "px";
+      filterTooltip.style.visibility = "visible";
+
+      filterTooltip.innerHTML = tooltipContent;
+    }
+    if (subLayers.length === 0) filterTooltip.style.visibility = "hidden";
+  }
+
+  function removeChip() {
+    if (filterTooltip) filterTooltip.style.visibility = "hidden";
+    dispatch("deselect", { id: id });
+  }
 </script>
 
 <div
@@ -90,7 +118,11 @@
   class="draggable choices__item choices__item--selectable"
   onmousedown={startDrag}
   ontouchstart={startDrag}
+  onmousemove={showTooltip}
+  onmouseleave={() =>
+    filterTooltip ? (filterTooltip.style.visibility = "hidden") : ""}
   style={"border: 2px solid " + color}
+  data-id={id}
 >
   <span class="choices__item-circle" style={"background: " + color}></span>
   {title}
@@ -99,7 +131,7 @@
     class="choices__button"
     data-button=""
     aria-label={"Remove" + title}
-    onclick={() => dispatch("deselect", { id: id })}
+    onclick={removeChip}
   ></button>
 </div>
 

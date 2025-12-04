@@ -9,7 +9,7 @@ let wasmReady = false;
 // Worker receives { categoricalArray: Uint16Array, bitArray: Uint16Array }
 self.onmessage = async (e) => {
 const { categoricalArray, bitArray, csvUrl } = e.data;
-  console.log("Worker received chunk:", categoricalArray.length, bitArray.length);
+  // console.log("Worker received chunk:", categoricalArray.length, bitArray.length);
 
   // Initialize WASM once
   if (!wasmReady) {
