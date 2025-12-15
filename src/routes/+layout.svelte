@@ -1,4 +1,5 @@
 <script>
+  import "../app.css";
   import PhaseBanner from "$lib/PhaseBanner.svelte";
   import { ServiceNavigation } from "@communitiesuk/svelte-component-library";
 

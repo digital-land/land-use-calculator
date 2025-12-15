@@ -27,7 +27,7 @@
   import Details from "$lib/Details.svelte";
   import OsMap from "$lib/map/OSMap.svelte";
   import Spinner from "$lib/Spinner.svelte";
-  import proj4 from "proj4";
+  // import proj4 from "proj4";
   import { base } from "$app/paths";
   import Table from "$lib/Table.svelte";
   // import { csvParse } from "d3-dsv";
@@ -83,10 +83,6 @@
 
   let ones;
 
-  // $inspect(dataURL);
-  // let dataURLForUniques = $state();
-  // $inspect(dataURLForUniques);
-  // let dataURLForSelectedArea = $state();
   let occurrences = $state();
   // $inspect(occurrences);
   let finalArray = $state();
@@ -94,23 +90,6 @@
     height = $state(0);
   let bbox = $state([]);
   // $inspect({ width, height, bbox });
-  // let canvas = $state();
-  // let canvasForUniques = $state();
-  // let canvasForSelectedArea = $state();
-  // let ctx = $state();
-  // let ctxForUniques = $state();
-  // let ctxForSelectedArea = $state();
-  // let image = $state();
-  // let imageData = $state();
-  // let imageDataForUniques = $state();
-  // let imageDataForSelectedArea = $state();
-  // // Define RGBA colors in little-endian format (most systems are little-endian)
-  // const UNIQUE_ON_COLOR = 0xff0000ff; // Red with full opacity (R=255, G=0, B=0, A=255)
-  // const UNIQUE_OFF_COLOR = 0x000000ff; // Red with 0 alpha (R=255, G=0, B=0, A=0)
-  // const AREA_ON_COLOR = 0xff0000ff;
-  // const AREA_OFF_COLOR = 0x000000ff;
-  // const TOTAL_ON_COLOR = 0xff000000;
-  // const TOTAL_OFF_COLOR = 0x00000000;
 
   const NO_DATA_COLOR = 0x00000000; // Transparent
   const LENS_HIGHLIGHT_COLOR = 0x44ff00ff; // Pale pink
@@ -119,11 +98,175 @@
   const UNIQUE_AREA_COLOR = 0xff0000ff; // Red
 
   let policyLensItems = [
-    { value: "England", text: "The whole of England", sentenceText: "England" },
+    {
+      value: "England",
+      text: "The whole of England",
+      sentenceText: "England",
+    },
+    {
+      value: "Physically_restricted.tif",
+      text: "Only physically restricted land",
+      sentenceText: "physically restricted land",
+    },
+    {
+      value: "Bodies_of_water.tif",
+      text: "Only bodies of water",
+      sentenceText: "bodies of water",
+    },
+    {
+      value: "Built_infrastructure_constraints.tif",
+      text: "Only built infrastructure constraints",
+      sentenceText: "land with built infrastructure constraints",
+    },
+    {
+      value: "Built_up_areas.tif",
+      text: "Only built up areas",
+      sentenceText: "built up areas",
+    },
+    {
+      value: "National_Grid_infrastructure.tif",
+      text: "Only national Grid infrastructure",
+      sentenceText: "national Grid infrastructure",
+    },
+    {
+      value: "Current_rail_network.tif",
+      text: "Only current rail network",
+      sentenceText: "current rail network",
+    },
+    {
+      value: "Current_major_roads.tif",
+      text: "Only current major roads",
+      sentenceText: "current major roads",
+    },
+    {
+      value: "Development_restricted.tif",
+      text: "Only development restricted land",
+      sentenceText: "land where development is restricted",
+    },
+    {
+      value: "Wildlife_sites_of_national_and_international_importance_.tif",
+      text: "Only wildlife sites of national and international importance",
+      sentenceText: "wildlife sites of national and international importance",
+    },
+    {
+      value: "Ramsar.tif",
+      text: "Only Ramsar",
+      sentenceText: "Ramsar sites",
+    },
+    {
+      value: "Special_areas_of_conservation.tif",
+      text: "Only special areas of conservation",
+      sentenceText: "special areas of conservation",
+    },
+    {
+      value: "Special_protection_areas.tif",
+      text: "Only special protection areas",
+      sentenceText: "special protection areas",
+    },
+    {
+      value: "Sites_of_Special_Scientific_Interest.tif",
+      text: "Only Sites of Special Scientific Interest",
+      sentenceText: "Sites of Special Scientific Interest",
+    },
+    {
+      value: "Heritage_constraint.tif",
+      text: "Only heritage constraint",
+      sentenceText: "land with heritage constraints",
+    },
+    {
+      value: "Registered_parks_and_gardens.tif",
+      text: "Only registered parks and gardens",
+      sentenceText: "registered parks and gardens",
+    },
+    {
+      value: "Registered_battlefields.tif",
+      text: "Only registered battlefields",
+      sentenceText: "registered battlefields",
+    },
+    {
+      value: "Scheduled_monuments.tif",
+      text: "Only scheduled monuments",
+      sentenceText: "scheduled monuments",
+    },
+    {
+      value: "World_Heritage_Sites.tif",
+      text: "Only World Heritage Sites",
+      sentenceText: "World Heritage Sites",
+    },
+    {
+      value: "World_Heritage_Buffer_Zones.tif",
+      text: "Only World Heritage Buffer Zones",
+      sentenceText: "World Heritage Buffer Zones",
+    },
     {
       value: "Greenbelt.tif",
-      text: "Only greenbelt land",
+      text: "Only greenbelt",
       sentenceText: "greenbelt land",
+    },
+    {
+      value: "Development_limited.tif",
+      text: "Only development limited land",
+      sentenceText: "land where development is limited",
+    },
+    {
+      value: "Protected_landscapes.tif",
+      text: "Only protected landscapes",
+      sentenceText: "protected landscapes",
+    },
+    {
+      value: "national_parks.tif",
+      text: "Only national parks",
+      sentenceText: "national parks",
+    },
+    {
+      value: "Wildlife_sites_.tif",
+      text: "Only wildlife sites",
+      sentenceText: "wildlife sites",
+    },
+    {
+      value: "National_nature_reserves.tif",
+      text: "Only national nature reserves",
+      sentenceText: "national nature reserves",
+    },
+    {
+      value: "Local_nature_reserves.tif",
+      text: "Only local nature reserves",
+      sentenceText: "local nature reserves",
+    },
+    {
+      value: "Conservation_areas.tif",
+      text: "Only conservation areas",
+      sentenceText: "conservation areas",
+    },
+    {
+      value: "Planned_infrastructure_sites.tif",
+      text: "Only planned infrastructure sites",
+      sentenceText: "planned infrastructure sites",
+    },
+    {
+      value: "Nationally_Significant_Infrastructure_Projects.tif",
+      text: "Only Nationally Significant Infrastructure Projects",
+      sentenceText: "Nationally Significant Infrastructure Projects",
+    },
+    {
+      value: "HS2.tif",
+      text: "Only HS2",
+      sentenceText: "HS2",
+    },
+    {
+      value: "Flood_risk_.tif",
+      text: "Only flood risk",
+      sentenceText: "land where there is a flood risk",
+    },
+    {
+      value: "Flood_zone_2.tif",
+      text: "Only flood zone 2",
+      sentenceText: "flood zone 2",
+    },
+    {
+      value: "Flood_zone_3.tif",
+      text: "Only flood zone 3",
+      sentenceText: "flood zone 3",
     },
     {
       value: "within_KM_of_BUA.tif",
@@ -159,28 +302,6 @@
   let breakdownData = $state(null);
   let breakdownLoading = $state(false);
   let breakdownError = $state(null);
-
-  // function generateBreakdown() {
-  //   // Don't run until blendedArray exists and has data
-  //   if (!blendedArray || blendedArray.length === 0) return;
-
-  //   breakdownLoading = true;
-  //   breakdownError = null;
-
-  //   // Run the async breakdown in the background
-  //   getLABreakdown(`${base}/data/LAs/la_boundaries100.bin`, blendedArray)
-  //     .then((result) => {
-  //       breakdownData = result.json;
-  //       console.log(blendedArrayLength);
-  //       breakdownLoading = false;
-  //       // makeAndPaintCombinedCanvas();
-  //     })
-  //     .catch((err) => {
-  //       console.error("Breakdown error:", err);
-  //       breakdownError = err.message;
-  //       breakdownLoading = false;
-  //     });
-  // }
 
   // $inspect(blendedArray);
   let blendedArrayLength = $state(0);
@@ -315,31 +436,6 @@
 
   $inspect(selectedSubLayers);
 
-  // let selectedFilterChipData = $derived(
-  //   selected
-  //     ? Object.fromEntries(
-  //         selected
-  //           ?.map((item) => {
-  //             const found = startingPosition?.find((d) => d.filename === item);
-  //             return found
-  //               ? [
-  //                   found.filename, // key
-  //                   {
-  //                     id: found.filename,
-  //                     title: makeFileNameReadable(found.filename),
-  //                     category: found.Tier,
-  //                     color: categoryToColor[found.Tier],
-  //                   },
-  //                 ]
-  //               : null;
-  //           })
-  //           .filter(Boolean) // remove nulls)
-  //       )
-  //     : null
-  // );
-
-  // $inspect({ selectedFilterChipData });
-
   let uniqueArray = $state([]);
   // let selectedRestrictionIndex = 0;
   let selectedRestriction = $state();
@@ -365,7 +461,7 @@
 
   const blendingProgress = writable(0);
   let blending = $state(false);
-  // let geotiffFile = $state();
+
   let csvFile = $state();
   let zipFile = $state();
   let tiffArrayBuffersFromZip = $state({});
@@ -394,11 +490,7 @@
         metadataCsv = csvText;
 
         startingPosition = parseCsv(csvText);
-        // .filter(
-        //   (d) => d.filename !== "ENGLAND_100M.tif"
-        // );
-        // .map((d) => d.filename);
-        console.log(startingPosition);
+        // console.log(startingPosition);
       }
 
       if (
@@ -425,25 +517,11 @@
 
   let csvLocation = $derived(
     //DERIVED 3
-    // csvFile?.length > 0 ? csvFile[0] : `${base}/ultimate_land_metadata.csv`
+
     csvFile?.length > 0
       ? csvFile[0]
       : `${base}/data/PUBLIC_LAYERS/ultimate_land_metadata.csv`
   );
-
-  // function parseCsv(csvText) {
-  //   const lines = csvText.trim().split("\n");
-  //   const headers = lines[0].trim().split(",");
-
-  //   return lines.slice(1).map((line) => {
-  //     // console.log(line);
-  //     const values = line.split(",");
-  //     const row = {};
-  //     headers.forEach((h, i) => (row[h] = values[i].replace("\r", "")));
-  //     // console.log(row);
-  //     return row;
-  //   });
-  // }
 
   let geotiff = $state();
   let metadataCsv = $state();
@@ -478,10 +556,6 @@
       // console.log(metadataCsv);
 
       startingPosition = parseCsv(metadataCsv);
-      // .filter(
-      //   (d) => d.filename !== "ENGLAND_100M.tif"
-      // );
-      // .map((d) => d.filename);
     } catch (err) {
       message = `CSV Load Error: ${err.message}`;
     }
@@ -748,27 +822,23 @@
         blendingProgress.set(100);
         // console.log("Blending complete:", blendedArrayLength);
         console.timeEnd("blendLayers");
-        findTheOnes(
-          // enrichedLayers
-          //   .filter((l) => selected.includes(l.filename))
-          //   .map((l) => l.data)
-          currentBitArrays
-        )?.then(({ finalArray, uniqueArray, occurrences, done }) => {
-          // console.log("Done processing.", done);
-          // console.log("Final result:", finalArray);
-          // console.log("Selected mask:", countOccurrences(uniqueArray));
-          // console.log("Occurrences:", occurrences);
-          blendWorker.terminate();
-          // makeAndPaintCanvases();
-          getLABreakdown(chunkUrls, blendedArray).then((result) => {
-            breakdownData = result.json;
-            // console.log("done breaking down: ", breakdownData);
-            breakdownLoading = false;
-          });
-          mobile.current
-            ? makeAndPaintCombinedCanvasMobile()
-            : makeAndPaintCombinedCanvas();
-        });
+        findTheOnes(currentBitArrays)?.then(
+          ({ finalArray, uniqueArray, occurrences, done }) => {
+            // console.log("Done processing.", done);
+            // console.log("Final result:", finalArray);
+            // console.log("Selected mask:", countOccurrences(uniqueArray));
+            // console.log("Occurrences:", occurrences);
+            blendWorker.terminate();
+            getLABreakdown(chunkUrls, blendedArray).then((result) => {
+              breakdownData = result.json;
+              // console.log("done breaking down: ", breakdownData);
+              breakdownLoading = false;
+            });
+            mobile.current
+              ? makeAndPaintCombinedCanvasMobile()
+              : makeAndPaintCombinedCanvas();
+          }
+        );
         // .then();
       } else if (e.data.error) {
         console.error("Blend worker error:", e.data.error);
@@ -1042,42 +1112,10 @@
     name="description"
     content="This tool brings together datasets on land use and development constraints to provide statistical insight into land supply in England. It is designed to show how physical constraints, planning restrictions and land use trade-offs overlap and impact the overall supply of land for various uses."
   />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.5.0/ol.css" />
-  <link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/gh/OrdnanceSurvey/os-api-branding@0.3.1/os-api-branding.css"
-  />
-  <script
-    src="https://cdn.jsdelivr.net/npm/proj4@2.15.0/dist/proj4.js"
-  ></script>
-  <script src="https://cdn.jsdelivr.net/npm/ol/dist/ol.js"></script>
-  <script src="https://unpkg.com/ol-mapbox-style@12.3.5/dist/olms.js"></script>
-  <script
-    src="https://cdn.jsdelivr.net/gh/OrdnanceSurvey/os-api-branding@0.3.1/os-api-branding.js"
-  ></script>
 </svelte:head>
 
-<!-- <h2>
-  The total area of land in ... is
-  {englandArea ? englandArea.toLocaleString() : "..."} ha. Removing areas with the
-  selected restrictions there are {englandArea
-    ? (englandArea - blendedArrayLength).toLocaleString()
-    : "..."} ha.
-</h2> -->
-
-<!-- <p>[potentially visualisations]</p> -->
-<!-- <label for="area"
-  >Select an area
-  <select name="area" bind:value={selectedArea}>
-    {#each LALookup.sort((a, b) => a.LPA23NM.localeCompare(b.LPA23NM)) as LA, i}
-      <option value={LA.id}>{LA.LPA23NM}</option>
-    {/each}
-  </select></label
-> -->
 <div class="header-section">
   <div>
-    <!-- <h1>MHCLG Land Stats tool</h1> -->
-
     <div class="header-left">
       <div class="firstSelections">
         <Select
@@ -1112,7 +1150,6 @@
 
   <div>
     <div class="header-right">
-      <!-- <a href="./" target="_blank">Send feedback (opens in a new tab)</a> -->
       {#key startingPosition}
         <FilterChipParent
           {startingPosition}
@@ -1166,24 +1203,6 @@
             xl:w-[35%]"
     id="side-panel"
   >
-    <!-- <div
-      style="
-    color: white;
-    border: 8px solid green;
-    border-radius: 16px;
-    width: 16px;
-    height: 16px;
-    background: green;
-    font-weight:  700;
-    /* dominant-baseline: revert; */
-    position: relative;
-    top: 30px;
-    text-align: center;
-"
-      
-    >
-      1
-    </div> -->
     {#if startingPosition}
       <form
         method="POST"
@@ -1351,15 +1370,6 @@
             on the map.
           </p>
           {#if blendedArrayLength > 0}
-            <!-- That's {blendedArrayLength.toLocaleString()} ha with the current selections,
-          or about {((blendedArrayLength / 13046002) * 100).toFixed(0)}% of
-          England, which means that {(
-            13046002 - blendedArrayLength
-          ).toLocaleString()} ha ({(
-            ((13046002 - blendedArrayLength) / 13046002) *
-            100
-          ).toFixed(0)}%) of England is not in the area covered by the current
-          selections. -->
             <p>
               That's {blendedArrayLength.toLocaleString()} hectares with the current
               selections, or about
@@ -1490,35 +1500,6 @@
                 buttonType="default"
                 textContent="Download data (.csv)"
                 onClickFunction={function () {
-                  // function jsonToCsv(items) {
-                  //   const footer =
-                  //     "\r\n Notes: \r\n 1. All figures are in hectares. \r\n 2. This is an experimental product under development.";
-                  //   const caveat =
-                  //     "Figures relate to the area within " +
-                  //     policyLensItems.find((d) => d.value == policyLens)
-                  //       .sentenceText;
-                  //   const header = Object.keys(items[0]);
-                  //   const headerString = header.join(",");
-                  //   // handle null or undefined values here
-                  //   const replacer = (key, value) => value ?? "";
-                  //   const rowItems = items.map((row) =>
-                  //     header
-                  //       .map((fieldName) =>
-                  //         JSON.stringify(row[fieldName], replacer)
-                  //       )
-                  //       .join(",")
-                  //   );
-                  //   // join header and body, and break into separate lines
-                  //   const csv = [
-                  //     headerString,
-                  //     ...rowItems,
-                  //     footer,
-                  //     caveat,
-                  //   ].join("\r\n");
-                  //   return csv;
-                  // }
-
-                  // const jsonStr = JSON.stringify(wrapped, null, 2);
                   const csvStr = jsonToCsv(
                     tableData,
                     policyLens,
@@ -1539,67 +1520,22 @@
                 buttonType="default"
                 textContent="Download Local Authority breakdown of data (.csv)"
                 onClickFunction={function () {
-                  // function jsonToCsv(items) {
-                  //   const footer =
-                  //     "\r\n Notes: \r\n 1. All figures are in hectares. \r\n 2. This is an experimental product under development.";
-                  //   const caveat =
-                  //     "Figures relate to the area within " +
-                  //     policyLensItems.find((d) => d.value == policyLens)
-                  //       .sentenceText;
-                  //   const header = Object.keys(items[0]);
-                  //   const headerString = header.join(",");
-                  //   // handle null or undefined values here
-                  //   const replacer = (key, value) => value ?? "";
-                  //   const rowItems = items.map((row) =>
-                  //     header
-                  //       .map((fieldName) =>
-                  //         JSON.stringify(row[fieldName], replacer)
-                  //       )
-                  //       .join(",")
-                  //   );
-                  //   // join header and body, and break into separate lines
-                  //   const csv = [
-                  //     headerString,
-                  //     ...rowItems,
-                  //     footer,
-                  //     caveat,
-                  //   ].join("\r\n");
-                  //   return csv;
-                  // }
-
                   if (!blendedArray || blendedArray.length === 0) return;
 
-                  breakdownLoading = true;
-                  breakdownError = null;
-
-                  // Run the async breakdown in the background
-                  getLABreakdown(chunkUrls, blendedArray)
-                    .then((result) => {
-                      breakdownData = result.json;
-                      console.log(blendedArrayLength);
-                      breakdownLoading = false;
-
-                      // const jsonStr = JSON.stringify(wrapped, null, 2);
-                      const csvStr = jsonToCsv(
-                        breakdownData,
-                        policyLens,
-                        policyLensItems,
-                        selected
-                      );
-                      const blob = new Blob([csvStr], { type: "text/csv" });
-                      const link = document.createElement("a");
-                      link.href = URL.createObjectURL(blob);
-                      link.download = "land-data-by-la.csv";
-                      document.body.appendChild(link);
-                      link.click();
-                      document.body.removeChild(link);
-                      URL.revokeObjectURL(link.href);
-                    })
-                    .catch((err) => {
-                      console.error("Breakdown error:", err);
-                      breakdownError = err.message;
-                      breakdownLoading = false;
-                    });
+                  const csvStr = jsonToCsv(
+                    breakdownData,
+                    policyLens,
+                    policyLensItems,
+                    selected
+                  );
+                  const blob = new Blob([csvStr], { type: "text/csv" });
+                  const link = document.createElement("a");
+                  link.href = URL.createObjectURL(blob);
+                  link.download = "land-data-by-la.csv";
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  URL.revokeObjectURL(link.href);
                 }}
               ></Button>
             {/if}
@@ -1624,51 +1560,13 @@
   }
 
   #side-panel {
-    --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
-      "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-      "Liberation Mono", "Courier New", monospace;
-    --color-gray-50: oklch(98.5% 0.002 247.839);
-    --color-gray-400: oklch(70.7% 0.022 261.325);
-    --color-gray-700: oklch(37.3% 0.034 259.733);
-    --color-black: #000;
-    --color-white: #fff;
-    --spacing: 0.25rem;
-    --text-xl: 1.25rem;
-    --text-xl--line-height: calc(1.75 / 1.25);
-    --text-2xl: 1.5rem;
-    --text-2xl--line-height: calc(2 / 1.5);
-    --font-weight-bold: 700;
-    --radius-sm: 0.25rem;
-    --radius-md: 0.375rem;
-    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
-    --default-transition-duration: 150ms;
-    --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-    --default-font-family: var(--font-sans);
-    --default-mono-font-family: var(--font-mono);
     line-height: 1.5;
     -webkit-text-size-adjust: 100%;
     tab-size: 4;
-    font-family: var(
-      --default-font-family,
-      ui-sans-serif,
-      system-ui,
-      sans-serif,
-      "Apple Color Emoji",
-      "Segoe UI Emoji",
-      "Segoe UI Symbol",
-      "Noto Color Emoji"
-    );
+    font-family: var(--default-font-family, --font-sans);
     font-feature-settings: var(--default-font-feature-settings, normal);
     font-variation-settings: var(--default-font-variation-settings, normal);
     -webkit-tap-highlight-color: transparent;
-    --govuk-breakpoint-mobile: 20rem;
-    --govuk-breakpoint-tablet: 40.0625rem;
-    --govuk-breakpoint-desktop: 48.0625rem;
-    --govuk-frontend-version: "5.9.0";
-    --govuk-frontend-breakpoint-mobile: 20rem;
-    --govuk-frontend-breakpoint-tablet: 40.0625rem;
-    --govuk-frontend-breakpoint-desktop: 48.0625rem;
     box-sizing: border-box;
     margin: 10px 0 0 0;
     padding: 0;
@@ -1682,9 +1580,7 @@
       var(--tw-skew-x,) var(--tw-skew-y,);
     background-color: #f3f2f1;
     transition-property: transform, translate, scale, rotate;
-    --tw-duration: 200ms;
     transition-duration: 200ms;
-    --tw-ease: var(--ease-in-out);
     transition-timing-function: var(--ease-in-out);
     /* width: 45%; */
     max-width: min(calc(100vw - 70px), 360px);
@@ -1692,60 +1588,13 @@
   }
 
   div.collapse-filters-div {
-    /* width: 40px;
-    height: 6rem;
-    margin-block: auto;
-    bottom: 0px;
-    right: -40px;
-    top: 0px;
-    position: absolute; */
-    --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
-      "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-      "Liberation Mono", "Courier New", monospace;
-    --color-gray-50: oklch(98.5% 0.002 247.839);
-    --color-gray-400: oklch(70.7% 0.022 261.325);
-    --color-gray-700: oklch(37.3% 0.034 259.733);
-    --color-black: #000;
-    --color-white: #fff;
-    --spacing: 0.25rem;
-    --text-xl: 1.25rem;
-    --text-xl--line-height: calc(1.75 / 1.25);
-    --text-2xl: 1.5rem;
-    --text-2xl--line-height: calc(2 / 1.5);
-    --font-weight-bold: 700;
-    --radius-sm: 0.25rem;
-    --radius-md: 0.375rem;
-    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
-    --default-transition-duration: 150ms;
-    --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-    --default-font-family: var(--font-sans);
-    --default-mono-font-family: var(--font-mono);
     line-height: 1.5;
     -webkit-text-size-adjust: 100%;
     tab-size: 4;
-    font-family: var(
-      --default-font-family,
-      ui-sans-serif,
-      system-ui,
-      sans-serif,
-      "Apple Color Emoji",
-      "Segoe UI Emoji",
-      "Segoe UI Symbol",
-      "Noto Color Emoji"
-    );
+    font-family: var(--default-font-family, --font-sans);
     font-feature-settings: var(--default-font-feature-settings, normal);
     font-variation-settings: var(--default-font-variation-settings, normal);
     -webkit-tap-highlight-color: transparent;
-    --govuk-breakpoint-mobile: 20rem;
-    --govuk-breakpoint-tablet: 40.0625rem;
-    --govuk-breakpoint-desktop: 48.0625rem;
-    --govuk-frontend-version: "5.9.0";
-    --govuk-frontend-breakpoint-mobile: 20rem;
-    --govuk-frontend-breakpoint-tablet: 40.0625rem;
-    --govuk-frontend-breakpoint-desktop: 48.0625rem;
-    --tw-duration: 200ms;
-    --tw-ease: var(--ease-in-out);
     box-sizing: border-box;
     margin: 0;
     padding: 0;
@@ -1760,57 +1609,9 @@
   }
 
   button.collapse-filters-button {
-    /* cursor: pointer;
-    flex-direction: column;
-    width: 40px;
-    height: 76px;
-    display: flex;
-    z-index: 50;
-    position: relative;
-    padding-block: 0.75rem;
-    background-color: white;
-    border-top-right-radius: 0.375rem;
-    border-bottom-right-radius: 0.375rem;
-    justify-content: center;
-    align-items: center;
-    --tw-shadow: 6px 4px 10px -1px var(--tw-shadow-color, rgba(0, 0, 0, 0.3));
-    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
-      var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow); */
-
-    --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
-      "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-      "Liberation Mono", "Courier New", monospace;
-    --color-gray-50: oklch(98.5% 0.002 247.839);
-    --color-gray-400: oklch(70.7% 0.022 261.325);
-    --color-gray-700: oklch(37.3% 0.034 259.733);
-    --color-black: #000;
-    --color-white: #fff;
-    --spacing: 0.25rem;
-    --text-xl: 1.25rem;
-    --text-xl--line-height: calc(1.75 / 1.25);
-    --text-2xl: 1.5rem;
-    --text-2xl--line-height: calc(2 / 1.5);
-    --font-weight-bold: 700;
-    --radius-sm: 0.25rem;
-    --radius-md: 0.375rem;
-    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
-    --default-transition-duration: 150ms;
-    --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-    --default-font-family: var(--font-sans);
-    --default-mono-font-family: var(--font-mono);
     -webkit-text-size-adjust: 100%;
     tab-size: 4;
     -webkit-tap-highlight-color: transparent;
-    --govuk-breakpoint-mobile: 20rem;
-    --govuk-breakpoint-tablet: 40.0625rem;
-    --govuk-breakpoint-desktop: 48.0625rem;
-    --govuk-frontend-version: "5.9.0";
-    --govuk-frontend-breakpoint-mobile: 20rem;
-    --govuk-frontend-breakpoint-tablet: 40.0625rem;
-    --govuk-frontend-breakpoint-desktop: 48.0625rem;
-    --tw-duration: 200ms;
-    --tw-ease: var(--ease-in-out);
     box-sizing: border-box;
     margin: 0;
     padding: 0;
@@ -1858,40 +1659,9 @@
   }
 
   svg.h-6.w-6 {
-    --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
-      "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-      "Liberation Mono", "Courier New", monospace;
-    --color-gray-50: oklch(98.5% 0.002 247.839);
-    --color-gray-400: oklch(70.7% 0.022 261.325);
-    --color-gray-700: oklch(37.3% 0.034 259.733);
-    --color-black: #000;
-    --color-white: #fff;
-    --spacing: 0.25rem;
-    --text-xl: 1.25rem;
-    --text-xl--line-height: calc(1.75 / 1.25);
-    --text-2xl: 1.5rem;
-    --text-2xl--line-height: calc(2 / 1.5);
-    --font-weight-bold: 700;
-    --radius-sm: 0.25rem;
-    --radius-md: 0.375rem;
-    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
-    --default-transition-duration: 150ms;
-    --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-    --default-font-family: var(--font-sans);
-    --default-mono-font-family: var(--font-mono);
     -webkit-text-size-adjust: 100%;
     tab-size: 4;
     -webkit-tap-highlight-color: transparent;
-    --govuk-breakpoint-mobile: 20rem;
-    --govuk-breakpoint-tablet: 40.0625rem;
-    --govuk-breakpoint-desktop: 48.0625rem;
-    --govuk-frontend-version: "5.9.0";
-    --govuk-frontend-breakpoint-mobile: 20rem;
-    --govuk-frontend-breakpoint-tablet: 40.0625rem;
-    --govuk-frontend-breakpoint-desktop: 48.0625rem;
-    --tw-duration: 200ms;
-    --tw-ease: var(--ease-in-out);
     font: inherit;
     font-feature-settings: inherit;
     font-variation-settings: inherit;
@@ -1911,40 +1681,10 @@
   }
 
   div.flex.items-center.px-2 {
-    --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
-      "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-      "Liberation Mono", "Courier New", monospace;
-    --color-gray-50: oklch(98.5% 0.002 247.839);
-    --color-gray-400: oklch(70.7% 0.022 261.325);
-    --color-gray-700: oklch(37.3% 0.034 259.733);
-    --color-black: #000;
-    --color-white: #fff;
-    --spacing: 0.25rem;
-    --text-xl: 1.25rem;
-    --text-xl--line-height: calc(1.75 / 1.25);
-    --text-2xl: 1.5rem;
-    --text-2xl--line-height: calc(2 / 1.5);
-    --font-weight-bold: 700;
-    --radius-sm: 0.25rem;
-    --radius-md: 0.375rem;
-    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
-    --default-transition-duration: 150ms;
-    --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-    --default-font-family: var(--font-sans);
-    --default-mono-font-family: var(--font-mono);
     -webkit-text-size-adjust: 100%;
     tab-size: 4;
     -webkit-tap-highlight-color: transparent;
-    --govuk-breakpoint-mobile: 20rem;
-    --govuk-breakpoint-tablet: 40.0625rem;
-    --govuk-breakpoint-desktop: 48.0625rem;
-    --govuk-frontend-version: "5.9.0";
-    --govuk-frontend-breakpoint-mobile: 20rem;
-    --govuk-frontend-breakpoint-tablet: 40.0625rem;
-    --govuk-frontend-breakpoint-desktop: 48.0625rem;
-    --tw-duration: 200ms;
-    --tw-ease: var(--ease-in-out);
+
     font: inherit;
     font-feature-settings: inherit;
     font-variation-settings: inherit;

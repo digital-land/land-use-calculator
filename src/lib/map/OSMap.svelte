@@ -6,20 +6,26 @@
     breakdownData,
   } = $props();
 
+  import "/node_modules/ol/ol.css";
   import { onMount } from "svelte";
-  import { onDestroy } from "svelte";
+  // import { onDestroy } from "svelte";
   //import GeoTIFF from 'ol/source/GeoTIFF';
-  import WebGLTileLayer from "ol/layer/WebGLTile";
+  // import WebGLTileLayer from "ol/layer/WebGLTile";
+  import { register } from "ol/proj/proj4";
+  import { Map, View } from "ol";
   import { VectorTile as VectorTileLayer, Image as ImageLayer } from "ol/layer";
-  // import LayerGroup from 'ol/layer/Group.js';
-  // import GeoTIFF from "geotiff";
+  import VectorLayer from "ol/layer/Vector.js";
+  import { VectorTile as VectorTileSource } from "ol/source";
+  import VectorSource from "ol/source/Vector.js";
+  import { GeoJSON } from "ol/format";
+  import { TileGrid } from "ol/tilegrid";
+  import { MVT } from "ol/format";
   import ImageStatic from "ol/source/ImageStatic";
-  // let geotiffData = null; // to hold the raster data info
-  import ImageCanvasSource from "ol/source/ImageCanvas";
-  // import * as topojson from "topojson-client";
   import { Style, Stroke, Fill } from "ol/style";
   import FullScreen from "ol/control/FullScreen.js";
   import { defaults as defaultControls } from "ol/control/defaults.js";
+  import proj4 from "proj4";
+  import { apply, applyStyle } from "ol-mapbox-style";
 
   let mapElement;
   let map;
@@ -32,7 +38,7 @@
       "EPSG:27700",
       "+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +towgs84=446.448,-125.157,542.06,0.15,0.247,0.842,-20.489 +units=m +no_defs"
     );
-    ol.proj.proj4.register(proj4);
+    register(proj4);
 
     const service = await fetch(`${serviceUrl}?key=${apiKey}`).then((r) =>
       r.json()
@@ -51,18 +57,18 @@
     const tileSize = service.tileInfo.rows;
     const tiles = service.tiles[0];
 
-    const tileGrid = new ol.tilegrid.TileGrid({
+    const tileGrid = new TileGrid({
       extent,
       origin,
       resolutions,
       tileSize,
     });
 
-    const vectorTileLayer = new ol.layer.VectorTile({ declutter: true });
+    const vectorTileLayer = new VectorTileLayer({ declutter: true });
 
     await vectorTileLayer.setSource(
-      new ol.source.VectorTile({
-        format: new ol.format.MVT(),
+      new VectorTileSource({
+        format: new MVT(),
         url: tiles,
         projection: "EPSG:27700",
         tileGrid,
@@ -71,30 +77,30 @@
       })
     );
 
-    await olms.applyStyle(
+    await applyStyle(
       vectorTileLayer,
       `${serviceUrl}/${service.defaultStyles}?key=${apiKey}`,
       "",
       { resolutions }
     );
 
-    const geoJsonVectorSource = new ol.source.Vector({
+    const geoJsonVectorSource = new VectorSource({
       url: "LAD_MAY_2025_UK_BGC_England.geojson",
-      format: new ol.format.GeoJSON({
+      format: new GeoJSON({
         dataProjection: "EPSG:4326", // projection of the GeoJSON file
         featureProjection: "EPSG:27700", // projection of the map
       }),
     });
 
-    const scotlandAndWales = new ol.source.Vector({
+    const scotlandAndWales = new VectorSource({
       url: "ScotlandAndWalesSimplified.geojson",
-      format: new ol.format.GeoJSON({
+      format: new GeoJSON({
         dataProjection: "EPSG:4326", // projection of the GeoJSON file
         featureProjection: "EPSG:27700", // projection of the map
       }),
     });
 
-    const scotlandAndWalesVectorLayer = new ol.layer.Vector({
+    const scotlandAndWalesVectorLayer = new VectorLayer({
       source: scotlandAndWales,
       style: (feature, resolution) => {
         return new Style({
@@ -105,7 +111,7 @@
       },
     });
 
-    const geoJsonVectorLayer = new ol.layer.Vector({
+    const geoJsonVectorLayer = new VectorLayer({
       source: geoJsonVectorSource,
       style: (feature, resolution) => {
         const isHovered = feature.get("hover") === true;
@@ -137,7 +143,7 @@
       opacity: 0.8,
     });
 
-    map = new ol.Map({
+    map = new Map({
       controls: defaultControls().extend([new FullScreen()]),
       target: mapElement,
       layers: [
@@ -146,7 +152,7 @@
         scotlandAndWalesVectorLayer,
         tiffLayer,
       ],
-      view: new ol.View({
+      view: new View({
         projection: "EPSG:27700",
         extent: [-238375.0, 0.0, 900000.0, 1376256.0],
         resolutions,
@@ -288,6 +294,8 @@
 </div>
 
 <style>
+  @import url(//fonts.googleapis.com/css?family=Source+Sans+Pro);
+
   .map-container {
     width: fit-content;
     height: calc(100% - 20px);
