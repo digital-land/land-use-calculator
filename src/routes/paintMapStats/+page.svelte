@@ -29,12 +29,6 @@
   );
   register(proj4);
 
-  // --- Color scale ---
-  const bins = [0, 1, 5, 10, 20, 50, 100, 200, 500];
-  const colorScale = scaleThreshold()
-    .domain(bins)
-    .range(bins.map((_, i) => interpolateViridis(i / (bins.length - 1))));
-
   // --- State ---
   let map;
   let densityArray: number[];
@@ -107,7 +101,7 @@
     };
   }
 
-  function createImageLayer(group: MapGroup) {
+  function createGroupLayer(group: MapGroup): ImageLayer {
     return new ImageLayer({
       source: new ImageCanvasSource({
         projection: "EPSG:27700",
@@ -118,56 +112,7 @@
           const ctx = canvas.getContext("2d")!;
           ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-          const grid = group.gridConfig;
-
-          const scaleX = canvas.width / (extent[2] - extent[0]);
-          const scaleY = canvas.height / (extent[3] - extent[1]);
-
-          for (const index of group.paintedIndices) {
-            const coord = indexToCoord(index, grid);
-            if (!coord) continue;
-
-            const { x, y } = coord;
-
-            if (
-              x < extent[0] ||
-              x > extent[2] ||
-              y < extent[1] ||
-              y > extent[3]
-            ) {
-              continue;
-            }
-
-            const fullIndex = uploadedIndexToFullIndex(index, group.gridConfig);
-            const value = densityArray[fullIndex];
-            // const value = densityArray[index];
-            if (value === undefined) continue;
-
-            // --- histogram buckets ---
-            let normalized: number;
-            if (value <= 1) normalized = 0.0;
-            else if (value <= 5) normalized = 0.1;
-            else if (value <= 10) normalized = 0.2;
-            else if (value <= 20) normalized = 0.35;
-            else if (value <= 50) normalized = 0.45;
-            else if (value <= 100) normalized = 0.55;
-            else if (value <= 200) normalized = 0.65;
-            else if (value <= 500) normalized = 0.8;
-            else normalized = 1.0;
-
-            const rgb = interpolateViridis(1 - normalized);
-            ctx.fillStyle = rgb
-              .replace("rgb(", "rgba(")
-              .replace(")", `, ${fillOpacity})`);
-
-            ctx.fillRect(
-              (x - extent[0]) * scaleX,
-              canvas.height - (y - extent[1]) * scaleY,
-              cellSize * scaleX,
-              cellSize * scaleY
-            );
-          }
-
+          drawGroupRaster(ctx, canvas, extent, group);
           return canvas;
         },
       }),
@@ -301,7 +246,7 @@
         layer: null as any,
       };
 
-      group.layer = createImageLayer(group);
+      group.layer = createGroupLayer(group);
 
       groups.push(group);
     });
@@ -404,39 +349,6 @@
     // });
   });
 
-  function createRasterGroup(
-    name: string,
-    gridConfig: GridConfig,
-    initialIndices?: Iterable<number>
-  ): MapGroup {
-    const group: MapGroup = {
-      name,
-      paintedIndices: new Set(initialIndices ?? []),
-      gridConfig,
-      stats: {},
-      histogram: {},
-      layer: null as any,
-    };
-
-    group.layer = new ImageLayer({
-      source: new ImageCanvasSource({
-        projection: "EPSG:27700",
-        canvasFunction: (extent, resolution, pixelRatio, size) => {
-          const canvas = document.createElement("canvas");
-          canvas.width = size[0];
-          canvas.height = size[1];
-          const ctx = canvas.getContext("2d")!;
-
-          drawGroupRaster(ctx, canvas, extent, group);
-          return canvas;
-        },
-      }),
-      opacity,
-    });
-
-    return group;
-  }
-
   function drawGroupRaster(
     ctx: CanvasRenderingContext2D,
     canvas: HTMLCanvasElement,
@@ -457,27 +369,7 @@
       const value = densityArray[fullIndex];
       if (value === undefined) continue;
 
-      const color = interpolateViridis(
-        value <= 1
-          ? 1
-          : value <= 5
-            ? 0.9
-            : value <= 10
-              ? 0.8
-              : value <= 20
-                ? 0.65
-                : value <= 50
-                  ? 0.55
-                  : value <= 100
-                    ? 0.45
-                    : value <= 200
-                      ? 0.35
-                      : value <= 500
-                        ? 0.2
-                        : 0
-      );
-
-      ctx.fillStyle = color.replace("rgb(", "rgba(").replace(")", ", 0.5)");
+      ctx.fillStyle = getFillStyle(value);
       ctx.fillRect(
         (x - minX) * scaleX,
         canvas.height - (y - minY) * scaleY,
@@ -485,6 +377,24 @@
         cellSize * scaleY
       );
     }
+  }
+
+  function getFillStyle(value: number): string {
+    let normalized: number;
+
+    if (value <= 1) normalized = 0.0;
+    else if (value <= 5) normalized = 0.1;
+    else if (value <= 10) normalized = 0.2;
+    else if (value <= 20) normalized = 0.35;
+    else if (value <= 50) normalized = 0.45;
+    else if (value <= 100) normalized = 0.55;
+    else if (value <= 200) normalized = 0.65;
+    else if (value <= 500) normalized = 0.8;
+    else normalized = 1.0;
+
+    return interpolateViridis(1 - normalized)
+      .replace("rgb(", "rgba(")
+      .replace(")", `, ${fillOpacity})`);
   }
 
   async function importGeography() {
@@ -498,11 +408,16 @@
       LALookup.find((e) => e.LAD25CD === selected.replace(".bin", ""))
         ?.LAD25NM ?? selected;
 
-    const group = createRasterGroup(
+    const group = {
       name,
-      { width, height, colOffset: 0 },
-      indices
-    );
+      paintedIndices: new Set(indices),
+      gridConfig: { width, height, colOffset: 0 },
+      stats: {},
+      histogram: {},
+      layer: null as any,
+    };
+
+    group.layer = createGroupLayer(group);
 
     groups = [...groups, group];
     map.addLayer(group.layer);
@@ -517,11 +432,16 @@
     const buffer = await file.arrayBuffer();
     const indices = new Uint32Array(buffer);
 
-    const group = createRasterGroup(
-      file.name,
-      { width, height, colOffset: 2 }, // uploaded files need offset
-      indices
-    );
+    const group = {
+      name: file.name,
+      paintedIndices: new Set(indices),
+      gridConfig: { width, height, colOffset: 2 }, // uploaded files need offset
+      stats: {},
+      histogram: {},
+      layer: null as any,
+    };
+
+    group.layer = createGroupLayer(group);
 
     groups = [...groups, group];
     map.addLayer(group.layer);
@@ -618,9 +538,16 @@
         Select a local authority from the dropdown and click Import to see a
         whole LA
       </li>
+      <li class="font-semibold mb-2">
+        Import a custom area from the main app using the button below the map
+      </li>
     </ul>
   </div>
-  <input type="file" accept=".bin" onchange={handleFile} />
+  <label for="custom-input"
+    >Import a custom area (.bin) file (e.g. from the main app):</label
+  >
+  <br />
+  <input id="custom-input" type="file" accept=".bin" onchange={handleFile} />
 
   <div class="report">
     {#each groups as g, i}
