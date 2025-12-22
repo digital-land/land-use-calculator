@@ -1,62 +1,27 @@
 <script lang="ts">
-  interface Group {
-    color: string;
-    paintedCells: Set<string>;
-    paintedIndices: Set<number>;
-    stats: {
-      count: number;
-      sum: number;
-      mean: number;
-      median: number;
-      min: number;
-      max: number;
-    };
-    histogram: Record<string, number>;
-    layer: import("ol/layer/Vector.js").default;
-    name: string;
-  }
-
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
+  import { base } from "$app/paths";
   import Map from "ol/Map.js";
   import View from "ol/View.js";
   import TileLayer from "ol/layer/Tile.js";
-  import VectorLayer from "ol/layer/Vector.js";
-  import VectorSource from "ol/source/Vector.js";
+  import ImageLayer from "ol/layer/Image.js";
+  import ImageCanvasSource from "ol/source/ImageCanvas.js";
   import XYZ from "ol/source/XYZ.js";
-  import Feature from "ol/Feature.js";
-  import Polygon from "ol/geom/Polygon.js";
-  import { Fill, Stroke, Style } from "ol/style.js";
+  import { scaleThreshold } from "d3-scale";
+  import { interpolateViridis } from "d3-scale-chromatic";
   import proj4 from "proj4";
   import { register } from "ol/proj/proj4.js";
   import { get as getProjection } from "ol/proj";
   import DragPan from "ol/interaction/DragPan.js";
   import { fromUrl } from "geotiff";
-  import Histogram from "$lib/components/Histogram.svelte";
-  import { base } from "$app/paths";
-  import { scaleThreshold } from "d3-scale";
-  import { interpolateViridis } from "d3-scale-chromatic";
   import LALookup from "$lib/LALookup";
-  import { tick } from "svelte";
-
-  let geographies: any[] = [];
-
-  const bins = [0, 1, 5, 10, 20, 50, 100, 200, 500];
-  const colorScale = scaleThreshold()
-    .domain(bins)
-    .range(bins.map((_, i) => interpolateViridis(i / (bins.length - 1))));
-  const fillOpacity = 0.5; // tweak transparency (0.3–0.8 looks good)
-  let opacity = 0.8; // default opacity
-  let layer: VectorLayer;
-  let tooltipEl;
-  let tooltipVisible = false;
-  let tooltipText = $state("");
-  let tooltipX = 0;
-  let tooltipY = 0;
+  import Histogram from "$lib/components/Histogram.svelte";
 
   // --- Constants ---
   const originX = 82668;
   const originY = 5339;
-  const cellSize = 100; // meters per hectare
+  const cellSize = 100; // meters per cell/hectare
+  const fillOpacity = 0.5;
 
   proj4.defs(
     "EPSG:27700",
@@ -64,47 +29,71 @@
   );
   register(proj4);
 
+  // --- Color scale ---
+  const bins = [0, 1, 5, 10, 20, 50, 100, 200, 500];
+  const colorScale = scaleThreshold()
+    .domain(bins)
+    .range(bins.map((_, i) => interpolateViridis(i / (bins.length - 1))));
+
   // --- State ---
   let map;
-  let densityArray;
+  let densityArray: number[];
   let width: number, height: number;
+  let groups: MapGroup[] = $state([]);
+  let currentGroupIndex = $state(0);
   let spacePressed = false;
   let painting = false;
   let erasing = false;
+  let opacity = $state(0.8);
+  let selected = $state("");
+  let tooltipEl;
+  let tooltipVisible = false;
+  let tooltipText = $state("");
+  let tooltipX = 0;
+  let tooltipY = 0;
 
-  // 10 paint groups
-  const colors = [
-    "rgba(255,0,0,0.3)",
-    "rgba(0,128,255,0.3)",
-    "rgba(0,200,0,0.3)",
-    "rgba(255,165,0,0.3)",
-    "rgba(128,0,128,0.3)",
-    "rgba(255,192,203,0.3)",
-    "rgba(255,255,0,0.3)",
-    "rgba(0,255,255,0.3)",
-    "rgba(128,128,128,0.3)",
-    "rgba(165,42,42,0.3)",
-  ];
+  interface GridConfig {
+    width: number;
+    height: number;
+    colOffset?: number;
+  }
 
-  let currentGroupIndex = 0;
-  let groups = $state<Group[]>([]);
-  // Each group tracks cells, indices, stats, histogram, and its own vector layer
-  groups = colors.map((color) => ({
-    color,
-    paintedCells: new Set<string>(),
-    paintedIndices: new Set<number>(),
-    stats: { count: 0, sum: 0, mean: 0, median: 0, min: 0, max: 0 },
-    histogram: {},
-    name: "",
-    layer: new VectorLayer({
-      source: new VectorSource(),
-      opacity,
-      style: new Style({
-        fill: new Fill({ color }),
-        stroke: new Stroke({ color: color.replace("0.3", "0.6"), width: 0 }),
-      }),
-    }),
-  }));
+  interface MapGroup {
+    name: string;
+    paintedIndices: Set<number>;
+    gridConfig: GridConfig;
+    stats: any;
+    histogram: any;
+    layer: ImageLayer;
+  }
+
+  // --- Coordinate mapping ---
+  function coordToIndex(x: number, y: number, grid: GridConfig) {
+    const cols = grid.width - (grid.colOffset || 0);
+    const row = grid.height - 1 - Math.floor((y - originY) / cellSize);
+    const col = Math.floor((x - originX) / cellSize);
+    if (col < 0 || col >= cols || row < 0 || row >= grid.height) return null;
+    return row * cols + col;
+  }
+
+  function indexToCoord(index: number, grid: GridConfig) {
+    const cols = grid.width - (grid.colOffset || 0);
+    const row = Math.floor(index / cols);
+    const col = index % cols;
+    const x = originX + col * cellSize;
+    const y = originY + (grid.height - row) * cellSize; //Had to remove the -1 to match previous method and data
+    return { x, y };
+  }
+
+  function uploadedIndexToFullIndex(index: number, grid: GridConfig): number {
+    if (!grid.colOffset) return index;
+
+    const croppedCols = grid.width - grid.colOffset;
+    const row = Math.floor(index / croppedCols);
+    const col = index % croppedCols;
+
+    return row * grid.width + col;
+  }
 
   // --- Load GeoTIFF ---
   async function loadTiff(url: string) {
@@ -118,77 +107,138 @@
     };
   }
 
-  // --- Helper functions ---
-  function coordToIndex(x: number, y: number): number | null {
-    const col = Math.floor((x - originX) / cellSize);
-    const rowFromBottom = Math.floor((y - originY) / cellSize);
-    const row = height - 1 - rowFromBottom;
-    if (col < 0 || col >= width || row < 0 || row >= height) return null;
-    return row * width + col;
+  function createImageLayer(group: MapGroup) {
+    return new ImageLayer({
+      source: new ImageCanvasSource({
+        projection: "EPSG:27700",
+        canvasFunction: (extent, resolution, pixelRatio, size) => {
+          const canvas = document.createElement("canvas");
+          canvas.width = size[0];
+          canvas.height = size[1];
+          const ctx = canvas.getContext("2d")!;
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+          const grid = group.gridConfig;
+
+          const scaleX = canvas.width / (extent[2] - extent[0]);
+          const scaleY = canvas.height / (extent[3] - extent[1]);
+
+          for (const index of group.paintedIndices) {
+            const coord = indexToCoord(index, grid);
+            if (!coord) continue;
+
+            const { x, y } = coord;
+
+            if (
+              x < extent[0] ||
+              x > extent[2] ||
+              y < extent[1] ||
+              y > extent[3]
+            ) {
+              continue;
+            }
+
+            const fullIndex = uploadedIndexToFullIndex(index, group.gridConfig);
+            const value = densityArray[fullIndex];
+            // const value = densityArray[index];
+            if (value === undefined) continue;
+
+            // --- histogram buckets ---
+            let normalized: number;
+            if (value <= 1) normalized = 0.0;
+            else if (value <= 5) normalized = 0.1;
+            else if (value <= 10) normalized = 0.2;
+            else if (value <= 20) normalized = 0.35;
+            else if (value <= 50) normalized = 0.45;
+            else if (value <= 100) normalized = 0.55;
+            else if (value <= 200) normalized = 0.65;
+            else if (value <= 500) normalized = 0.8;
+            else normalized = 1.0;
+
+            const rgb = interpolateViridis(1 - normalized);
+            ctx.fillStyle = rgb
+              .replace("rgb(", "rgba(")
+              .replace(")", `, ${fillOpacity})`);
+
+            ctx.fillRect(
+              (x - extent[0]) * scaleX,
+              canvas.height - (y - extent[1]) * scaleY,
+              cellSize * scaleX,
+              cellSize * scaleY
+            );
+          }
+
+          return canvas;
+        },
+      }),
+      opacity,
+    });
   }
 
-  function addCellFeature(group, x: number, y: number) {
-    const key = `${x}_${y}`;
-    if (group.paintedCells.has(key)) return;
+  // --- Painting / erasing ---
+  function paintAt(group: MapGroup, coord: [number, number]) {
+    const brushPx = 6;
+    const res = map.getView().getResolution();
+    const brushMeters = brushPx * res;
+    const cellRadius = Math.ceil(brushMeters / cellSize);
 
-    const index = coordToIndex(x, y);
-    if (index === null || !densityArray) return;
+    const colCenter = Math.floor((coord[0] - originX) / cellSize);
+    const rowCenter = Math.floor((coord[1] - originY) / cellSize);
 
-    const value = densityArray[index];
-    if (value === undefined) return;
+    for (let i = -cellRadius; i <= cellRadius; i++) {
+      for (let j = -cellRadius; j <= cellRadius; j++) {
+        if (Math.sqrt(i * i + j * j) > cellRadius) continue;
 
-    group.paintedCells.add(key);
-    group.paintedIndices.add(index);
-
-    // --- Match histogram buckets ---
-    let normalized;
-    if (value <= 1) normalized = 0.0;
-    else if (value <= 5) normalized = 0.1;
-    else if (value <= 10) normalized = 0.2;
-    else if (value <= 20) normalized = 0.35;
-    else if (value <= 50) normalized = 0.45;
-    else if (value <= 100) normalized = 0.55;
-    else if (value <= 200) normalized = 0.65;
-    else if (value <= 500) normalized = 0.8;
-    else normalized = 1.0;
-
-    const rgb = interpolateViridis(1 - normalized); // e.g. "rgb(68, 1, 84)"
-    const rgba = rgb.replace("rgb(", "rgba(").replace(")", `, ${fillOpacity})`);
-
-    const square = new Polygon([
-      [
-        [x, y],
-        [x + cellSize, y],
-        [x + cellSize, y + cellSize],
-        [x, y + cellSize],
-        [x, y],
-      ],
-    ]);
-
-    const feature = new Feature({ geometry: square });
-    feature.set("densityValue", value);
-    feature.setStyle(
-      new Style({
-        fill: new Fill({ color: rgba }),
-        stroke: new Stroke({ color: "rgba(0,0,0,0.3)", width: 0.5 }),
-      })
-    );
-
-    group.layer.getSource().addFeature(feature);
+        const index = coordToIndex(
+          originX + (colCenter + i) * cellSize,
+          originY + (rowCenter + j) * cellSize,
+          group.gridConfig
+        );
+        if (index !== null) group.paintedIndices.add(index);
+      }
+    }
+    computeStats(group);
+    group.layer.getSource().changed();
   }
 
-  function computeStats(group) {
+  function eraseAt(group: MapGroup, coord: [number, number]) {
+    const brushPx = 6;
+    const res = map.getView().getResolution();
+    const brushMeters = brushPx * res;
+    const cellRadius = Math.ceil(brushMeters / cellSize);
+
+    const colCenter = Math.floor((coord[0] - originX) / cellSize);
+    const rowCenter = Math.floor((coord[1] - originY) / cellSize);
+
+    for (let i = -cellRadius; i <= cellRadius; i++) {
+      for (let j = -cellRadius; j <= cellRadius; j++) {
+        if (Math.sqrt(i * i + j * j) > cellRadius) continue;
+
+        const index = coordToIndex(
+          originX + (colCenter + i) * cellSize,
+          originY + (rowCenter + j) * cellSize,
+          group.gridConfig
+        );
+        if (index !== null) group.paintedIndices.delete(index);
+      }
+    }
+    computeStats(group);
+    group.layer.getSource().changed();
+  }
+
+  function computeStats(group: MapGroup) {
     if (!densityArray || group.paintedIndices.size === 0) {
       group.stats = { count: 0, sum: 0, mean: 0, median: 0, min: 0, max: 0 };
       group.histogram = {};
-      groups = [...groups]; // trigger reactivity
       return;
     }
 
     const values = Array.from(group.paintedIndices)
-      .map((i) => densityArray[i])
+      .map((i) => {
+        const full = uploadedIndexToFullIndex(i, group.gridConfig);
+        return densityArray[full];
+      })
       .filter((v) => v !== undefined);
-    if (!values.length) return;
 
     const sum = values.reduce((a, b) => a + b, 0);
     const mean = sum / values.length;
@@ -200,7 +250,7 @@
     const min = sorted[0];
     const max = sorted[sorted.length - 1];
 
-    const bins = {
+    const histogram = {
       "<=1": 0,
       "2 to 5": 0,
       "6 to 10": 0,
@@ -211,104 +261,24 @@
       "201 to 500": 0,
       "over 500": 0,
     };
-
     for (const v of values) {
-      if (v <= 1) bins["<=1"]++;
-      else if (v <= 5) bins["2 to 5"]++;
-      else if (v <= 10) bins["6 to 10"]++;
-      else if (v <= 20) bins["11 to 20"]++;
-      else if (v <= 50) bins["21 to 50"]++;
-      else if (v <= 100) bins["51 to 100"]++;
-      else if (v <= 200) bins["101 to 200"]++;
-      else if (v <= 500) bins["201 to 500"]++;
-      else if (v > 500) bins["over 500"]++;
+      if (v <= 1) histogram["<=1"]++;
+      else if (v <= 5) histogram["2 to 5"]++;
+      else if (v <= 10) histogram["6 to 10"]++;
+      else if (v <= 20) histogram["11 to 20"]++;
+      else if (v <= 50) histogram["21 to 50"]++;
+      else if (v <= 100) histogram["51 to 100"]++;
+      else if (v <= 200) histogram["101 to 200"]++;
+      else if (v <= 500) histogram["201 to 500"]++;
+      else histogram["over 500"]++;
     }
 
     group.stats = { count: values.length, sum, mean, median, min, max };
-    group.histogram = bins;
-  }
-
-  function paintAt(group, coord) {
-    if (!map || !width || !height) return;
-    const view = map.getView();
-    const res = view.getResolution();
-    const brushPx = 6;
-    let brushMeters = brushPx * res;
-    let cellRadius = Math.ceil(brushMeters / cellSize);
-    const mapHeightMeters = map.getSize()[1] * res;
-    if (mapHeightMeters < 1000) cellRadius = 0;
-
-    const colCenter = Math.floor((coord[0] - originX) / cellSize);
-    const rowCenter = Math.floor((coord[1] - originY) / cellSize);
-
-    for (let i = -cellRadius; i <= cellRadius; i++) {
-      for (let j = -cellRadius; j <= cellRadius; j++) {
-        const newCol = colCenter + i;
-        const newRow = rowCenter + j;
-        if (newCol < 0 || newCol >= width || newRow < 0 || newRow >= height)
-          continue;
-        if (Math.sqrt(i * i + j * j) > cellRadius) continue;
-        const cellX = originX + newCol * cellSize;
-        const cellY = originY + newRow * cellSize;
-        addCellFeature(group, cellX, cellY);
-      }
-    }
-
-    computeStats(group);
-    groups = [...groups];
-  }
-
-  function eraseAt(group, coord) {
-    if (!map || !width || !height) return;
-    const view = map.getView();
-    const res = view.getResolution();
-    const brushPx = 6;
-    let brushMeters = brushPx * res;
-    let cellRadius = Math.ceil(brushMeters / cellSize);
-    const mapHeightMeters = map.getSize()[1] * res;
-    if (mapHeightMeters < 1000) cellRadius = 0;
-
-    const colCenter = Math.floor((coord[0] - originX) / cellSize);
-    const rowCenter = Math.floor((coord[1] - originY) / cellSize);
-
-    for (let i = -cellRadius; i <= cellRadius; i++) {
-      for (let j = -cellRadius; j <= cellRadius; j++) {
-        const newCol = colCenter + i;
-        const newRow = rowCenter + j;
-        if (newCol < 0 || newCol >= width || newRow < 0 || newRow >= height)
-          continue;
-        if (Math.sqrt(i * i + j * j) > cellRadius) continue;
-        const cellX = originX + newCol * cellSize;
-        const cellY = originY + newRow * cellSize;
-        const key = `${cellX}_${cellY}`;
-        if (group.paintedCells.has(key)) {
-          group.paintedCells.delete(key);
-          const index = coordToIndex(cellX, cellY);
-          if (index !== null) group.paintedIndices.delete(index);
-          const features = group.layer.getSource().getFeatures();
-          for (const f of features) {
-            const geom = f.getGeometry();
-            if (
-              geom.getCoordinates()[0][0][0] === cellX &&
-              geom.getCoordinates()[0][0][1] === cellY
-            ) {
-              group.layer.getSource().removeFeature(f);
-              break;
-            }
-          }
-        }
-      }
-    }
-
-    computeStats(group);
-    groups = [...groups];
+    group.histogram = histogram;
   }
 
   onMount(async () => {
-    const res = await fetch(`${base}/data/geographies.json`);
-    availableGeographies = await res.json();
-
-    const tiffData = await loadTiff(`${base}/range/hectare_counts.tif`);
+    const tiffData = await loadTiff("/range/hectare_counts.tif");
     densityArray = tiffData.densityArray;
     width = tiffData.width;
     height = tiffData.height;
@@ -317,6 +287,23 @@
       source: new XYZ({
         url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
       }),
+    });
+
+    const paintLayerNumbers = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+    paintLayerNumbers.forEach((d) => {
+      const group: MapGroup = {
+        name: "Group " + d,
+        paintedIndices: new Set<number>(),
+        gridConfig: { width, height, colOffset: 0 },
+        stats: {},
+        histogram: {},
+        layer: null as any,
+      };
+
+      group.layer = createImageLayer(group);
+
+      groups.push(group);
     });
 
     map = new Map({
@@ -328,10 +315,9 @@
         zoom: 7,
       }),
     });
-    groups.forEach((g) => g.layer.setOpacity(opacity));
-    map
-      .getTargetElement()
-      .addEventListener("contextmenu", (e) => e.preventDefault());
+
+    //map.addLayer(group.layer);
+
     const dragPan = map
       .getInteractions()
       .getArray()
@@ -360,25 +346,30 @@
       dragPan.setActive(true);
     });
 
-    // --- Pointer move handles both actions + tooltip ---
     map.on("pointermove", async (evt) => {
-      const pixel = map.getEventPixel(evt.originalEvent);
-      const feature = map.forEachFeatureAtPixel(pixel, (f) => f);
-
-      if (feature) {
-        const value = feature.get("densityValue");
-        tooltipText =
-          value !== undefined
-            ? `(Title deeds with centroids in hovered area: ${value})`
-            : "No data";
-        tooltipX = evt.originalEvent.pageX + 10;
-        tooltipY = evt.originalEvent.pageY + 10;
-        tooltipVisible = true;
-      } else {
-        tooltipVisible = false;
+      let found = false;
+      for (const group of groups) {
+        const index = coordToIndex(
+          evt.coordinate[0],
+          evt.coordinate[1],
+          group.gridConfig
+        );
+        if (index !== null && group.paintedIndices.has(index)) {
+          // const value = densityArray[index];
+          const fullIndex = uploadedIndexToFullIndex(index, group.gridConfig);
+          const value = densityArray[fullIndex];
+          tooltipText = `(Title deeds with centroids in hovered area: ${value})`;
+          tooltipX = evt.originalEvent.pageX + 10;
+          tooltipY = evt.originalEvent.pageY + 10;
+          tooltipVisible = true;
+          found = true;
+          break;
+        } else {
+          tooltipText = "<br>";
+        }
       }
+      // if (!found) tooltipVisible = false;
 
-      // Tell Svelte to update the DOM
       await tick();
 
       if (painting) paintAt(groups[currentGroupIndex], evt.coordinate);
@@ -410,96 +401,143 @@
         dPressed = false;
       }
     });
+    // });
   });
 
-  function updateOpacity(event: Event) {
-    opacity = +(event.target as HTMLInputElement).value;
-    groups.forEach((g) => g.layer.setOpacity(opacity));
-  }
-  function clearGroup(group) {
-    group.paintedCells.clear();
-    group.paintedIndices.clear();
-    group.layer.getSource().clear(); // removes all features
-    computeStats(group);
-    groups = [...groups]; // trigger Svelte reactivity
-  }
-
-  let availableGeographies = $state([]);
-
-  let selected = $state("");
-
-  async function importGeography() {
-    if (!selected) {
-      console.log("no selection");
-      return;
-    }
-
-    // Fetch binary file of pixel indices
-    const res = await fetch(`${base}/data/geographies/${selected}`);
-    const arrayBuffer = await res.arrayBuffer();
-    const indices = new Uint32Array(arrayBuffer);
-
-    console.log("indices", indices);
-
-    // Name and color
-    const name = LALookup.find(
-      (e) => e.LAD25CD == selected.replace(".bin", "")
-    ).LAD25NM;
-
-    //        "LAD25CD": "E07000222",
-    //       "LAD25NM": "Warwick"
-
-    const color = colors[groups.length % colors.length]; // reuse your palette
-
-    // Create new vector layer
-    const newLayer = new VectorLayer({
-      source: new VectorSource(),
-      opacity,
-      style: new Style({
-        fill: new Fill({ color }),
-        stroke: new Stroke({ color: color.replace("0.3", "0.6"), width: 0 }),
-      }),
-    });
-
-    const group = {
-      color,
-      paintedCells: new Set<string>(),
-      paintedIndices: new Set<number>(),
-      stats: { count: 0, sum: 0, mean: 0, median: 0, min: 0, max: 0 },
+  function createRasterGroup(
+    name: string,
+    gridConfig: GridConfig,
+    initialIndices?: Iterable<number>
+  ): MapGroup {
+    const group: MapGroup = {
+      name,
+      paintedIndices: new Set(initialIndices ?? []),
+      gridConfig,
+      stats: {},
       histogram: {},
-      layer: newLayer,
-      name: name,
+      layer: null as any,
     };
 
-    // Add it to the map
-    map.addLayer(group.layer);
-    groups = [...groups, group];
+    group.layer = new ImageLayer({
+      source: new ImageCanvasSource({
+        projection: "EPSG:27700",
+        canvasFunction: (extent, resolution, pixelRatio, size) => {
+          const canvas = document.createElement("canvas");
+          canvas.width = size[0];
+          canvas.height = size[1];
+          const ctx = canvas.getContext("2d")!;
 
-    // For each pixel index in the .bin file, convert it to map coords and draw it
-    for (const i of indices) {
-      const row = Math.floor(i / width);
-      const col = i % width;
-      const x = originX + col * cellSize;
-      const y = originY + (height - row - 1) * cellSize;
+          drawGroupRaster(ctx, canvas, extent, group);
+          return canvas;
+        },
+      }),
+      opacity,
+    });
 
-      addCellFeature(group, x, y);
-      const idx = coordToIndex(x, y);
-      if (idx !== null) group.paintedIndices.add(idx); // ✅ guarantee inclusion
+    return group;
+  }
+
+  function drawGroupRaster(
+    ctx: CanvasRenderingContext2D,
+    canvas: HTMLCanvasElement,
+    extent: number[],
+    group: MapGroup
+  ) {
+    const [minX, minY, maxX, maxY] = extent;
+    const scaleX = canvas.width / (maxX - minX);
+    const scaleY = canvas.height / (maxY - minY);
+
+    for (const index of group.paintedIndices) {
+      const { x, y } = indexToCoord(index, group.gridConfig);
+      if (x < minX || x > maxX || y < minY || y > maxY) continue;
+
+      // const value = densityArray[index];
+
+      const fullIndex = uploadedIndexToFullIndex(index, group.gridConfig);
+      const value = densityArray[fullIndex];
+      if (value === undefined) continue;
+
+      const color = interpolateViridis(
+        value <= 1
+          ? 1
+          : value <= 5
+            ? 0.9
+            : value <= 10
+              ? 0.8
+              : value <= 20
+                ? 0.65
+                : value <= 50
+                  ? 0.55
+                  : value <= 100
+                    ? 0.45
+                    : value <= 200
+                      ? 0.35
+                      : value <= 500
+                        ? 0.2
+                        : 0
+      );
+
+      ctx.fillStyle = color.replace("rgb(", "rgba(").replace(")", ", 0.5)");
+      ctx.fillRect(
+        (x - minX) * scaleX,
+        canvas.height - (y - minY) * scaleY,
+        cellSize * scaleX,
+        cellSize * scaleY
+      );
     }
+  }
 
-    // Compute stats and trigger reactivity
-    console.log("paintedCells", group.paintedCells.size);
-    console.log("paintedIndices", group.paintedIndices.size);
-    console.log(
-      "first few painted indices",
-      Array.from(group.paintedIndices).slice(0, 10)
+  async function importGeography() {
+    if (!selected) return;
+
+    const res = await fetch(`${base}/data/geographies/${selected}`);
+    const buffer = await res.arrayBuffer();
+    const indices = new Uint32Array(buffer);
+
+    const name =
+      LALookup.find((e) => e.LAD25CD === selected.replace(".bin", ""))
+        ?.LAD25NM ?? selected;
+
+    const group = createRasterGroup(
+      name,
+      { width, height, colOffset: 0 },
+      indices
     );
-    const sampleVals = Array.from(group.paintedIndices)
-      .slice(0, 5)
-      .map((i) => densityArray[i]);
-    console.log("sample values", sampleVals);
+
+    groups = [...groups, group];
+    map.addLayer(group.layer);
+
     computeStats(group);
-    groups = [...groups];
+  }
+
+  async function handleFile(e: Event) {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+
+    const buffer = await file.arrayBuffer();
+    const indices = new Uint32Array(buffer);
+
+    const group = createRasterGroup(
+      file.name,
+      { width, height, colOffset: 2 }, // uploaded files need offset
+      indices
+    );
+
+    groups = [...groups, group];
+    map.addLayer(group.layer);
+
+    computeStats(group);
+  }
+
+  function clearGroup(group: MapGroup) {
+    group.paintedIndices.clear();
+    computeStats(group);
+    group.layer.getSource().changed();
+  }
+
+  function updateOpacity(e: Event) {
+    opacity = +(e.target as HTMLInputElement).value;
+    groups.forEach((g) => g.layer.setOpacity(opacity));
   }
 </script>
 
@@ -526,7 +564,9 @@
     </div>
   </div>
   <button onclick={() => clearGroup(groups[currentGroupIndex])}>
-    Clear Painted Cells
+    Clear {groups[currentGroupIndex]?.name
+      ? groups[currentGroupIndex]?.name
+      : "Painted"} Cells
   </button>
   <label>
     Opacity: {Math.round(opacity * 100)}%
@@ -580,6 +620,8 @@
       </li>
     </ul>
   </div>
+  <input type="file" accept=".bin" onchange={handleFile} />
+
   <div class="report">
     {#each groups as g, i}
       {#if g.stats.count}
@@ -588,7 +630,7 @@
           <div class="font-semibold">
             <b>
               {g.name
-                ? g.name
+                ? g.name + (currentGroupIndex === i ? " (Active)" : "")
                 : `Area: + ${i + 1} ${currentGroupIndex === i ? "(Active)" : ""}`}</b
             >
           </div>
@@ -601,7 +643,7 @@
           </div>
           <div>Density is {g.stats.mean.toFixed(2)} titles per hectare.</div>
           <div>
-            The median hactare's number of titles is {g.stats.median.toFixed(0)}
+            The median hectare's number of titles is {g.stats.median.toFixed(0)}
           </div>
           <div>Minimum number in a hectare: {g.stats.min.toFixed(0)}</div>
           <div>
@@ -610,7 +652,7 @@
             )).toLocaleString()}
           </div>
           <div bind:this={tooltipEl} class="tooltip">
-            {tooltipText}
+            {@html tooltipText}
           </div>
 
           {#if Object.keys(g.histogram).length}
