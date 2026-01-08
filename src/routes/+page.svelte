@@ -1509,67 +1509,67 @@
             on the map, with the total area in this category shown in
             <span class="areaHighlightText">pink</span>.
           </p>
-          {#key tableData}
-            {#if tableData && tableMetadata}
-              <Table
-                caption={""}
-                data={tableData.sort((a, b) => +b.unique - +a.unique)}
-                metaData={tableMetadata}
-                colourScale={"Off"}
-                bind:sortState
-                bind:selectedRestriction
-                bind:restrictionChanged
-                sortedColumn={"unique"}
-              />
-              <Button
-                buttonType="default"
-                textContent="Download data (.csv)"
-                onClickFunction={function () {
-                  const csvStr = jsonToCsv(
-                    tableData,
-                    policyLens,
-                    policyLensItems,
-                    selected
-                  );
-                  const blob = new Blob([csvStr], { type: "text/csv" });
-                  const link = document.createElement("a");
-                  link.href = URL.createObjectURL(blob);
-                  link.download = "land-data.csv";
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-                  URL.revokeObjectURL(link.href);
-                }}
-              ></Button>
-              <Button
-                buttonType="default"
-                textContent="Download Local Authority breakdown of data (.csv)"
-                onClickFunction={function () {
-                  if (!blendedArray || blendedArray.length === 0) return;
+          <!-- {#key tableData} -->
+          {#if tableData && tableMetadata}
+            <Table
+              caption={""}
+              data={tableData.sort((a, b) => +b.unique - +a.unique)}
+              metaData={tableMetadata}
+              colourScale={"Off"}
+              bind:sortState
+              bind:selectedRestriction
+              bind:restrictionChanged
+              sortedColumn={"unique"}
+            />
+            <Button
+              buttonType="default"
+              textContent="Download data (.csv)"
+              onClickFunction={function () {
+                const csvStr = jsonToCsv(
+                  tableData,
+                  policyLens,
+                  policyLensItems,
+                  selected
+                );
+                const blob = new Blob([csvStr], { type: "text/csv" });
+                const link = document.createElement("a");
+                link.href = URL.createObjectURL(blob);
+                link.download = "land-data.csv";
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(link.href);
+              }}
+            ></Button>
+            <Button
+              buttonType="default"
+              textContent="Download Local Authority breakdown of data (.csv)"
+              onClickFunction={function () {
+                if (!blendedArray || blendedArray.length === 0) return;
 
-                  const csvStr = jsonToCsv(
-                    breakdownData,
-                    policyLens,
-                    policyLensItems,
-                    selected
-                  );
-                  const blob = new Blob([csvStr], { type: "text/csv" });
-                  const link = document.createElement("a");
-                  link.href = URL.createObjectURL(blob);
-                  link.download = "land-data-by-la.csv";
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-                  URL.revokeObjectURL(link.href);
-                }}
-              ></Button>
-              <Button
-                buttonType="secondary"
-                textContent="Download the selected area shape (.bin)"
-                onClickFunction={() => downloadUint32Array(blendedArrayIndices)}
-              />
-            {/if}
-          {/key}
+                const csvStr = jsonToCsv(
+                  breakdownData,
+                  policyLens,
+                  policyLensItems,
+                  selected
+                );
+                const blob = new Blob([csvStr], { type: "text/csv" });
+                const link = document.createElement("a");
+                link.href = URL.createObjectURL(blob);
+                link.download = "land-data-by-la.csv";
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(link.href);
+              }}
+            ></Button>
+            <Button
+              buttonType="secondary"
+              textContent="Download the selected area shape (.bin)"
+              onClickFunction={() => downloadUint32Array(blendedArrayIndices)}
+            />
+          {/if}
+          <!-- {/key} -->
         {:else}
           <p>Select some categories to view the data.</p>
         {/if}

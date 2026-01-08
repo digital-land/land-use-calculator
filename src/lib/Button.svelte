@@ -1,9 +1,12 @@
 <script>
+  import Icon from "./MaterialIcon.svelte";
+
   let {
     textContent = undefined,
     buttonType,
     componentNameProp = undefined,
     onClickFunction = undefined,
+    onKeydownFunction = undefined,
     noPadding = false,
   } = $props();
 
@@ -21,7 +24,18 @@
 </script>
 
 {#if noPadding}
-  {#if buttonType === "start"}
+  {#if buttonType === "moreInfo"}
+    <div>
+      <button
+        class="more-info-button"
+        onclick={onClickFunction}
+        onkeydown={onKeydownFunction}
+        aria-label={textContent}
+      >
+        <Icon kind="info" />
+      </button>
+    </div>
+  {:else if buttonType === "start"}
     <a
       href={"#"}
       role="button"
@@ -29,6 +43,7 @@
       class="govuk-button govuk-button--start"
       data-module="govuk-button"
       onclick={onClickFunction}
+      onkeydown={onKeydownFunction}
     >
       {textContent}
       <svg
@@ -51,11 +66,17 @@
       class="govuk-button"
       data-module="govuk-button"
       onclick={onClickFunction}
+      onkeydown={onKeydownFunction}
     >
       {textContent}
     </button>
   {:else if buttonType === "table header"}
-    <button type="button" class="text-header" onclick={onClickFunction}>
+    <button
+      type="button"
+      class="text-header"
+      onclick={onClickFunction}
+      onkeydown={onKeydownFunction}
+    >
       {textContent}
       <svg
         width="22"
@@ -84,6 +105,7 @@
       type="submit"
       class="link-button app-c-filter-summary__clear-filters govuk-link"
       onclick={onClickFunction}
+      onkeydown={onKeydownFunction}
     >
       {textContent}
     </button>
@@ -93,6 +115,7 @@
       class={buttonClass}
       data-module="govuk-button"
       onclick={onClickFunction}
+      onkeydown={onKeydownFunction}
     >
       {textContent}
     </button>
@@ -107,6 +130,7 @@
         class="govuk-button govuk-button--start"
         data-module="govuk-button"
         onclick={onClickFunction}
+        onkeydown={onKeydownFunction}
       >
         {textContent}
         <svg
@@ -129,11 +153,17 @@
         class="govuk-button"
         data-module="govuk-button"
         onclick={onClickFunction}
+        onkeydown={onKeydownFunction}
       >
         {textContent}
       </button>
     {:else if buttonType === "table header"}
-      <button type="button" class="text-header" onclick={onClickFunction}>
+      <button
+        type="button"
+        class="text-header"
+        onclick={onClickFunction}
+        onkeydown={onKeydownFunction}
+      >
         {textContent}
         <svg
           width="22"
@@ -162,6 +192,7 @@
         type="submit"
         class="link-button app-c-filter-summary__clear-filters govuk-link"
         onclick={onClickFunction}
+        onkeydown={onKeydownFunction}
       >
         {textContent}
       </button>
@@ -171,6 +202,7 @@
         class={buttonClass}
         data-module="govuk-button"
         onclick={onClickFunction}
+        onkeydown={onKeydownFunction}
       >
         {textContent}
       </button>
@@ -179,7 +211,7 @@
 {/if}
 
 <style>
-  button.text-header {
+  .text-header {
     display: flex;
     color: #005ea5;
     -webkit-appearance: button;
@@ -215,5 +247,37 @@
     border: none; /* Removes border */
     font-size: unset;
     /* color: #1d70b8; */
+  }
+
+  .more-info-button {
+    display: flex;
+    flex: none;
+    font-size: 1.25rem;
+    padding-top: 2px;
+    transition: all 75ms ease;
+    cursor: pointer;
+
+    letter-spacing: inherit;
+    color: inherit;
+    opacity: 1;
+    background-color: rgba(0, 0, 0, 0);
+    font: inherit;
+    border-radius: 0px;
+
+    box-sizing: border-box;
+    border-width: 0px;
+    border-style: solid;
+    border-color: initial;
+    border-image: initial;
+    margin: 0px;
+    padding: 0px;
+  }
+
+  /* For the scale on hover of group parent */
+  :hover .more-info-button {
+    transform: scale(1.25);
+  }
+  .more-info-button.custom-ring {
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 1);
   }
 </style>

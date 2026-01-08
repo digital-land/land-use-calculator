@@ -16,6 +16,7 @@
   import { fromUrl } from "geotiff";
   import LALookup from "$lib/LALookup";
   import Histogram from "$lib/components/Histogram.svelte";
+  import { apiKey, serviceUrl } from "$lib/constants";
 
   // --- Constants ---
   const originX = 82668;

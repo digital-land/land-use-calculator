@@ -179,7 +179,7 @@
 
   div.header-left {
     display: grid;
-    grid-template-columns: 1fr 2fr;
+    /* grid-template-columns: 1fr 2fr; */
   }
 
   @media (max-width: 600px) {
@@ -431,4 +431,12 @@
     /* width: 50px; */
     height: 1rem;
     background-color: #00625e;
+  }
+
+  .govuk-select {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    min-width: unset;
+    white-space: nowrap;
   }
