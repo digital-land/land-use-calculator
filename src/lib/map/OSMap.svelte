@@ -33,7 +33,7 @@
   let mapElement;
   let map;
   let tiffLayer;
-  let baseLayer, vectorTileLayer;
+  let baseLayer, vectorTileLayer, aerialLayer, currentBaseMap;
   // const apiKey = "oCUBI8DjgzTP5J8VptrnOAxYVeZc0cZ2";
   // const serviceUrl = "https://api.os.uk/maps/vector/v1/vts";
   // let worker;
@@ -152,6 +152,15 @@
         url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
       }),
     });
+
+    aerialLayer = new TileLayer({
+      source: new XYZ({
+        url: "https://tiledbasemaps.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      }),
+      // tileSize: 256,
+    });
+
+    currentBaseMap = baseLayer;
 
     map = new Map({
       controls: defaultControls().extend([new FullScreen()]),
@@ -300,13 +309,17 @@
   });
 
   function updateBaseMap(value) {
+    map.removeLayer(currentBaseMap);
     console.log(value);
     if (value == "OS") {
-      map.removeLayer(baseLayer);
       map.getLayers().insertAt(0, vectorTileLayer);
-    } else {
-      map.removeLayer(vectorTileLayer);
+      currentBaseMap = vectorTileLayer;
+    } else if (value == "osm") {
       map.getLayers().insertAt(0, baseLayer);
+      currentBaseMap = baseLayer;
+    } else {
+      map.getLayers().insertAt(0, aerialLayer);
+      currentBaseMap = aerialLayer;
     }
   }
 </script>
@@ -323,6 +336,7 @@
 >
   <option value="osm">Open Street Map</option>
   <option value="OS">OS</option>
+  <option value="aerial">Aerial Imagery</option>
 </select>
 
 <style>
