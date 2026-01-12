@@ -1,6 +1,9 @@
 <script>
   import Button from "./Button.svelte";
   import { InsetText } from "@communitiesuk/svelte-component-library";
+  import { createEventDispatcher } from "svelte";
+
+  const dispatch = createEventDispatcher();
 
   let {
     data = undefined,
@@ -9,7 +12,6 @@
     colourScale = undefined,
     sortState = $bindable({ column: "unique", order: "descending" }),
     selectedRestriction = $bindable(),
-    restrictionChanged = $bindable(false),
   } = $props();
   //   $inspect(sortState);
   let localCopyOfData = $state([...data]);
@@ -181,7 +183,7 @@
               selectedRestriction === row.name
                 ? (selectedRestriction = undefined)
                 : (selectedRestriction = row.name);
-              restrictionChanged = true;
+              dispatch("restrictionChanged");
             }}
             onkeydown={(e) => {
               //   console.log(e.code);
@@ -189,7 +191,7 @@
                 selectedRestriction === row.name
                   ? (selectedRestriction = undefined)
                   : (selectedRestriction = row.name);
-                restrictionChanged = true;
+                dispatch("restrictionChanged");
               }
             }}
             tabindex="0"

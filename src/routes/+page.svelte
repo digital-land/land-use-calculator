@@ -97,6 +97,28 @@
   const SELECTED_AREA_COLOR = 0x990000ff; // Pink
   const UNIQUE_AREA_COLOR = 0xff0000ff; // Red
 
+  // Build once (module-level or cached)
+  const COLOR_LUT = new Uint32Array(16);
+
+  // Default everything to TOTAL_COLOR (safe fallback)
+  COLOR_LUT.fill(TOTAL_COLOR);
+
+  // Explicit mappings (mirrors your original logic)
+  COLOR_LUT[0b0000] = NO_DATA_COLOR; // blended=0, lens=0
+  COLOR_LUT[0b0100] = LENS_HIGHLIGHT_COLOR; // blended=0, lens=1
+
+  // blended = 1 cases
+  COLOR_LUT[0b1000] = TOTAL_COLOR; // blended only
+  COLOR_LUT[0b1010] = SELECTED_AREA_COLOR; // blended + area
+  COLOR_LUT[0b1011] = UNIQUE_AREA_COLOR; // blended + area + unique
+
+  // Lens + blended
+  COLOR_LUT[0b1100] = TOTAL_COLOR;
+
+  // Lens + blended + area
+  COLOR_LUT[0b1110] = SELECTED_AREA_COLOR;
+  COLOR_LUT[0b1111] = UNIQUE_AREA_COLOR;
+
   let policyLensItems = [
     {
       value: "England",
@@ -281,7 +303,7 @@
   $inspect(policyLensArea);
   // let rasterLayers = $state([]);
   // let lookup = [];
-  let bitLayers = $state([]);
+  // let bitLayers = $state([]);
   // $inspect(bitLayers);
   let currentBitArrays = $state();
   // $inspect({ currentBitArrays });
@@ -441,7 +463,6 @@
   // let selectedRestrictionIndex = 0;
   let selectedRestriction = $state();
   // $inspect({ selectedRestriction });
-  let restrictionChanged = $state(false);
   let selectedRestrictionIndex = $derived(
     selectedRestriction
       ? selected
@@ -531,16 +552,6 @@
   // let unpackWorker;
   let blendWorker;
 
-  $effect(() => {
-    if (restrictionChanged) {
-      console.log("effect 1 - restriction changed - update blending");
-      // done = false;
-
-      restrictionChanged = !restrictionChanged;
-      blendLayers();
-    }
-  });
-
   onMount(async () => {
     await init({
       module_or_path: new URL(
@@ -582,7 +593,7 @@
     prepareToUnpack();
 
     const simpleWorker = new Worker(
-      new URL("$lib/workers/simpleUnpackWorker.js", import.meta.url),
+      new URL("$lib/workers/wasmSimpleUnpackWorker.js", import.meta.url),
       { type: "module" }
     );
 
@@ -593,7 +604,7 @@
       }
 
       // console.log("Processed data:", e.data);
-      bitLayers = e.data.rasterLayers.map((layer) => layer.data);
+      // bitLayers = e.data.rasterLayers.map((layer) => layer.data);
       enrichedLayers = e.data.rasterLayers;
       height = e.data.height;
       width = e.data.width;
@@ -642,7 +653,7 @@
       }
 
       // console.log("Processed data:", e.data);
-      bitLayers = e.data.rasterLayers.map((layer) => layer.data);
+      // bitLayers = e.data.rasterLayers.map((layer) => layer.data);
       enrichedLayers = e.data.rasterLayers;
       height = e.data.height;
       width = e.data.width;
@@ -788,7 +799,7 @@
     done = selected.length > 0 ? false : true;
     console.time("blendLayers");
     const blendWorker = new Worker(
-      new URL("$lib/workers/blendWorker.js", import.meta.url),
+      new URL("$lib/workers/wasmBlendWorker.js", import.meta.url),
       { type: "module" }
     );
 
@@ -817,13 +828,6 @@
       } else if (e.data.type === "done") {
         blendedArrayLength = e.data.activeCount;
         blendedArray = new Uint8Array(e.data.result); // re-wrap transferred buffer
-        let biggerBlendedArray = new Uint32Array(blendedArray);
-        // console.log(biggerBlendedArray.BYTES_PER_ELEMENT);
-        blendedArrayIndices = biggerBlendedArray
-          .map((d, i) => (d === 1 ? i : 4294967295))
-          .filter((d) => d !== 4294967295);
-
-        console.log({ blendedArrayIndices });
 
         // occurrences = e.data.occurrences;
         blending = false;
@@ -854,54 +858,98 @@
     };
   }
 
+  // function makeAndPaintCombinedCanvas() {
+  //   console.time("canvas-combined");
+  //   done = false;
+
+  //   // Reuse or create canvas
+  //   const canvas = document.createElement("canvas");
+  //   canvas.width = width;
+  //   canvas.height = height;
+  //   const ctx = canvas.getContext("2d");
+
+  //   // Create ImageData
+  //   const imageData = ctx.createImageData(width, height);
+  //   const pixels = new Uint32Array(imageData.data.buffer);
+
+  //   // Get reference arrays
+  //   const hasSelection = selectedRestrictionIndex >= 0 && renderUnique;
+  //   const currentBitArray = hasSelection
+  //     ? currentBitArrays[selectedRestrictionIndex]
+  //     : null;
+
+  //   for (let i = 0; i < blendedArray.length; i++) {
+  //     const lensValue = policyLensLayer ? policyLensLayer[i] : 0;
+  //     const blended = blendedArray[i]; // 0 or 1
+  //     const area = hasSelection ? currentBitArray[i] : 0;
+  //     const unique = hasSelection ? (uniqueArray[i] === 1 ? 1 : 0) : 0;
+
+  //     let color;
+
+  //     if (blended === 0 && lensValue === 0) {
+  //       color = NO_DATA_COLOR;
+  //     } else if (blended === 0 && lensValue === 1) {
+  //       color = LENS_HIGHLIGHT_COLOR;
+  //     } else if (area && unique) {
+  //       color = UNIQUE_AREA_COLOR;
+  //     } else if (area) {
+  //       color = SELECTED_AREA_COLOR;
+  //     } else {
+  //       color = TOTAL_COLOR;
+  //     }
+
+  //     pixels[i] = color;
+  //   }
+
+  //   // Paint
+  //   ctx.putImageData(imageData, 0, 0);
+  //   // dataURL = canvas.toDataURL("image/png");
+
+  //   //Note: no longer a dataURL with this method - worth changing the names of things if we keep this solution
+  //   canvas.toBlob((blob) => {
+  //     dataURL = URL.createObjectURL(blob);
+  //   });
+
+  //   done = true;
+  //   console.timeEnd("canvas-combined");
+  // }
+
+  //iOS-safe version of the canvas but has some issues at the edges that need to worked out...
+
   function makeAndPaintCombinedCanvas() {
     console.time("canvas-combined");
     done = false;
 
-    // Reuse or create canvas
     const canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
+
     const ctx = canvas.getContext("2d");
 
-    // Create ImageData
+    // Reuse ImageData if you want to go further later
     const imageData = ctx.createImageData(width, height);
     const pixels = new Uint32Array(imageData.data.buffer);
 
-    // Get reference arrays
     const hasSelection = selectedRestrictionIndex >= 0 && renderUnique;
-    const currentBitArray = hasSelection
+    const blendedArr = blendedArray;
+    const lensArr = policyLensLayer;
+    const areaArr = hasSelection
       ? currentBitArrays[selectedRestrictionIndex]
       : null;
+    const uniqueArr = hasSelection ? uniqueArray : null;
 
-    for (let i = 0; i < blendedArray.length; i++) {
-      const lensValue = policyLensLayer ? policyLensLayer[i] : 0;
-      const blended = blendedArray[i]; // 0 or 1
-      const area = hasSelection ? currentBitArray[i] : 0;
-      const unique = hasSelection ? (uniqueArray[i] === 1 ? 1 : 0) : 0;
+    for (let i = 0; i < blendedArr.length; i++) {
+      const key =
+        (blendedArr[i] << 3) |
+        ((lensArr ? lensArr[i] : 0) << 2) |
+        ((areaArr ? areaArr[i] : 0) << 1) |
+        (uniqueArr && uniqueArr[i] === 1 ? 1 : 0);
 
-      let color;
-
-      if (blended === 0 && lensValue === 0) {
-        color = NO_DATA_COLOR;
-      } else if (blended === 0 && lensValue === 1) {
-        color = LENS_HIGHLIGHT_COLOR;
-      } else if (area && unique) {
-        color = UNIQUE_AREA_COLOR;
-      } else if (area) {
-        color = SELECTED_AREA_COLOR;
-      } else {
-        color = TOTAL_COLOR;
-      }
-
-      pixels[i] = color;
+      pixels[i] = COLOR_LUT[key];
     }
 
-    // Paint
     ctx.putImageData(imageData, 0, 0);
-    // dataURL = canvas.toDataURL("image/png");
 
-    //Note: no longer a dataURL with this method - worth changing the names of things if we keep this solution
     canvas.toBlob((blob) => {
       dataURL = URL.createObjectURL(blob);
     });
@@ -910,35 +958,142 @@
     console.timeEnd("canvas-combined");
   }
 
-  //iOS-safe version of the canvas but has some issues at the edges that need to worked out...
+  // async function makeAndPaintCombinedCanvasMobile() {
+  //   console.time("canvas-combined");
+  //   done = false;
+
+  //   // --- CONFIG ---
+  //   const MAX_TILE_PIXELS = 10_000_000; // ~3160×3160 per tile
+  //   const MAX_FINAL_PIXELS = 16_000_000; // Safari hard limit
+  //   // ---------------
+
+  //   // Precompute tile grid
+  //   const tileSize = Math.floor(Math.sqrt(MAX_TILE_PIXELS));
+  //   const cols = Math.ceil(width / tileSize);
+  //   const rows = Math.ceil(height / tileSize);
+
+  //   // Determine if we must scale the final output
+  //   let scale = 1;
+  //   const totalPixels = width * height;
+  //   if (totalPixels > MAX_FINAL_PIXELS) {
+  //     scale = Math.sqrt(MAX_FINAL_PIXELS / totalPixels);
+  //   }
+
+  //   // --- Prepare per-tile rendering ---
+  //   const tileBlobs = [];
+  //   const hasSelection = selectedRestrictionIndex >= 0 && renderUnique;
+  //   const currentBitArray = hasSelection
+  //     ? currentBitArrays[selectedRestrictionIndex]
+  //     : null;
+
+  //   for (let row = 0; row < rows; row++) {
+  //     for (let col = 0; col < cols; col++) {
+  //       const x0 = col * tileSize;
+  //       const y0 = row * tileSize;
+  //       const w = Math.min(tileSize, width - x0);
+  //       const h = Math.min(tileSize, height - y0);
+
+  //       // ---- Render one tile ----
+  //       const canvas = document.createElement("canvas");
+  //       canvas.width = w;
+  //       canvas.height = h;
+  //       const ctx = canvas.getContext("2d");
+  //       const imageData = ctx.createImageData(w, h);
+  //       const pixels = new Uint32Array(imageData.data.buffer);
+
+  //       for (let y = 0; y < h; y++) {
+  //         for (let x = 0; x < w; x++) {
+  //           const i = (y0 + y) * width + (x0 + x);
+  //           const lensValue = policyLensLayer ? policyLensLayer[i] : 0;
+  //           const blended = blendedArray[i];
+  //           const area = hasSelection ? currentBitArray[i] : 0;
+  //           const unique = hasSelection ? (uniqueArray[i] === 1 ? 1 : 0) : 0;
+
+  //           let color;
+  //           if (blended === 0 && lensValue === 0) color = NO_DATA_COLOR;
+  //           else if (blended === 0 && lensValue === 1)
+  //             color = LENS_HIGHLIGHT_COLOR;
+  //           else if (area && unique) color = UNIQUE_AREA_COLOR;
+  //           else if (area) color = SELECTED_AREA_COLOR;
+  //           else color = TOTAL_COLOR;
+
+  //           pixels[y * w + x] = color;
+  //         }
+  //       }
+
+  //       ctx.putImageData(imageData, 0, 0);
+
+  //       // Export the tile to a blob (sequentially to save memory)
+  //       const blob = await new Promise((r) => canvas.toBlob(r, "image/png"));
+  //       tileBlobs.push({ row, col, blob, w, h });
+  //     }
+  //   }
+
+  //   // --- Merge all tiles into one final canvas ---
+  //   const finalW = Math.floor(width * scale);
+  //   const finalH = Math.floor(height * scale);
+  //   const finalCanvas = document.createElement("canvas");
+  //   finalCanvas.width = finalW;
+  //   finalCanvas.height = finalH;
+  //   const finalCtx = finalCanvas.getContext("2d");
+
+  //   finalCtx.imageSmoothingEnabled = scale !== 1;
+  //   finalCtx.imageSmoothingQuality = "high";
+
+  //   const drawTilePromises = tileBlobs.map(async ({ row, col, blob, w, h }) => {
+  //     const img = await createImageBitmap(blob);
+
+  //     // Use exact float positions—no Math.floor
+  //     const x = col * tileSize * scale;
+  //     const y = row * tileSize * scale;
+  //     const drawW = w * scale;
+  //     const drawH = h * scale;
+
+  //     finalCtx.drawImage(img, x, y, drawW, drawH);
+  //   });
+  //   await Promise.all(drawTilePromises);
+
+  //   // Export final PNG blob
+  //   const finalBlob = await new Promise((r) =>
+  //     finalCanvas.toBlob(r, "image/png")
+  //   );
+  //   dataURL = URL.createObjectURL(finalBlob);
+  //   // console.log(dataURL);
+  //   done = true;
+  //   console.timeEnd("canvas-combined");
+
+  //   return { dataURL, scale };
+  // }
+  // $inspect({ dataURL });
 
   async function makeAndPaintCombinedCanvasMobile() {
     console.time("canvas-combined");
     done = false;
 
     // --- CONFIG ---
-    const MAX_TILE_PIXELS = 10_000_000; // ~3160×3160 per tile
-    const MAX_FINAL_PIXELS = 16_000_000; // Safari hard limit
+    const MAX_TILE_PIXELS = 10_000_000;
+    const MAX_FINAL_PIXELS = 16_000_000;
     // ---------------
 
-    // Precompute tile grid
     const tileSize = Math.floor(Math.sqrt(MAX_TILE_PIXELS));
     const cols = Math.ceil(width / tileSize);
     const rows = Math.ceil(height / tileSize);
 
-    // Determine if we must scale the final output
     let scale = 1;
     const totalPixels = width * height;
     if (totalPixels > MAX_FINAL_PIXELS) {
       scale = Math.sqrt(MAX_FINAL_PIXELS / totalPixels);
     }
 
-    // --- Prepare per-tile rendering ---
     const tileBlobs = [];
+
     const hasSelection = selectedRestrictionIndex >= 0 && renderUnique;
-    const currentBitArray = hasSelection
+    const blendedArr = blendedArray;
+    const lensArr = policyLensLayer;
+    const areaArr = hasSelection
       ? currentBitArrays[selectedRestrictionIndex]
       : null;
+    const uniqueArr = hasSelection ? uniqueArray : null;
 
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
@@ -947,43 +1102,40 @@
         const w = Math.min(tileSize, width - x0);
         const h = Math.min(tileSize, height - y0);
 
-        // ---- Render one tile ----
         const canvas = document.createElement("canvas");
         canvas.width = w;
         canvas.height = h;
         const ctx = canvas.getContext("2d");
+
         const imageData = ctx.createImageData(w, h);
         const pixels = new Uint32Array(imageData.data.buffer);
 
         for (let y = 0; y < h; y++) {
+          let base = (y0 + y) * width + x0;
+          let rowOffset = y * w;
+
           for (let x = 0; x < w; x++) {
-            const i = (y0 + y) * width + (x0 + x);
-            const lensValue = policyLensLayer ? policyLensLayer[i] : 0;
-            const blended = blendedArray[i];
-            const area = hasSelection ? currentBitArray[i] : 0;
-            const unique = hasSelection ? (uniqueArray[i] === 1 ? 1 : 0) : 0;
+            const i = base + x;
 
-            let color;
-            if (blended === 0 && lensValue === 0) color = NO_DATA_COLOR;
-            else if (blended === 0 && lensValue === 1)
-              color = LENS_HIGHLIGHT_COLOR;
-            else if (area && unique) color = UNIQUE_AREA_COLOR;
-            else if (area) color = SELECTED_AREA_COLOR;
-            else color = TOTAL_COLOR;
+            const key =
+              (blendedArr[i] << 3) |
+              ((lensArr ? lensArr[i] : 0) << 2) |
+              ((areaArr ? areaArr[i] : 0) << 1) |
+              (uniqueArr && uniqueArr[i] === 1 ? 1 : 0);
 
-            pixels[y * w + x] = color;
+            pixels[rowOffset + x] = COLOR_LUT[key];
           }
         }
 
         ctx.putImageData(imageData, 0, 0);
 
-        // Export the tile to a blob (sequentially to save memory)
         const blob = await new Promise((r) => canvas.toBlob(r, "image/png"));
+
         tileBlobs.push({ row, col, blob, w, h });
       }
     }
 
-    // --- Merge all tiles into one final canvas ---
+    // --- Merge tiles ---
     const finalW = Math.floor(width * scale);
     const finalH = Math.floor(height * scale);
     const finalCanvas = document.createElement("canvas");
@@ -994,31 +1146,29 @@
     finalCtx.imageSmoothingEnabled = scale !== 1;
     finalCtx.imageSmoothingQuality = "high";
 
-    const drawTilePromises = tileBlobs.map(async ({ row, col, blob, w, h }) => {
-      const img = await createImageBitmap(blob);
+    await Promise.all(
+      tileBlobs.map(async ({ row, col, blob, w, h }) => {
+        const img = await createImageBitmap(blob);
+        finalCtx.drawImage(
+          img,
+          col * tileSize * scale,
+          row * tileSize * scale,
+          w * scale,
+          h * scale
+        );
+      })
+    );
 
-      // Use exact float positions—no Math.floor
-      const x = col * tileSize * scale;
-      const y = row * tileSize * scale;
-      const drawW = w * scale;
-      const drawH = h * scale;
-
-      finalCtx.drawImage(img, x, y, drawW, drawH);
-    });
-    await Promise.all(drawTilePromises);
-
-    // Export final PNG blob
     const finalBlob = await new Promise((r) =>
       finalCanvas.toBlob(r, "image/png")
     );
+
     dataURL = URL.createObjectURL(finalBlob);
-    // console.log(dataURL);
     done = true;
     console.timeEnd("canvas-combined");
 
     return { dataURL, scale };
   }
-  // $inspect({ dataURL });
 
   function countOccurrences(uint8Array) {
     const counts = {};
@@ -1113,10 +1263,18 @@
 
   let message = $state("");
 
-  function downloadUint32Array(data) {
+  function downloadUint32Array() {
+    let biggerBlendedArray = new Uint32Array(blendedArray);
+    // console.log(biggerBlendedArray.BYTES_PER_ELEMENT);
+    blendedArrayIndices = biggerBlendedArray
+      .map((d, i) => (d === 1 ? i : 4294967295))
+      .filter((d) => d !== 4294967295);
+
+    // console.log({ blendedArrayIndices });
+
     // Use the underlying ArrayBuffer (no copy)
     const filename = "data.bin";
-    const blob = new Blob([data.buffer], {
+    const blob = new Blob([blendedArrayIndices.buffer], {
       type: "application/octet-stream",
     });
 
@@ -1518,7 +1676,7 @@
               colourScale={"Off"}
               bind:sortState
               bind:selectedRestriction
-              bind:restrictionChanged
+              on:restrictionChanged={blendLayers}
               sortedColumn={"unique"}
             />
             <Button
@@ -1566,7 +1724,7 @@
             <Button
               buttonType="secondary"
               textContent="Download the selected area shape (.bin)"
-              onClickFunction={() => downloadUint32Array(blendedArrayIndices)}
+              onClickFunction={downloadUint32Array}
             />
           {/if}
           <!-- {/key} -->

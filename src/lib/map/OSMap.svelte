@@ -160,14 +160,14 @@
       // tileSize: 256,
     });
 
-    currentBaseMap = baseLayer;
+    currentBaseMap = vectorTileLayer;
 
     map = new Map({
       controls: defaultControls().extend([new FullScreen()]),
       target: mapElement,
       layers: [
         // vectorTileLayer,
-        baseLayer,
+        currentBaseMap,
         geoJsonVectorLayer,
         scotlandAndWalesVectorLayer,
         tiffLayer,
@@ -334,8 +334,8 @@
   id="basemap-picker"
   onchange={(e) => updateBaseMap(e.target.value)}
 >
-  <option value="osm">Open Street Map</option>
   <option value="OS">OS</option>
+  <option value="osm">Open Street Map</option>
   <option value="aerial">Aerial Imagery</option>
 </select>
 
