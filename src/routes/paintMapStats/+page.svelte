@@ -32,7 +32,7 @@
 
   // --- State ---
   let map;
-  let densityArray: number[];
+  let densityArray: number[] = $state();
   let width: number, height: number;
   let groups: MapGroup[] = $state([]);
   let currentGroupIndex = $state(0);
@@ -224,7 +224,7 @@
   }
 
   onMount(async () => {
-    const tiffData = await loadTiff("/range/hectare_counts.tif");
+    const tiffData = await loadTiff("/range/hectare_counts_adjusted_nox.tif");
     densityArray = tiffData.densityArray;
     width = tiffData.width;
     height = tiffData.height;
@@ -303,6 +303,12 @@
         if (index !== null && group.paintedIndices.has(index)) {
           // const value = densityArray[index];
           const fullIndex = uploadedIndexToFullIndex(index, group.gridConfig);
+          console.log(
+            densityArray[27732014],
+            index,
+            fullIndex,
+            densityArray[fullIndex]
+          );
           const value = densityArray[fullIndex];
           tooltipText = `(Title deeds with centroids in hovered area: ${value})`;
           tooltipX = evt.originalEvent.pageX + 10;
@@ -412,7 +418,7 @@
     const group = {
       name,
       paintedIndices: new Set(indices),
-      gridConfig: { width, height, colOffset: 0 },
+      gridConfig: { width: width, height: height + 1, colOffset: -2 }, // Adjusting for different source file sizes
       stats: {},
       histogram: {},
       layer: null as any,
@@ -431,12 +437,12 @@
     if (!file) return;
 
     const buffer = await file.arrayBuffer();
-    const indices = new Uint32Array(buffer);
+    const indices = new Uint32Array(buffer).map((d) => d + 1); //Hard coded +1 to the index to match the underlying data - possibly due to indexing difference between JS and other languages
 
     const group = {
       name: file.name,
       paintedIndices: new Set(indices),
-      gridConfig: { width, height, colOffset: 2 }, // uploaded files need offset
+      gridConfig: { width, height, colOffset: 0 }, // uploaded files need offset
       stats: {},
       histogram: {},
       layer: null as any,
