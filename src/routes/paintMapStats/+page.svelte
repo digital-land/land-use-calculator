@@ -466,6 +466,169 @@
     opacity = +(e.target as HTMLInputElement).value;
     groups.forEach((g) => g.layer.setOpacity(opacity));
   }
+
+  function computeStatsPure(
+    paintedIndices: Set<number>,
+    gridConfig: GridConfig
+  ) {
+    if (!densityArray || paintedIndices.size === 0) {
+      return {
+        stats: { count: 0, sum: 0, mean: 0, median: 0, min: 0, max: 0 },
+        histogram: {},
+      };
+    }
+
+    const values = Array.from(paintedIndices)
+      .map((i) => {
+        const full = uploadedIndexToFullIndex(i, gridConfig);
+        return densityArray[full];
+      })
+      .filter((v): v is number => v !== undefined);
+
+    const sum = values.reduce((a, b) => a + b, 0);
+    const mean = sum / values.length;
+    const sorted = [...values].sort((a, b) => a - b);
+    const median =
+      sorted.length % 2 === 0
+        ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+        : sorted[Math.floor(sorted.length / 2)];
+
+    const min = sorted[0];
+    const max = sorted[sorted.length - 1];
+
+    const histogram = {
+      "<=1": 0,
+      "2 to 5": 0,
+      "6 to 10": 0,
+      "11 to 20": 0,
+      "21 to 50": 0,
+      "51 to 100": 0,
+      "101 to 200": 0,
+      "201 to 500": 0,
+      "over 500": 0,
+    };
+
+    for (const v of values) {
+      if (v <= 1) histogram["<=1"]++;
+      else if (v <= 5) histogram["2 to 5"]++;
+      else if (v <= 10) histogram["6 to 10"]++;
+      else if (v <= 20) histogram["11 to 20"]++;
+      else if (v <= 50) histogram["21 to 50"]++;
+      else if (v <= 100) histogram["51 to 100"]++;
+      else if (v <= 200) histogram["101 to 200"]++;
+      else if (v <= 500) histogram["201 to 500"]++;
+      else histogram["over 500"]++;
+    }
+
+    return {
+      stats: {
+        count: values.length,
+        sum,
+        mean,
+        median,
+        min,
+        max,
+      },
+      histogram,
+    };
+  }
+
+  async function handleFolder(e: Event) {
+    const files = Array.from((e.target as HTMLInputElement).files ?? []).filter(
+      (f) => f.name.endsWith(".bin")
+    );
+
+    const results = [];
+
+    for (const file of files) {
+      const buffer = await file.arrayBuffer();
+      const indices = new Uint32Array(buffer).map((d) => d + 1);
+
+      const paintedIndices = new Set(indices);
+      const gridConfig = { width, height, colOffset: 0 };
+
+      const { stats, histogram } = computeStatsPure(paintedIndices, gridConfig);
+
+      results.push({
+        file: file.name,
+        stats,
+        histogram,
+      });
+    }
+
+    console.log("Batch results:", results);
+
+    // Optional exports
+    downloadJSON(results);
+    downloadCSV(results);
+  }
+
+  function downloadJSON(data: any) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "stats.json";
+    a.click();
+
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadCSV(results: any[]) {
+    const headers = [
+      "file",
+      "count",
+      "sum",
+      "mean",
+      "median",
+      "min",
+      "max",
+      "<=1",
+      "2 to 5",
+      "6 to 10",
+      "11 to 20",
+      "21 to 50",
+      "51 to 100",
+      "101 to 200",
+      "201 to 500",
+      "over 500",
+    ];
+
+    const rows = results.map((r) => [
+      r.file,
+      r.stats.count,
+      r.stats.sum,
+      r.stats.mean,
+      r.stats.median,
+      r.stats.min,
+      r.stats.max,
+      r.histogram["<=1"],
+      r.histogram["2 to 5"],
+      r.histogram["6 to 10"],
+      r.histogram["11 to 20"],
+      r.histogram["21 to 50"],
+      r.histogram["51 to 100"],
+      r.histogram["101 to 200"],
+      r.histogram["201 to 500"],
+      r.histogram["over 500"],
+    ]);
+
+    const csv =
+      headers.join(",") + "\n" + rows.map((r) => r.join(",")).join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "stats.csv";
+    a.click();
+
+    URL.revokeObjectURL(url);
+  }
 </script>
 
 <svelte:head>
@@ -555,6 +718,16 @@
   >
   <br />
   <input id="custom-input" type="file" accept=".bin" onchange={handleFile} />
+  <br />
+  <label for="folderInput">Download stats for a directory of .bin files</label>
+  <input
+    type="file"
+    webkitdirectory
+    multiple
+    accept=".bin"
+    id="folderInput"
+    onchange={handleFolder}
+  />
 
   <div class="report">
     {#each groups as g, i}
