@@ -534,6 +534,11 @@
   }
 
   async function handleFolder(e: Event) {
+    console.log(e.target?.files[0].webkitRelativePath.includes("geographies"));
+
+    const isLAFiles =
+      e.target?.files[0].webkitRelativePath.includes("geographies");
+
     const files = Array.from((e.target as HTMLInputElement).files ?? []).filter(
       (f) => f.name.endsWith(".bin")
     );
@@ -542,10 +547,16 @@
 
     for (const file of files) {
       const buffer = await file.arrayBuffer();
-      const indices = new Uint32Array(buffer).map((d) => d + 1);
+      const indices = new Uint32Array(buffer).map((d) =>
+        isLAFiles ? d : d + 1
+      );
 
       const paintedIndices = new Set(indices);
-      const gridConfig = { width, height, colOffset: 0 };
+      const gridConfig = {
+        width,
+        height: isLAFiles ? height + 1 : height,
+        colOffset: isLAFiles ? -2 : 0,
+      };
 
       const { stats, histogram } = computeStatsPure(paintedIndices, gridConfig);
 
