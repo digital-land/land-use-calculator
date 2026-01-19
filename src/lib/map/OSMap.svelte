@@ -4,6 +4,13 @@
     bbox,
     selectedAreaName = $bindable(),
     breakdownData,
+    blendedArrayIndices,
+    seeDensity = $bindable(),
+    seeArea = $bindable(),
+    width,
+    height,
+    opacity = 0.8,
+    densityArray,
   } = $props();
 
   import "/node_modules/ol/ol.css";
@@ -29,10 +36,11 @@
   import proj4 from "proj4";
   import { apply, applyStyle } from "ol-mapbox-style";
   import { apiKey, serviceUrl } from "$lib/constants.ts";
+  import { createGroupLayer } from "$lib/utils";
 
   let mapElement;
   let map;
-  let tiffLayer;
+  let tiffLayer, densityLayer;
   let baseLayer, vectorTileLayer, aerialLayer, currentBaseMap;
   // const apiKey = "oCUBI8DjgzTP5J8VptrnOAxYVeZc0cZ2";
   // const serviceUrl = "https://api.os.uk/maps/vector/v1/vts";
@@ -304,6 +312,60 @@
         map.addLayer(tiffLayer);
 
         // map.getView().fit(bbox, { duration: 1000 });
+      }
+    }
+  });
+
+  $effect(() => {
+    if (seeDensity) {
+      if (map && dataURL) {
+        console.log("Removing the total tiff layer");
+        map.removeLayer(tiffLayer);
+        map.removeLayer(densityLayer);
+
+        const group = {
+          name: "Density layer",
+          paintedIndices: new Set(blendedArrayIndices),
+          gridConfig: { width, height, colOffset: 0 }, // uploaded files need offset
+          stats: {},
+          histogram: {},
+          layer: null,
+        };
+
+        group.layer = createGroupLayer(group, opacity, densityArray);
+        densityLayer = group.layer;
+        map.addLayer(densityLayer);
+        // console.log(map.getLayers());
+      }
+      // seeDensity = false;
+    }
+  });
+
+  $effect(() => {
+    if (seeArea) {
+      if (map) {
+        console.log("Removing the density layer");
+        map.removeLayer(densityLayer);
+        map.removeLayer(tiffLayer);
+      }
+
+      if (dataURL && bbox) {
+        tiffLayer = new ImageLayer({
+          source: new ImageStatic({
+            url: dataURL,
+            imageExtent: bbox,
+            projection: "EPSG:27700",
+            interpolate: false,
+          }),
+          opacity: 0.8,
+        });
+
+        if (map) {
+          console.log("Adding the total tiff layer");
+          map.addLayer(tiffLayer);
+
+          // map.getView().fit(bbox, { duration: 1000 });
+        }
       }
     }
   });
