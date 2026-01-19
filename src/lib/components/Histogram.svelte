@@ -1,10 +1,10 @@
 <script lang="ts">
-import { interpolateViridis } from "d3-scale-chromatic";
+  import { interpolateViridis } from "d3-scale-chromatic";
 
   let { histogram }: { histogram: Record<string, number> } = $props();
-console.log("histogram",histogram)
+  console.log("histogram", histogram);
   let vals: number[] = [];
-  let max = $state()
+  let max = $state();
 
   $effect(() => {
     vals = Object.values(histogram).map(Number);
@@ -28,53 +28,65 @@ console.log("histogram",histogram)
     else if (key === "201 to 500") normalized = 0.8;
     else if (key === "over 500") normalized = 1.0;
 
-    const rgbStr = interpolateViridis(1-normalized);
+    const rgbStr = interpolateViridis(1 - normalized);
     // const numbers = rgbStr.match(/\d+(\.\d+)?/g)?.map(Number) ?? [0, 0, 0];
     // const [r, g, b] = numbers;
-    return  rgbStr;
+    return rgbStr;
   }
+  let chartContainerWidth: number = $state();
+  let chartWidth = $derived(Math.min(chartContainerWidth, 700));
+  $inspect(chartWidth);
 </script>
 
-<svg width="700" height="150">
-  <!-- Bars -->
-  {#each keys as key, i}
-    {#if max > 0}
-      <!-- Bar -->
-      <rect
-        x={(i * 600) / keys.length + 1}
-        y={120 - (histogram[key] / max) * 100}
-        width={(600 / keys.length) - 2}
-        height={(histogram[key] / max) * 100}
-        fill={viridisForBucket(key)}
-      />
+<div bind:clientWidth={chartContainerWidth}>
+  <svg width="700" height="150">
+    <!-- Bars -->
+    {#each keys as key, i}
+      {#if max > 0}
+        <!-- Bar -->
+        <rect
+          x={(i * chartWidth) / keys.length + 1}
+          y={120 - (histogram[key] / max) * 100}
+          width={chartWidth / keys.length - 2}
+          height={(histogram[key] / max) * 100}
+          fill={viridisForBucket(key)}
+        />
 
-      <!-- Value on top of the bar -->
+        <!-- Value on top of the bar -->
+        <text
+          x={(i * chartWidth) / keys.length + chartWidth / keys.length / 2}
+          y={120 - (histogram[key] / max) * 100 - 3}
+          text-anchor="middle"
+          font-size="10"
+          fill="#333"
+        >
+          {histogram[key].toLocaleString()}
+        </text>
+      {/if}
+
+      <!-- X-axis labels -->
       <text
-        x={(i * 600) / keys.length + (600 / keys.length) / 2}
-        y={120 - (histogram[key] / max) * 100 - 3} 
+        x={(i * chartWidth) / keys.length + chartWidth / keys.length / 2}
+        y="130"
         text-anchor="middle"
         font-size="10"
         fill="#333"
       >
-        {histogram[key].toLocaleString()}
+        {key}
       </text>
-    {/if}
+    {/each}
 
-    <!-- X-axis labels -->
-    <text
-      x={(i * 600) / keys.length + (600 / keys.length) / 2}
-      y=130
-      text-anchor="middle"
-      font-size="10"
-      fill="#333"
-    >
-      {key}
-    </text>
-  {/each}
-
-  <!-- Axis line -->
-  <line x1="0" y1="120" x2="600" y2="120" stroke="#333" stroke-width="0.5" />
-</svg>
+    <!-- Axis line -->
+    <line
+      x1="0"
+      y1="120"
+      x2={chartWidth}
+      y2="120"
+      stroke="#333"
+      stroke-width="0.5"
+    />
+  </svg>
+</div>
 
 <style>
   text {

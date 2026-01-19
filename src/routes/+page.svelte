@@ -19,6 +19,7 @@
     Select,
     Tooltip,
     ServiceNavigation,
+    // Tabs,
   } from "@communitiesuk/svelte-component-library";
   // import Map from "$lib/map/Map.svelte";
 
@@ -38,8 +39,12 @@
     jsonToCsv,
     makeFileNameReadable,
     colors,
+    loadDensityTiff,
+    computeStats,
   } from "$lib/utils";
   import FilterChipParent from "$lib/components/FilterChipParent.svelte";
+  import Tabs from "$lib/components/Tabs.svelte";
+  import Histogram from "$lib/components/Histogram.svelte";
 
   const mobile = new MediaQuery("max-width: 600px");
   // let pageLayout = $state("grid-template-columns: 23% 40% 37%");
@@ -80,6 +85,13 @@
         ? `grid-template-columns: ${mapSize}% ${100 - mapSize}%;`
         : "grid-template-columns: 50% 50%"
   );
+
+  let densityArray = $state();
+  let seeDensity = $state(false);
+  $inspect(seeDensity);
+  let seeArea = $state(true);
+  $inspect(seeArea);
+  let densityGroup = $state();
 
   let ones;
 
@@ -578,6 +590,11 @@
         .map((d) => d.filename);
       unpackSelectedLayers();
     }
+
+    const tiffData = await loadDensityTiff(
+      "/range/hectare_counts_adjusted_nox.tif"
+    );
+    densityArray = tiffData.densityArray;
   });
 
   function prepareToUnpack() {
@@ -1287,6 +1304,34 @@
 
     URL.revokeObjectURL(url);
   }
+
+  function showDensity() {
+    done = false;
+    seeDensity = true;
+    seeArea = false;
+    let biggerBlendedArray = new Uint32Array(blendedArray);
+
+    blendedArrayIndices = biggerBlendedArray
+      .map((d, i) => (d === 1 ? i : 4294967295))
+      .filter((d) => d !== 4294967295);
+
+    densityGroup = {
+      name: "Selected area",
+      paintedIndices: new Set(blendedArrayIndices),
+      gridConfig: { width, height, colOffset: 0 }, // uploaded files need offset
+      stats: {},
+      histogram: {},
+      layer: null,
+    };
+    computeStats(densityGroup, densityArray);
+    done = true;
+  }
+
+  function showArea() {
+    seeDensity = false;
+    seeArea = true;
+    console.log("showing area");
+  }
 </script>
 
 <svelte:head>
@@ -1496,7 +1541,17 @@
         <!-- {console.log("Rendering the map!")} -->
 
         <div id="map" class={["os-map-container", { done }]}>
-          <OsMap {dataURL} {bbox} {breakdownData} />
+          <OsMap
+            {dataURL}
+            {bbox}
+            {breakdownData}
+            {blendedArrayIndices}
+            bind:seeDensity
+            bind:seeArea
+            {width}
+            {height}
+            {densityArray}
+          />
         </div>
       {:else if bbox}
         <div id="map" style="height: calc(100vh - 150px);">
@@ -1506,236 +1561,305 @@
         <div>Select some categories</div>
       {/if}
     </div>
+
     <div class="table">
-      {#if done && dataURL}
-        <div class="summaryStats">
-          {#if blending && $blendingProgress < 100}
-            <p>Blending... {$blendingProgress.toFixed(1)}%</p>
-            <progress max="100" value={$blendingProgress}></progress>
-          {:else if $blendingProgress == 100}
-            <p>
-              The total area in England is 13,046,002 ha.
-              <!-- {#if blendedArrayLength > 0}
+      <Tabs
+        title="Summary"
+        selectedTabId="table"
+        tabs={[
+          {
+            id: "table",
+            label: "Table",
+            content: tableSnippet,
+          },
+          {
+            id: "density",
+            label: "Density",
+            content: densitySnippet,
+          },
+        ]}
+        {showDensity}
+        {showArea}
+        forceTabBehavior={true}
+      />
+      {#snippet tableSnippet()}
+        {#if done && dataURL}
+          <div class="summaryStats">
+            {#if blending && $blendingProgress < 100}
+              <p>Blending... {$blendingProgress.toFixed(1)}%</p>
+              <progress max="100" value={$blendingProgress}></progress>
+            {:else if $blendingProgress == 100}
+              <p>
+                The total area in England is 13,046,002 ha.
+                <!-- {#if blendedArrayLength > 0}
           {blendedArrayLength.toLocaleString()} ha is covered by the selected categories.
         {/if} -->
-            </p>
-          {/if}
-          {#if policyLensArea && policyLens !== "England"}
-            <p>
-              The total area in England within {policyLensItems.find(
-                (d) => d.value == policyLens
-              )?.sentenceText ?? '"' + makeFileNameReadable(policyLens) + '"'} is
-              {policyLensArea.toLocaleString()}
-              ha.
-            </p>
-            <!-- <div class="stacked-bar">
+              </p>
+            {/if}
+            {#if policyLensArea && policyLens !== "England"}
+              <p>
+                The total area in England within {policyLensItems.find(
+                  (d) => d.value == policyLens
+                )?.sentenceText ?? '"' + makeFileNameReadable(policyLens) + '"'}
+                is
+                {policyLensArea.toLocaleString()}
+                ha.
+              </p>
+              <!-- <div class="stacked-bar">
               <div
                 class="stacked-bar-inner"
                 style="width: {(policyLensArea / 13046002) * 100}%"
               ></div>
             </div> -->
+            {/if}
+          </div>
+          {#if policyLens !== "England"}
+            <h2>
+              Within <span class="lens-area"
+                >{policyLensItems.find((d) => d.value == policyLens)
+                  ?.sentenceText ??
+                  'the "' + makeFileNameReadable(policyLens) + '" layer'}</span
+              >
+            </h2>
           {/if}
-        </div>
-        {#if policyLens !== "England"}
-          <h2>
-            Within <span class="lens-area"
-              >{policyLensItems.find((d) => d.value == policyLens)
-                ?.sentenceText ??
-                'the "' + makeFileNameReadable(policyLens) + '" layer'}</span
-            >
-          </h2>
-        {/if}
-        {#if tableData?.length > 0}
-          <p>
-            The total area covered by the selected categories is shown in <span
-              class="totalHighlightText">grey</span
-            >
-            on the map.
-          </p>
-          {#if blendedArrayLength > 0}
+          {#if tableData?.length > 0}
             <p>
-              That's {blendedArrayLength.toLocaleString()} hectares with the current
-              selections, or about
-              <b>{((blendedArrayLength / policyLensArea) * 100).toFixed(0)}%</b>
-              of
-              {policyLensItems.find((d) => d.value == policyLens)
-                ?.sentenceText ??
-                'the "' + makeFileNameReadable(policyLens) + '" layer'}, which
-              means that {(
-                policyLensArea - blendedArrayLength
-              ).toLocaleString()} hectares ({(
-                ((policyLensArea - blendedArrayLength) / policyLensArea) *
-                100
-              ).toFixed(0)}%) of {policyLensItems.find(
-                (d) => d.value == policyLens
-              )?.sentenceText ??
-                'the "' + makeFileNameReadable(policyLens) + '" layer'} is not in
-              the area covered by the current selections.
+              The total area covered by the selected categories is shown in <span
+                class="totalHighlightText">grey</span
+              >
+              on the map.
             </p>
-            <!-- Un-snippet this if we want it back -->
-            {#snippet stackedBar()}
-              {#if tableData}
-                <div style="display: flex; height: 2rem">
-                  {#each Object.entries(tableData).sort((a, b) => b[1].unique - a[1].unique) as data, i}
-                    {console.log(
-                      100 - ((data[1].unique / policyLensArea) * 100).toFixed(0)
-                    )}
+            {#if blendedArrayLength > 0}
+              <p>
+                That's {blendedArrayLength.toLocaleString()} hectares with the current
+                selections, or about
+                <b
+                  >{((blendedArrayLength / policyLensArea) * 100).toFixed(
+                    0
+                  )}%</b
+                >
+                of
+                {policyLensItems.find((d) => d.value == policyLens)
+                  ?.sentenceText ??
+                  'the "' + makeFileNameReadable(policyLens) + '" layer'}, which
+                means that {(
+                  policyLensArea - blendedArrayLength
+                ).toLocaleString()} hectares ({(
+                  ((policyLensArea - blendedArrayLength) / policyLensArea) *
+                  100
+                ).toFixed(0)}%) of {policyLensItems.find(
+                  (d) => d.value == policyLens
+                )?.sentenceText ??
+                  'the "' + makeFileNameReadable(policyLens) + '" layer'} is not
+                in the area covered by the current selections.
+              </p>
+              <!-- Un-snippet this if we want it back -->
+              {#snippet stackedBar()}
+                {#if tableData}
+                  <div style="display: flex; height: 2rem">
+                    {#each Object.entries(tableData).sort((a, b) => b[1].unique - a[1].unique) as data, i}
+                      {console.log(
+                        100 -
+                          ((data[1].unique / policyLensArea) * 100).toFixed(0)
+                      )}
+                      <div
+                        style={"width: " +
+                          (data[1].unique / policyLensArea) * 100 +
+                          "%; border: 1px solid black; background-color: " +
+                          (selectedRestriction == data[1]?.name
+                            ? "red"
+                            : // : [
+                              //     "#0000ff99",
+                              //     "#0000ff77",
+                              //     "#0000ff55",
+                              //     "#0000ff33",
+                              //     "#0000ff22",
+                              //   ][i]
+                              "#888888" +
+                              (100 -
+                                (
+                                  (data[1].unique / policyLensArea) *
+                                  100
+                                ).toFixed(0)))}
+                        onmousemove={(e) => {
+                          currentMousePosition = { x: e.x, y: e.y };
+                          hoveredArea = data[1]?.name;
+                          console.log(e);
+                        }}
+                        onmouseout={() => {
+                          currentMousePosition = null;
+                          hoveredArea = null;
+                        }}
+                      >
+                        {#if currentMousePosition}
+                          <Tooltip
+                            {currentMousePosition}
+                            {hoveredArea}
+                            hoveredAreaData={""}
+                            metric={""}
+                          />
+                        {/if}
+                        <!-- <p>Just {data[1]?.name}</p> -->
+                      </div>
+                    {/each}
                     <div
                       style={"width: " +
-                        (data[1].unique / policyLensArea) * 100 +
-                        "%; border: 1px solid black; background-color: " +
-                        (selectedRestriction == data[1]?.name
-                          ? "red"
-                          : // : [
-                            //     "#0000ff99",
-                            //     "#0000ff77",
-                            //     "#0000ff55",
-                            //     "#0000ff33",
-                            //     "#0000ff22",
-                            //   ][i]
-                            "#888888" +
-                            (100 -
-                              ((data[1].unique / policyLensArea) * 100).toFixed(
-                                0
-                              )))}
-                      onmousemove={(e) => {
-                        currentMousePosition = { x: e.x, y: e.y };
-                        hoveredArea = data[1]?.name;
-                        console.log(e);
-                      }}
-                      onmouseout={() => {
-                        currentMousePosition = null;
-                        hoveredArea = null;
-                      }}
+                        ((blendedArrayLength -
+                          tableData
+                            .map((d) => d?.unique)
+                            .reduce((acc, curr) => acc + curr, 0)) /
+                          policyLensArea) *
+                          100 +
+                        "%; border: 1px solid black; background-color: grey"}
                     >
-                      {#if currentMousePosition}
-                        <Tooltip
-                          {currentMousePosition}
-                          {hoveredArea}
-                          hoveredAreaData={""}
-                          metric={""}
-                        />
-                      {/if}
-                      <!-- <p>Just {data[1]?.name}</p> -->
+                      {console.log(
+                        blendedArrayLength -
+                          tableData
+                            .map((d) => d?.unique)
+                            .reduce((acc, curr) => acc + curr, 0)
+                      )}
+                      <p>Multiple categories</p>
                     </div>
-                  {/each}
-                  <div
-                    style={"width: " +
-                      ((blendedArrayLength -
-                        tableData
-                          .map((d) => d?.unique)
-                          .reduce((acc, curr) => acc + curr, 0)) /
-                        policyLensArea) *
-                        100 +
-                      "%; border: 1px solid black; background-color: grey"}
-                  >
-                    {console.log(
-                      blendedArrayLength -
-                        tableData
-                          .map((d) => d?.unique)
-                          .reduce((acc, curr) => acc + curr, 0)
-                    )}
-                    <p>Multiple categories</p>
+                    <div
+                      style={"width: " +
+                        ((policyLensArea - blendedArrayLength) /
+                          policyLensArea) *
+                          100 +
+                        "%; border: 1px solid black; background-color: #ff00ff44"}
+                    >
+                      <p>
+                        {policyLensItems.find((d) => d.value == policyLens)
+                          ?.sentenceText}, but not covered by the selected
+                        categories
+                      </p>
+                    </div>
                   </div>
-                  <div
-                    style={"width: " +
-                      ((policyLensArea - blendedArrayLength) / policyLensArea) *
-                        100 +
-                      "%; border: 1px solid black; background-color: #ff00ff44"}
-                  >
-                    <p>
-                      {policyLensItems.find((d) => d.value == policyLens)
-                        ?.sentenceText}, but not covered by the selected
-                      categories
-                    </p>
-                  </div>
-                </div>
-              {/if}
-            {/snippet}
-          {/if}
+                {/if}
+              {/snippet}
+            {/if}
 
-          <p>
-            You can change the categories using the options {mobile.current
-              ? "above."
-              : "on the left."}
-          </p>
-          <p>
-            Select a row in the table below to see areas that are covered by
-            this category and no others, highlighted in <span
-              class="uniqueHighlightText">red</span
-            >
-            on the map, with the total area in this category shown in
-            <span class="areaHighlightText">pink</span>.
-          </p>
-          <!-- {#key tableData} -->
-          {#if tableData && tableMetadata}
-            <Table
-              caption={""}
-              data={tableData.sort((a, b) => +b.unique - +a.unique)}
-              metaData={tableMetadata}
-              colourScale={"Off"}
-              bind:sortState
-              bind:selectedRestriction
-              on:restrictionChanged={blendLayers}
-              sortedColumn={"unique"}
-            />
-            <Button
-              buttonType="default"
-              textContent="Download data (.csv)"
-              onClickFunction={function () {
-                const csvStr = jsonToCsv(
-                  tableData,
-                  policyLens,
-                  policyLensItems,
-                  selected
-                );
-                const blob = new Blob([csvStr], { type: "text/csv" });
-                const link = document.createElement("a");
-                link.href = URL.createObjectURL(blob);
-                link.download = "land-data.csv";
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(link.href);
-              }}
-            ></Button>
-            <Button
-              buttonType="default"
-              textContent="Download Local Authority breakdown of data (.csv)"
-              onClickFunction={function () {
-                if (!blendedArray || blendedArray.length === 0) return;
+            <p>
+              You can change the categories using the options {mobile.current
+                ? "above."
+                : "on the left."}
+            </p>
+            <p>
+              Select a row in the table below to see areas that are covered by
+              this category and no others, highlighted in <span
+                class="uniqueHighlightText">red</span
+              >
+              on the map, with the total area in this category shown in
+              <span class="areaHighlightText">pink</span>.
+            </p>
+            <!-- {#key tableData} -->
+            {#if tableData && tableMetadata}
+              <Table
+                caption={""}
+                data={tableData.sort((a, b) => +b.unique - +a.unique)}
+                metaData={tableMetadata}
+                colourScale={"Off"}
+                bind:sortState
+                bind:selectedRestriction
+                on:restrictionChanged={blendLayers}
+                sortedColumn={"unique"}
+              />
+              <Button
+                buttonType="default"
+                textContent="Download data (.csv)"
+                onClickFunction={function () {
+                  const csvStr = jsonToCsv(
+                    tableData,
+                    policyLens,
+                    policyLensItems,
+                    selected
+                  );
+                  const blob = new Blob([csvStr], { type: "text/csv" });
+                  const link = document.createElement("a");
+                  link.href = URL.createObjectURL(blob);
+                  link.download = "land-data.csv";
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  URL.revokeObjectURL(link.href);
+                }}
+              ></Button>
+              <Button
+                buttonType="default"
+                textContent="Download Local Authority breakdown of data (.csv)"
+                onClickFunction={function () {
+                  if (!blendedArray || blendedArray.length === 0) return;
 
-                const csvStr = jsonToCsv(
-                  breakdownData,
-                  policyLens,
-                  policyLensItems,
-                  selected
-                );
-                const blob = new Blob([csvStr], { type: "text/csv" });
-                const link = document.createElement("a");
-                link.href = URL.createObjectURL(blob);
-                link.download = "land-data-by-la.csv";
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(link.href);
-              }}
-            ></Button>
-            <Button
-              buttonType="secondary"
-              textContent="Download the selected area shape (.bin)"
-              onClickFunction={downloadUint32Array}
-            />
+                  const csvStr = jsonToCsv(
+                    breakdownData,
+                    policyLens,
+                    policyLensItems,
+                    selected
+                  );
+                  const blob = new Blob([csvStr], { type: "text/csv" });
+                  const link = document.createElement("a");
+                  link.href = URL.createObjectURL(blob);
+                  link.download = "land-data-by-la.csv";
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  URL.revokeObjectURL(link.href);
+                }}
+              ></Button>
+              <Button
+                buttonType="secondary"
+                textContent="Download the selected area shape (.bin)"
+                onClickFunction={downloadUint32Array}
+              />
+            {/if}
+            <!-- {/key} -->
+          {:else}
+            <p>Select some categories to view the data.</p>
           {/if}
-          <!-- {/key} -->
+        {:else if bbox}
+          <Spinner />
         {:else}
-          <p>Select some categories to view the data.</p>
+          <p></p>
         {/if}
-      {:else if bbox}
-        <Spinner />
-      {:else}
-        <p></p>
-      {/if}
+      {/snippet}
+      {#snippet densitySnippet()}
+        <!-- <Button
+          buttonType="secondary"
+          textContent="See title density for selected area"
+          onClickFunction={showDensity}
+        /> -->
+        <p>Title density for the selected area.</p>
+        {#if densityGroup?.histogram}
+          <div class="font-semibold">
+            <b> {densityGroup.name}</b>
+          </div>
+          <div>
+            {densityGroup.name} measures {densityGroup.stats.count.toLocaleString()}
+            hectares
+          </div>
+          <div>
+            It contains {(+densityGroup.stats.sum.toFixed(0)).toLocaleString()} title
+            deeds
+          </div>
+          <div>
+            Density is {densityGroup.stats.mean.toFixed(2)} titles per hectare.
+          </div>
+          <div>
+            The median hectare's number of titles is {densityGroup.stats.median.toFixed(
+              0
+            )}
+          </div>
+          <div>
+            Minimum number in a hectare: {densityGroup.stats.min.toFixed(0)}
+          </div>
+          <div>
+            Maximum number in a hectare : {(+densityGroup.stats.max.toFixed(
+              0
+            )).toLocaleString()}
+          </div>
+
+          <Histogram histogram={densityGroup.histogram} />
+        {/if}
+      {/snippet}
     </div>
   </div>
 </div>
