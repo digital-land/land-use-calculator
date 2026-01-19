@@ -37,4 +37,71 @@ export function makeFileNameReadable(filename: string): string {
   return filename.replace(".tif", "").replaceAll("_", " ")
 }
 
+export function downloadJSON(data: any) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "stats.json";
+    a.click();
+
+    URL.revokeObjectURL(url);
+  }
+
+export function downloadCSV(results: any[]) {
+    const headers = [
+      "file",
+      "count",
+      "sum",
+      "mean",
+      "median",
+      "min",
+      "max",
+      "<=1",
+      "2 to 5",
+      "6 to 10",
+      "11 to 20",
+      "21 to 50",
+      "51 to 100",
+      "101 to 200",
+      "201 to 500",
+      "over 500",
+    ];
+
+    const rows = results.map((r) => [
+      r.file,
+      r.stats.count,
+      r.stats.sum,
+      r.stats.mean,
+      r.stats.median,
+      r.stats.min,
+      r.stats.max,
+      r.histogram["<=1"],
+      r.histogram["2 to 5"],
+      r.histogram["6 to 10"],
+      r.histogram["11 to 20"],
+      r.histogram["21 to 50"],
+      r.histogram["51 to 100"],
+      r.histogram["101 to 200"],
+      r.histogram["201 to 500"],
+      r.histogram["over 500"],
+    ]);
+
+    const csv =
+      headers.join(",") + "\n" + rows.map((r) => r.join(",")).join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "stats.csv";
+    a.click();
+
+    URL.revokeObjectURL(url);
+  }
+
 export const colors = ['#00625E', '#932A72', '#85292A', '#BF4A1D', '#40611f', '#205083', '#333366']
