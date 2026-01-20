@@ -158,12 +158,15 @@
     baseLayer = new TileLayer({
       source: new XYZ({
         url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+        attributions: `Map data from <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>`,
       }),
     });
 
     aerialLayer = new TileLayer({
       source: new XYZ({
         url: "https://tiledbasemaps.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        attributions:
+          "Esri, Vantor, Earthstar Geographics, and the GIS User Community",
       }),
       // tileSize: 256,
     });
@@ -317,7 +320,7 @@
   });
 
   $effect(() => {
-    if (seeDensity) {
+    if (seeDensity && blendedArrayIndices) {
       if (map && dataURL) {
         console.log("Removing the total tiff layer");
         map.removeLayer(tiffLayer);

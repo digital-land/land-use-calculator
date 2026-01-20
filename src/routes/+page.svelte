@@ -845,7 +845,7 @@
       } else if (e.data.type === "done") {
         blendedArrayLength = e.data.activeCount;
         blendedArray = new Uint8Array(e.data.result); // re-wrap transferred buffer
-
+        if (seeDensity) showDensity();
         // occurrences = e.data.occurrences;
         blending = false;
         blendingProgress.set(100);
@@ -1313,7 +1313,8 @@
 
     blendedArrayIndices = biggerBlendedArray
       .map((d, i) => (d === 1 ? i : 4294967295))
-      .filter((d) => d !== 4294967295);
+      .filter((d) => d !== 4294967295)
+      .map((d) => d + 1);
 
     densityGroup = {
       name: "Selected area",
@@ -1569,7 +1570,7 @@
         tabs={[
           {
             id: "table",
-            label: "Table",
+            label: "Results",
             content: tableSnippet,
           },
           {
