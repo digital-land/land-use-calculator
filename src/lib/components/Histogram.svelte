@@ -33,7 +33,7 @@
     // const [r, g, b] = numbers;
     return rgbStr;
   }
-  let chartContainerWidth: number = $state();
+  let chartContainerWidth: number = $state(0);
   let chartWidth = $derived(Math.min(chartContainerWidth, 700));
   $inspect(chartWidth);
 </script>
@@ -47,7 +47,7 @@
         <rect
           x={(i * chartWidth) / keys.length + 1}
           y={120 - (histogram[key] / max) * 100}
-          width={chartWidth / keys.length - 2}
+          width={Math.max(chartWidth / keys.length - 2, 0)}
           height={(histogram[key] / max) * 100}
           fill={viridisForBucket(key)}
         />
