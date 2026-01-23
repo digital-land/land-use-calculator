@@ -42,18 +42,25 @@
   let map;
   let tiffLayer, densityLayer;
   let baseLayer, vectorTileLayer, aerialLayer, currentBaseMap;
-  // const apiKey = "oCUBI8DjgzTP5J8VptrnOAxYVeZc0cZ2";
-  // const serviceUrl = "https://api.os.uk/maps/vector/v1/vts";
-  // let worker;
+
+  let tiffLayerSource = $derived(
+    new ImageStatic({
+      url: dataURL,
+      imageExtent: bbox,
+      projection: "EPSG:27700",
+      interpolate: false,
+    }),
+  );
+
   onMount(async () => {
     proj4.defs(
       "EPSG:27700",
-      "+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +towgs84=446.448,-125.157,542.06,0.15,0.247,0.842,-20.489 +units=m +no_defs"
+      "+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +towgs84=446.448,-125.157,542.06,0.15,0.247,0.842,-20.489 +units=m +no_defs",
     );
     register(proj4);
 
     const service = await fetch(`${serviceUrl}?key=${apiKey}`).then((r) =>
-      r.json()
+      r.json(),
     );
 
     const extent = [
@@ -86,14 +93,14 @@
         tileGrid,
         attributions:
           "Contains OS data © Crown copyright and database rights 2025",
-      })
+      }),
     );
 
     await applyStyle(
       vectorTileLayer,
       `${serviceUrl}/${service.defaultStyles}?key=${apiKey}`,
       "",
-      { resolutions }
+      { resolutions },
     );
 
     const geoJsonVectorSource = new VectorSource({
@@ -152,7 +159,7 @@
         projection: "EPSG:27700",
         interpolate: false,
       }),
-      opacity: 0.8,
+      opacity,
     });
 
     baseLayer = new TileLayer({
@@ -168,31 +175,48 @@
         attributions:
           "Esri, Vantor, Earthstar Geographics, and the GIS User Community",
       }),
-      // tileSize: 256,
     });
 
-    currentBaseMap = vectorTileLayer;
+    currentBaseMap = baseLayer;
 
-    map = new Map({
-      controls: defaultControls().extend([new FullScreen()]),
-      target: mapElement,
-      layers: [
-        // vectorTileLayer,
-        currentBaseMap,
-        geoJsonVectorLayer,
-        scotlandAndWalesVectorLayer,
-        tiffLayer,
-      ],
-      view: new View({
-        projection: "EPSG:27700",
-        extent: [-238375.0, 0.0, 900000.0, 1376256.0],
-        resolutions,
-        minZoom: 1,
-        maxZoom: 12,
-        center: [377297, 353995],
-        // zoom: 1,
-      }),
-    });
+    const group = {
+      name: "Density layer",
+      paintedIndices: new Set(blendedArrayIndices),
+      gridConfig: { width, height, colOffset: 0 }, // uploaded files need offset
+      stats: {},
+      histogram: {},
+      layer: null,
+    };
+
+    group.layer = createGroupLayer(group, opacity, densityArray);
+    densityLayer = group.layer;
+    if (densityLayer) {
+      map = new Map({
+        controls: defaultControls().extend([new FullScreen()]),
+        target: mapElement,
+        layers: [
+          currentBaseMap,
+          geoJsonVectorLayer,
+          scotlandAndWalesVectorLayer,
+          tiffLayer,
+          densityLayer,
+        ],
+        view: new View({
+          projection: "EPSG:27700",
+          extent: [-238375.0, 0.0, 900000.0, 1376256.0],
+          resolutions,
+          minZoom: 1,
+          maxZoom: 12,
+          center: [377297, 353995],
+          // zoom: 1,
+        }),
+      });
+      if (seeArea) {
+        densityLayer?.setVisible(false);
+      } else {
+        tiffLayer?.setVisible(false);
+      }
+    }
 
     //Zoom to the area
     map.getView().fit(bbox, { duration: 1000 });
@@ -255,14 +279,14 @@
           "Area covered by the current selections: " +
           Number(
             breakdownData.find((d) => d.area_code === feature.get("LAD25CD"))
-              ?.selected_area
+              ?.selected_area,
           ).toLocaleString() +
           "ha" +
           "<br> (" +
           (
             Number(
               breakdownData.find((d) => d.area_code === feature.get("LAD25CD"))
-                ?.selected_area_as_a_proportion_of_total_area
+                ?.selected_area_as_a_proportion_of_total_area,
             ) * 100
           ).toFixed(0) +
           "%)";
@@ -291,39 +315,46 @@
       info.style.visibility = "hidden";
     });
   });
-  // $inspect(selectedAreaName);
+
+  // $effect(() => {
+  //   if (map) {
+  //     console.log("Removing the total tiff layer");
+  //     map.removeLayer(tiffLayer);
+  //   }
+
+  //   if (dataURL && bbox) {
+  //     tiffLayer = new ImageLayer({
+  //       source: new ImageStatic({
+  //         url: dataURL,
+  //         imageExtent: bbox,
+  //         projection: "EPSG:27700",
+  //         interpolate: false,
+  //       }),
+  //       opacity,
+  //     });
+
+  //     if (map) {
+  //       console.log("Adding the total tiff layer");
+  //       map.addLayer(tiffLayer);
+  //     }
+  //   }
+  // });
 
   $effect(() => {
-    if (map) {
-      console.log("Removing the total tiff layer");
-      map.removeLayer(tiffLayer);
-    }
-
-    if (dataURL && bbox) {
-      tiffLayer = new ImageLayer({
-        source: new ImageStatic({
-          url: dataURL,
-          imageExtent: bbox,
-          projection: "EPSG:27700",
-          interpolate: false,
-        }),
-        opacity: 0.8,
-      });
-
-      if (map) {
-        console.log("Adding the total tiff layer");
-        map.addLayer(tiffLayer);
-
-        // map.getView().fit(bbox, { duration: 1000 });
-      }
+    if (seeArea) {
+      tiffLayer?.setVisible(true);
+      densityLayer?.setVisible(false);
+    } else {
+      tiffLayer?.setVisible(false);
+      densityLayer?.setVisible(true);
     }
   });
 
   $effect(() => {
-    if (seeDensity && blendedArrayIndices) {
+    if (seeDensity) {
       if (map && dataURL) {
         console.log("Removing the total tiff layer");
-        map.removeLayer(tiffLayer);
+
         map.removeLayer(densityLayer);
 
         const group = {
@@ -338,54 +369,27 @@
         group.layer = createGroupLayer(group, opacity, densityArray);
         densityLayer = group.layer;
         map.addLayer(densityLayer);
-        // console.log(map.getLayers());
       }
       // seeDensity = false;
     }
   });
 
   $effect(() => {
-    if (seeArea) {
-      if (map) {
-        console.log("Removing the density layer");
-        map.removeLayer(densityLayer);
-        map.removeLayer(tiffLayer);
-      }
+    console.log("UPDATING tiff source");
+    const newSource = tiffLayerSource; // Need this line so that Svelte has a dependedncy to track
+    tiffLayer?.setSource(newSource);
+  });
 
-      if (dataURL && bbox) {
-        tiffLayer = new ImageLayer({
-          source: new ImageStatic({
-            url: dataURL,
-            imageExtent: bbox,
-            projection: "EPSG:27700",
-            interpolate: false,
-          }),
-          opacity: 0.8,
-        });
-
-        if (map) {
-          console.log("Adding the total tiff layer");
-          map.addLayer(tiffLayer);
-
-          // map.getView().fit(bbox, { duration: 1000 });
-        }
-      }
-    }
+  let basemapLookup = $derived({
+    OS: vectorTileLayer,
+    osm: baseLayer,
+    aerial: aerialLayer,
   });
 
   function updateBaseMap(value) {
-    map.removeLayer(currentBaseMap);
-    console.log(value);
-    if (value == "OS") {
-      map.getLayers().insertAt(0, vectorTileLayer);
-      currentBaseMap = vectorTileLayer;
-    } else if (value == "osm") {
-      map.getLayers().insertAt(0, baseLayer);
-      currentBaseMap = baseLayer;
-    } else {
-      map.getLayers().insertAt(0, aerialLayer);
-      currentBaseMap = aerialLayer;
-    }
+    map?.removeLayer(currentBaseMap);
+    map?.getLayers().insertAt(0, basemapLookup[value]);
+    currentBaseMap = basemapLookup[value];
   }
 </script>
 

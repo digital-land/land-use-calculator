@@ -124,7 +124,7 @@ export function downloadCSV(results: any[]) {
     URL.revokeObjectURL(url);
   }
 
-export function computeStats(group: MapGroup, densityArray) {
+export function computeStats(group: MapGroup, densityArray: Uint16Array) {
     if (!densityArray || group.paintedIndices.size === 0) {
       group.stats = { count: 0, sum: 0, mean: 0, median: 0, min: 0, max: 0 };
       group.histogram = {};
@@ -203,7 +203,7 @@ export function computeStats(group: MapGroup, densityArray) {
   }
 
   // --- Load GeoTIFF ---
-export async function loadDensityTiff(url: string) {
+export async function loadDensityTiff(url: string): Promise<{densityArray: number | Uint16Array, width: number, height: number}> {
     const tiff = await fromUrl(url);
     const image = await tiff.getImage();
     const rasters = await image.readRasters();
@@ -219,7 +219,7 @@ export function drawGroupRaster(
     canvas: HTMLCanvasElement,
     extent: number[],
     group: MapGroup,
-    densityArray
+    densityArray: Uint16Array
   ) {
     const [minX, minY, maxX, maxY] = extent;
     const scaleX = canvas.width / (maxX - minX);
@@ -263,7 +263,7 @@ export function drawGroupRaster(
       .replace(")", `, ${fillOpacity})`);
   }
 
-export function createGroupLayer(group: MapGroup, opacity, densityArray): ImageLayer {
+export function createGroupLayer(group: MapGroup, opacity, densityArray: Uint16Array): ImageLayer<ImageCanvasSource> {
     return new ImageLayer({
       source: new ImageCanvasSource({
         projection: "EPSG:27700",
@@ -280,6 +280,19 @@ export function createGroupLayer(group: MapGroup, opacity, densityArray): ImageL
       }),
       opacity,
     });
+  }
+
+export function countOccurrences(uint8Array: Uint8Array): object {
+    const counts = {};
+    for (let i = 0; i < uint8Array.length; i++) {
+      const value = uint8Array[i];
+      if (counts[value] === undefined) {
+        counts[value] = 1;
+      } else {
+        counts[value]++;
+      }
+    }
+    return counts;
   }
 
   // --- Constants ---

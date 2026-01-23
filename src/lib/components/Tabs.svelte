@@ -54,12 +54,7 @@
 
     // Update the core bindable state
     selectedTabId = tabId;
-    console.log(selectedTabId);
-    if (selectedTabId === "density") {
-      showDensity();
-    } else {
-      showArea();
-    }
+
     // Handle optional focus
     if (shouldFocus && tabElements[tabId]) {
       // Use setTimeout to defer focus until after Svelte updates the DOM (e.g., tabindex)
@@ -78,6 +73,14 @@
         hashIndex !== -1 ? currentUrl.slice(0, hashIndex) : currentUrl;
       const newUrl = `${baseUrl}#${tabId}`;
       replaceState(newUrl, {}); // Use SvelteKit's function
+    }
+    console.log(selectedTabId);
+    if (selectedTabId === "density") {
+      setTimeout(() => {
+        showDensity();
+      }, 100);
+    } else {
+      showArea();
     }
   }
 

@@ -41,6 +41,7 @@
     colors,
     loadDensityTiff,
     computeStats,
+    countOccurrences,
   } from "$lib/utils";
   import FilterChipParent from "$lib/components/FilterChipParent.svelte";
   import Tabs from "$lib/components/Tabs.svelte";
@@ -58,7 +59,7 @@
     document.documentElement.style.setProperty("--mapWidth", `${mapSize}%`);
     document.documentElement.style.setProperty(
       "--tw-translate-x",
-      `${showFilters ? 0 : -100}%`
+      `${showFilters ? 0 : -100}%`,
     );
   });
 
@@ -73,7 +74,7 @@
       : // : showFilters
         //   ? // ? "grid-template-columns: 23% 40% 37%;"
         //     `grid-template-columns: 23% 77%;`
-        `grid-template-columns: 100%;`
+        `grid-template-columns: 100%;`,
   );
   let pageLayout = $derived(
     mobile.current
@@ -83,7 +84,7 @@
         //     `grid-template-columns: 23% ${0.77 * mapSize}% ${0.77 * (100 - mapSize)}%;`
         dataURL
         ? `grid-template-columns: ${mapSize}% ${100 - mapSize}%;`
-        : "grid-template-columns: 50% 50%"
+        : "grid-template-columns: 50% 50%",
   );
 
   let densityArray = $state();
@@ -356,7 +357,7 @@
         unique: occurrences && occurrences[i] ? occurrences[i] : "",
         subLayers: selectedSubLayers[layer],
       };
-    })
+    }),
   );
   // $inspect({ tableData });
   let tableMetadata = {
@@ -394,8 +395,8 @@
         acc[item] = colors[i];
         return acc;
       },
-      {}
-    )
+      {},
+    ),
   );
 
   // $inspect(categoryToColor);
@@ -403,7 +404,7 @@
   let filterSections = $derived(
     [...new Set(startingPosition?.map((d) => d.Tier))]?.map((section, i) => {
       const thisSectionData = startingPosition?.filter(
-        (d) => d.Tier == section
+        (d) => d.Tier == section,
       );
       return {
         tier: section,
@@ -411,7 +412,7 @@
           ...new Set(
             thisSectionData
               ?.filter((d) => d.Level !== "1")
-              ?.map((d) => d.Category)
+              ?.map((d) => d.Category),
           ),
         ]?.map((category, j) => {
           return {
@@ -446,7 +447,7 @@
 
         // selectedValues: startingPosition, //If we want all selected initially
       };
-    })
+    }),
   );
   // $inspect({ filterSections });
 
@@ -460,7 +461,7 @@
           (d) =>
             (d.Tier == makeFileNameReadable(sel) ||
               d.Category == makeFileNameReadable(sel)) &&
-            d.Data_layer !== "All data layers"
+            d.Data_layer !== "All data layers",
         )
         .map((d) => d.Data_layer);
 
@@ -481,7 +482,7 @@
           ?.map((d) => makeFileNameReadable(d))
           // .filter((d) => !d.includes("ENGLAND"))
           .indexOf(selectedRestriction)
-      : undefined
+      : undefined,
   );
   // $inspect({ selectedRestrictionIndex });
   let renderUnique = $derived(
@@ -489,7 +490,7 @@
       ? selectedRestrictionIndex >= 0
         ? true
         : false
-      : false
+      : false,
   );
   // $inspect({ renderUnique });
 
@@ -554,7 +555,7 @@
 
     csvFile?.length > 0
       ? csvFile[0]
-      : `${base}/data/PUBLIC_LAYERS/ultimate_land_metadata.csv`
+      : `${base}/data/PUBLIC_LAYERS/ultimate_land_metadata.csv`,
   );
 
   let geotiff = $state();
@@ -568,7 +569,7 @@
     await init({
       module_or_path: new URL(
         "$lib/raster_ops/pkg/raster_ops_bg.wasm",
-        import.meta.url
+        import.meta.url,
       ),
     });
     console.log("✅ WASM initialized");
@@ -592,7 +593,7 @@
     }
 
     const tiffData = await loadDensityTiff(
-      "/range/hectare_counts_adjusted_nox.tif"
+      "/range/hectare_counts_adjusted_nox.tif",
     );
     densityArray = tiffData.densityArray;
   });
@@ -601,7 +602,7 @@
     message = "Processing layers...";
 
     layersToUnpack = selected.map((d) =>
-      parseCsv(metadataCsv).find((layer) => layer.filename === d)
+      parseCsv(metadataCsv).find((layer) => layer.filename === d),
     );
   }
 
@@ -611,7 +612,7 @@
 
     const simpleWorker = new Worker(
       new URL("$lib/workers/wasmSimpleUnpackWorker.js", import.meta.url),
-      { type: "module" }
+      { type: "module" },
     );
 
     simpleWorker.onmessage = (e) => {
@@ -660,7 +661,7 @@
 
     const simpleZipWorker = new Worker(
       new URL("$lib/workers/simpleZipUnpackWorker.js", import.meta.url),
-      { type: "module" }
+      { type: "module" },
     );
 
     simpleZipWorker.onmessage = (e) => {
@@ -688,11 +689,11 @@
     };
 
     layersToUnpack.forEach(
-      (layer) => (layer.arrayBuffer = tiffArrayBuffersFromZip[layer.filename])
+      (layer) => (layer.arrayBuffer = tiffArrayBuffersFromZip[layer.filename]),
     );
 
     let policyLensLayerToUnpack = parseCsv(metadataCsv).find(
-      (layer) => layer.filename === policyLens
+      (layer) => layer.filename === policyLens,
     );
 
     let clonedPolicyLensLayerToUnpack;
@@ -717,7 +718,7 @@
     });
 
     const transferables = clonedLayersToUnpack.map(
-      (layer) => layer.arrayBuffer
+      (layer) => layer.arrayBuffer,
     );
 
     simpleZipWorker.postMessage(
@@ -726,7 +727,7 @@
         policyLensLayerToUnpack: clonedPolicyLensLayerToUnpack ?? "England",
       },
       transferables,
-      clonedPolicyLensLayerToUnpack?.arrayBuffer ?? ""
+      clonedPolicyLensLayerToUnpack?.arrayBuffer ?? "",
     );
   }
 
@@ -736,7 +737,7 @@
 
   const chunkUrls = Array.from(
     { length: numChunks },
-    (_, i) => `${baseUrl}chunk_${i}.bin`
+    (_, i) => `${baseUrl}chunk_${i}.bin`,
   );
 
   async function getLABreakdown(cRoutes, bitArray) {
@@ -749,7 +750,7 @@
     // Single persistent worker
     const breakdownWorker = new Worker(
       new URL("$lib/workers/breakdownWorker.js", import.meta.url),
-      { type: "module" }
+      { type: "module" },
     );
 
     const processChunk = (cChunk, aChunk) =>
@@ -817,7 +818,7 @@
     console.time("blendLayers");
     const blendWorker = new Worker(
       new URL("$lib/workers/wasmBlendWorker.js", import.meta.url),
-      { type: "module" }
+      { type: "module" },
     );
 
     // Select the active layers
@@ -834,7 +835,7 @@
       {
         bitArrays: buffers, // send raw ArrayBuffers
       },
-      buffers // transfer buffers (zero-copy)
+      buffers, // transfer buffers (zero-copy)
     );
     // console.log({ duplicateBitLayers });
     // Listen for messages
@@ -866,72 +867,20 @@
             mobile.current
               ? makeAndPaintCombinedCanvasMobile()
               : makeAndPaintCombinedCanvas();
-          }
+          },
         );
         // .then();
       } else if (e.data.error) {
         console.error("Blend worker error:", e.data.error);
+        blendedArray = [];
+        // blendedArrayIndices = [];
+        showDensity();
+        mobile.current
+          ? makeAndPaintCombinedCanvasMobile()
+          : makeAndPaintCombinedCanvas();
       }
     };
   }
-
-  // function makeAndPaintCombinedCanvas() {
-  //   console.time("canvas-combined");
-  //   done = false;
-
-  //   // Reuse or create canvas
-  //   const canvas = document.createElement("canvas");
-  //   canvas.width = width;
-  //   canvas.height = height;
-  //   const ctx = canvas.getContext("2d");
-
-  //   // Create ImageData
-  //   const imageData = ctx.createImageData(width, height);
-  //   const pixels = new Uint32Array(imageData.data.buffer);
-
-  //   // Get reference arrays
-  //   const hasSelection = selectedRestrictionIndex >= 0 && renderUnique;
-  //   const currentBitArray = hasSelection
-  //     ? currentBitArrays[selectedRestrictionIndex]
-  //     : null;
-
-  //   for (let i = 0; i < blendedArray.length; i++) {
-  //     const lensValue = policyLensLayer ? policyLensLayer[i] : 0;
-  //     const blended = blendedArray[i]; // 0 or 1
-  //     const area = hasSelection ? currentBitArray[i] : 0;
-  //     const unique = hasSelection ? (uniqueArray[i] === 1 ? 1 : 0) : 0;
-
-  //     let color;
-
-  //     if (blended === 0 && lensValue === 0) {
-  //       color = NO_DATA_COLOR;
-  //     } else if (blended === 0 && lensValue === 1) {
-  //       color = LENS_HIGHLIGHT_COLOR;
-  //     } else if (area && unique) {
-  //       color = UNIQUE_AREA_COLOR;
-  //     } else if (area) {
-  //       color = SELECTED_AREA_COLOR;
-  //     } else {
-  //       color = TOTAL_COLOR;
-  //     }
-
-  //     pixels[i] = color;
-  //   }
-
-  //   // Paint
-  //   ctx.putImageData(imageData, 0, 0);
-  //   // dataURL = canvas.toDataURL("image/png");
-
-  //   //Note: no longer a dataURL with this method - worth changing the names of things if we keep this solution
-  //   canvas.toBlob((blob) => {
-  //     dataURL = URL.createObjectURL(blob);
-  //   });
-
-  //   done = true;
-  //   console.timeEnd("canvas-combined");
-  // }
-
-  //iOS-safe version of the canvas but has some issues at the edges that need to worked out...
 
   function makeAndPaintCombinedCanvas() {
     console.time("canvas-combined");
@@ -975,114 +924,7 @@
     console.timeEnd("canvas-combined");
   }
 
-  // async function makeAndPaintCombinedCanvasMobile() {
-  //   console.time("canvas-combined");
-  //   done = false;
-
-  //   // --- CONFIG ---
-  //   const MAX_TILE_PIXELS = 10_000_000; // ~3160×3160 per tile
-  //   const MAX_FINAL_PIXELS = 16_000_000; // Safari hard limit
-  //   // ---------------
-
-  //   // Precompute tile grid
-  //   const tileSize = Math.floor(Math.sqrt(MAX_TILE_PIXELS));
-  //   const cols = Math.ceil(width / tileSize);
-  //   const rows = Math.ceil(height / tileSize);
-
-  //   // Determine if we must scale the final output
-  //   let scale = 1;
-  //   const totalPixels = width * height;
-  //   if (totalPixels > MAX_FINAL_PIXELS) {
-  //     scale = Math.sqrt(MAX_FINAL_PIXELS / totalPixels);
-  //   }
-
-  //   // --- Prepare per-tile rendering ---
-  //   const tileBlobs = [];
-  //   const hasSelection = selectedRestrictionIndex >= 0 && renderUnique;
-  //   const currentBitArray = hasSelection
-  //     ? currentBitArrays[selectedRestrictionIndex]
-  //     : null;
-
-  //   for (let row = 0; row < rows; row++) {
-  //     for (let col = 0; col < cols; col++) {
-  //       const x0 = col * tileSize;
-  //       const y0 = row * tileSize;
-  //       const w = Math.min(tileSize, width - x0);
-  //       const h = Math.min(tileSize, height - y0);
-
-  //       // ---- Render one tile ----
-  //       const canvas = document.createElement("canvas");
-  //       canvas.width = w;
-  //       canvas.height = h;
-  //       const ctx = canvas.getContext("2d");
-  //       const imageData = ctx.createImageData(w, h);
-  //       const pixels = new Uint32Array(imageData.data.buffer);
-
-  //       for (let y = 0; y < h; y++) {
-  //         for (let x = 0; x < w; x++) {
-  //           const i = (y0 + y) * width + (x0 + x);
-  //           const lensValue = policyLensLayer ? policyLensLayer[i] : 0;
-  //           const blended = blendedArray[i];
-  //           const area = hasSelection ? currentBitArray[i] : 0;
-  //           const unique = hasSelection ? (uniqueArray[i] === 1 ? 1 : 0) : 0;
-
-  //           let color;
-  //           if (blended === 0 && lensValue === 0) color = NO_DATA_COLOR;
-  //           else if (blended === 0 && lensValue === 1)
-  //             color = LENS_HIGHLIGHT_COLOR;
-  //           else if (area && unique) color = UNIQUE_AREA_COLOR;
-  //           else if (area) color = SELECTED_AREA_COLOR;
-  //           else color = TOTAL_COLOR;
-
-  //           pixels[y * w + x] = color;
-  //         }
-  //       }
-
-  //       ctx.putImageData(imageData, 0, 0);
-
-  //       // Export the tile to a blob (sequentially to save memory)
-  //       const blob = await new Promise((r) => canvas.toBlob(r, "image/png"));
-  //       tileBlobs.push({ row, col, blob, w, h });
-  //     }
-  //   }
-
-  //   // --- Merge all tiles into one final canvas ---
-  //   const finalW = Math.floor(width * scale);
-  //   const finalH = Math.floor(height * scale);
-  //   const finalCanvas = document.createElement("canvas");
-  //   finalCanvas.width = finalW;
-  //   finalCanvas.height = finalH;
-  //   const finalCtx = finalCanvas.getContext("2d");
-
-  //   finalCtx.imageSmoothingEnabled = scale !== 1;
-  //   finalCtx.imageSmoothingQuality = "high";
-
-  //   const drawTilePromises = tileBlobs.map(async ({ row, col, blob, w, h }) => {
-  //     const img = await createImageBitmap(blob);
-
-  //     // Use exact float positions—no Math.floor
-  //     const x = col * tileSize * scale;
-  //     const y = row * tileSize * scale;
-  //     const drawW = w * scale;
-  //     const drawH = h * scale;
-
-  //     finalCtx.drawImage(img, x, y, drawW, drawH);
-  //   });
-  //   await Promise.all(drawTilePromises);
-
-  //   // Export final PNG blob
-  //   const finalBlob = await new Promise((r) =>
-  //     finalCanvas.toBlob(r, "image/png")
-  //   );
-  //   dataURL = URL.createObjectURL(finalBlob);
-  //   // console.log(dataURL);
-  //   done = true;
-  //   console.timeEnd("canvas-combined");
-
-  //   return { dataURL, scale };
-  // }
-  // $inspect({ dataURL });
-
+  //iOS-safe version of the canvas but has some issues at the edges that need to worked out...
   async function makeAndPaintCombinedCanvasMobile() {
     console.time("canvas-combined");
     done = false;
@@ -1171,13 +1013,13 @@
           col * tileSize * scale,
           row * tileSize * scale,
           w * scale,
-          h * scale
+          h * scale,
         );
-      })
+      }),
     );
 
     const finalBlob = await new Promise((r) =>
-      finalCanvas.toBlob(r, "image/png")
+      finalCanvas.toBlob(r, "image/png"),
     );
 
     dataURL = URL.createObjectURL(finalBlob);
@@ -1187,18 +1029,18 @@
     return { dataURL, scale };
   }
 
-  function countOccurrences(uint8Array) {
-    const counts = {};
-    for (let i = 0; i < uint8Array.length; i++) {
-      const value = uint8Array[i];
-      if (counts[value] === undefined) {
-        counts[value] = 1;
-      } else {
-        counts[value]++;
-      }
-    }
-    return counts;
-  }
+  // function countOccurrences(uint8Array) {
+  //   const counts = {};
+  //   for (let i = 0; i < uint8Array.length; i++) {
+  //     const value = uint8Array[i];
+  //     if (counts[value] === undefined) {
+  //       counts[value] = 1;
+  //     } else {
+  //       counts[value]++;
+  //     }
+  //   }
+  //   return counts;
+  // }
 
   function findTheOnes(bitArrays) {
     console.time("findTheOnes");
@@ -1215,7 +1057,7 @@
     for (let w = 0; w < NUM_WORKERS; w++) {
       const worker = new Worker(
         new URL("../lib/workers/onesWorker.js?worker", import.meta.url),
-        { type: "module" }
+        { type: "module" },
       );
 
       const start = w * chunkSize;
@@ -1257,7 +1099,7 @@
             end,
             selectedRestrictionIndex,
           },
-          [...chunkSlices.map((a) => a.buffer)] // Transfer input buffers
+          [...chunkSlices.map((a) => a.buffer)], // Transfer input buffers
         );
       });
 
@@ -1287,8 +1129,6 @@
       .map((d, i) => (d === 1 ? i : 4294967295))
       .filter((d) => d !== 4294967295);
 
-    // console.log({ blendedArrayIndices });
-
     // Use the underlying ArrayBuffer (no copy)
     const filename = "data.bin";
     const blob = new Blob([blendedArrayIndices.buffer], {
@@ -1306,6 +1146,7 @@
   }
 
   function showDensity() {
+    console.time("show-density");
     done = false;
     seeDensity = true;
     seeArea = false;
@@ -1326,6 +1167,7 @@
     };
     computeStats(densityGroup, densityArray);
     done = true;
+    console.timeEnd("show-density");
   }
 
   function showArea() {
@@ -1361,20 +1203,20 @@
         <Details
           summaryText={"Use a local file (optional)"}
           detailedText={detailsContent}
-        />
+        >
+          {#snippet detailsContent()}
+            <label for="zip-file-upload">Use a local zip file:</label>
+            <input
+              bind:files={zipFile}
+              accept=".zip"
+              id="file-upload"
+              type="file"
+              onchange={handleFileUpload}
+            />
+          {/snippet}
+        </Details>
       </div>
     </div>
-
-    <!-- <div>
-      <Button
-        buttonType="secondary"
-        textContent={(showFilters ? "Hide" : "Show") + " filters"}
-        onClickFunction={() => {
-          showFilters = !showFilters;
-          // pageLayout = "grid-template-columns: 0% 50% 50%";
-        }}
-      />
-    </div> -->
   </div>
 
   <div>
@@ -1391,7 +1233,7 @@
             startingPosition.forEach((d) =>
               selected.includes(d.filename) || policyLens === d.filename
                 ? (d.initially_checked = "y")
-                : (d.initially_checked = false)
+                : (d.initially_checked = false),
             );
             // done = false;
             blendLayers();
@@ -1401,7 +1243,7 @@
             startingPosition.forEach((d) =>
               selected.includes(d.filename) || policyLens === d.filename
                 ? (d.initially_checked = "y")
-                : (d.initially_checked = false)
+                : (d.initially_checked = false),
             );
             Object.keys(tiffArrayBuffersFromZip).length > 0
               ? unpackZippedLayers()
@@ -1412,17 +1254,6 @@
     </div>
   </div>
 </div>
-
-{#snippet detailsContent()}
-  <label for="zip-file-upload">Use a local zip file:</label>
-  <input
-    bind:files={zipFile}
-    accept=".zip"
-    id="file-upload"
-    type="file"
-    onchange={handleFileUpload}
-  />
-{/snippet}
 
 <div class="container" style={containerLayout}>
   <div
@@ -1600,18 +1431,12 @@
             {#if policyLensArea && policyLens !== "England"}
               <p>
                 The total area in England within {policyLensItems.find(
-                  (d) => d.value == policyLens
+                  (d) => d.value == policyLens,
                 )?.sentenceText ?? '"' + makeFileNameReadable(policyLens) + '"'}
                 is
                 {policyLensArea.toLocaleString()}
                 ha.
               </p>
-              <!-- <div class="stacked-bar">
-              <div
-                class="stacked-bar-inner"
-                style="width: {(policyLensArea / 13046002) * 100}%"
-              ></div>
-            </div> -->
             {/if}
           </div>
           {#if policyLens !== "England"}
@@ -1636,7 +1461,7 @@
                 selections, or about
                 <b
                   >{((blendedArrayLength / policyLensArea) * 100).toFixed(
-                    0
+                    0,
                   )}%</b
                 >
                 of
@@ -1649,94 +1474,11 @@
                   ((policyLensArea - blendedArrayLength) / policyLensArea) *
                   100
                 ).toFixed(0)}%) of {policyLensItems.find(
-                  (d) => d.value == policyLens
+                  (d) => d.value == policyLens,
                 )?.sentenceText ??
                   'the "' + makeFileNameReadable(policyLens) + '" layer'} is not
                 in the area covered by the current selections.
               </p>
-              <!-- Un-snippet this if we want it back -->
-              {#snippet stackedBar()}
-                {#if tableData}
-                  <div style="display: flex; height: 2rem">
-                    {#each Object.entries(tableData).sort((a, b) => b[1].unique - a[1].unique) as data, i}
-                      {console.log(
-                        100 -
-                          ((data[1].unique / policyLensArea) * 100).toFixed(0)
-                      )}
-                      <div
-                        style={"width: " +
-                          (data[1].unique / policyLensArea) * 100 +
-                          "%; border: 1px solid black; background-color: " +
-                          (selectedRestriction == data[1]?.name
-                            ? "red"
-                            : // : [
-                              //     "#0000ff99",
-                              //     "#0000ff77",
-                              //     "#0000ff55",
-                              //     "#0000ff33",
-                              //     "#0000ff22",
-                              //   ][i]
-                              "#888888" +
-                              (100 -
-                                (
-                                  (data[1].unique / policyLensArea) *
-                                  100
-                                ).toFixed(0)))}
-                        onmousemove={(e) => {
-                          currentMousePosition = { x: e.x, y: e.y };
-                          hoveredArea = data[1]?.name;
-                          console.log(e);
-                        }}
-                        onmouseout={() => {
-                          currentMousePosition = null;
-                          hoveredArea = null;
-                        }}
-                      >
-                        {#if currentMousePosition}
-                          <Tooltip
-                            {currentMousePosition}
-                            {hoveredArea}
-                            hoveredAreaData={""}
-                            metric={""}
-                          />
-                        {/if}
-                        <!-- <p>Just {data[1]?.name}</p> -->
-                      </div>
-                    {/each}
-                    <div
-                      style={"width: " +
-                        ((blendedArrayLength -
-                          tableData
-                            .map((d) => d?.unique)
-                            .reduce((acc, curr) => acc + curr, 0)) /
-                          policyLensArea) *
-                          100 +
-                        "%; border: 1px solid black; background-color: grey"}
-                    >
-                      {console.log(
-                        blendedArrayLength -
-                          tableData
-                            .map((d) => d?.unique)
-                            .reduce((acc, curr) => acc + curr, 0)
-                      )}
-                      <p>Multiple categories</p>
-                    </div>
-                    <div
-                      style={"width: " +
-                        ((policyLensArea - blendedArrayLength) /
-                          policyLensArea) *
-                          100 +
-                        "%; border: 1px solid black; background-color: #ff00ff44"}
-                    >
-                      <p>
-                        {policyLensItems.find((d) => d.value == policyLens)
-                          ?.sentenceText}, but not covered by the selected
-                        categories
-                      </p>
-                    </div>
-                  </div>
-                {/if}
-              {/snippet}
             {/if}
 
             <p>
@@ -1772,7 +1514,7 @@
                     tableData,
                     policyLens,
                     policyLensItems,
-                    selected
+                    selected,
                   );
                   const blob = new Blob([csvStr], { type: "text/csv" });
                   const link = document.createElement("a");
@@ -1794,7 +1536,7 @@
                     breakdownData,
                     policyLens,
                     policyLensItems,
-                    selected
+                    selected,
                   );
                   const blob = new Blob([csvStr], { type: "text/csv" });
                   const link = document.createElement("a");
@@ -1823,42 +1565,42 @@
         {/if}
       {/snippet}
       {#snippet densitySnippet()}
-        <!-- <Button
-          buttonType="secondary"
-          textContent="See title density for selected area"
-          onClickFunction={showDensity}
-        /> -->
-        <p>Title density for the selected area.</p>
-        {#if densityGroup?.histogram}
-          <div class="font-semibold">
-            <b> {densityGroup.name}</b>
-          </div>
-          <div>
-            {densityGroup.name} measures {densityGroup.stats.count.toLocaleString()}
-            hectares
-          </div>
-          <div>
-            It contains {(+densityGroup.stats.sum.toFixed(0)).toLocaleString()} title
-            deeds
-          </div>
-          <div>
-            Density is {densityGroup.stats.mean.toFixed(2)} titles per hectare.
-          </div>
-          <div>
-            The median hectare's number of titles is {densityGroup.stats.median.toFixed(
-              0
-            )}
-          </div>
-          <div>
-            Minimum number in a hectare: {densityGroup.stats.min.toFixed(0)}
-          </div>
-          <div>
-            Maximum number in a hectare : {(+densityGroup.stats.max.toFixed(
-              0
-            )).toLocaleString()}
-          </div>
+        {#if blendedArray.length > 0}
+          <p>Title density for the selected area.</p>
+          {#if densityGroup?.histogram && done}
+            <div class="font-semibold">
+              <b> {densityGroup.name}</b>
+            </div>
+            <div>
+              {densityGroup.name} measures {densityGroup.stats.count.toLocaleString()}
+              hectares
+            </div>
+            <div>
+              It contains {(+densityGroup.stats.sum.toFixed(
+                0,
+              )).toLocaleString()} title deeds
+            </div>
+            <div>
+              Density is {densityGroup.stats.mean.toFixed(2)} titles per hectare.
+            </div>
+            <div>
+              The median hectare's number of titles is {densityGroup.stats.median.toFixed(
+                0,
+              )}
+            </div>
+            <div>
+              Minimum number in a hectare: {densityGroup.stats.min.toFixed(0)}
+            </div>
+            <div>
+              Maximum number in a hectare : {(+densityGroup.stats.max.toFixed(
+                0,
+              )).toLocaleString()}
+            </div>
 
-          <Histogram histogram={densityGroup.histogram} />
+            <Histogram histogram={densityGroup?.histogram} />
+          {:else}
+            <Spinner />
+          {/if}
         {/if}
       {/snippet}
     </div>
