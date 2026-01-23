@@ -13,4 +13,9 @@ node_modules/
 !static/data/LAs/chunks/*.bin
 
 static/data/ALL_LAYERS/
+static/data
 docs/data/ALL_LAYERS/
+
+.venv/
+
+scripts/
