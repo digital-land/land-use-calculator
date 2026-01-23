@@ -97,6 +97,28 @@
   const SELECTED_AREA_COLOR = 0x990000ff; // Pink
   const UNIQUE_AREA_COLOR = 0xff0000ff; // Red
 
+  // Build once (module-level or cached)
+  const COLOR_LUT = new Uint32Array(16);
+
+  // Default everything to TOTAL_COLOR (safe fallback)
+  COLOR_LUT.fill(TOTAL_COLOR);
+
+  // Explicit mappings (mirrors your original logic)
+  COLOR_LUT[0b0000] = NO_DATA_COLOR; // blended=0, lens=0
+  COLOR_LUT[0b0100] = LENS_HIGHLIGHT_COLOR; // blended=0, lens=1
+
+  // blended = 1 cases
+  COLOR_LUT[0b1000] = TOTAL_COLOR; // blended only
+  COLOR_LUT[0b1010] = SELECTED_AREA_COLOR; // blended + area
+  COLOR_LUT[0b1011] = UNIQUE_AREA_COLOR; // blended + area + unique
+
+  // Lens + blended
+  COLOR_LUT[0b1100] = TOTAL_COLOR;
+
+  // Lens + blended + area
+  COLOR_LUT[0b1110] = SELECTED_AREA_COLOR;
+  COLOR_LUT[0b1111] = UNIQUE_AREA_COLOR;
+
   let policyLensItems = [
     {
       value: "England",
@@ -281,7 +303,7 @@
   $inspect(policyLensArea);
   // let rasterLayers = $state([]);
   // let lookup = [];
-  let bitLayers = $state([]);
+  // let bitLayers = $state([]);
   // $inspect(bitLayers);
   let currentBitArrays = $state();
   // $inspect({ currentBitArrays });
@@ -298,6 +320,7 @@
   // $inspect(englandArea);
 
   let blendedArray = $state([]);
+  let blendedArrayIndices = $state([]);
 
   let breakdownData = $state(null);
   let breakdownLoading = $state(false);
@@ -440,7 +463,6 @@
   // let selectedRestrictionIndex = 0;
   let selectedRestriction = $state();
   // $inspect({ selectedRestriction });
-  let restrictionChanged = $state(false);
   let selectedRestrictionIndex = $derived(
     selectedRestriction
       ? selected
@@ -530,16 +552,6 @@
   // let unpackWorker;
   let blendWorker;
 
-  $effect(() => {
-    if (restrictionChanged) {
-      console.log("effect 1 - restriction changed - update blending");
-      // done = false;
-
-      restrictionChanged = !restrictionChanged;
-      blendLayers();
-    }
-  });
-
   onMount(async () => {
     await init({
       module_or_path: new URL(
@@ -581,7 +593,7 @@
     prepareToUnpack();
 
     const simpleWorker = new Worker(
-      new URL("$lib/workers/simpleUnpackWorker.js", import.meta.url),
+      new URL("$lib/workers/wasmSimpleUnpackWorker.js", import.meta.url),
       { type: "module" }
     );
 
@@ -592,7 +604,7 @@
       }
 
       // console.log("Processed data:", e.data);
-      bitLayers = e.data.rasterLayers.map((layer) => layer.data);
+      // bitLayers = e.data.rasterLayers.map((layer) => layer.data);
       enrichedLayers = e.data.rasterLayers;
       height = e.data.height;
       width = e.data.width;
@@ -641,7 +653,7 @@
       }
 
       // console.log("Processed data:", e.data);
-      bitLayers = e.data.rasterLayers.map((layer) => layer.data);
+      // bitLayers = e.data.rasterLayers.map((layer) => layer.data);
       enrichedLayers = e.data.rasterLayers;
       height = e.data.height;
       width = e.data.width;
@@ -787,7 +799,7 @@
     done = selected.length > 0 ? false : true;
     console.time("blendLayers");
     const blendWorker = new Worker(
-      new URL("$lib/workers/blendWorker.js", import.meta.url),
+      new URL("$lib/workers/wasmBlendWorker.js", import.meta.url),
       { type: "module" }
     );
 
@@ -846,54 +858,98 @@
     };
   }
 
+  // function makeAndPaintCombinedCanvas() {
+  //   console.time("canvas-combined");
+  //   done = false;
+
+  //   // Reuse or create canvas
+  //   const canvas = document.createElement("canvas");
+  //   canvas.width = width;
+  //   canvas.height = height;
+  //   const ctx = canvas.getContext("2d");
+
+  //   // Create ImageData
+  //   const imageData = ctx.createImageData(width, height);
+  //   const pixels = new Uint32Array(imageData.data.buffer);
+
+  //   // Get reference arrays
+  //   const hasSelection = selectedRestrictionIndex >= 0 && renderUnique;
+  //   const currentBitArray = hasSelection
+  //     ? currentBitArrays[selectedRestrictionIndex]
+  //     : null;
+
+  //   for (let i = 0; i < blendedArray.length; i++) {
+  //     const lensValue = policyLensLayer ? policyLensLayer[i] : 0;
+  //     const blended = blendedArray[i]; // 0 or 1
+  //     const area = hasSelection ? currentBitArray[i] : 0;
+  //     const unique = hasSelection ? (uniqueArray[i] === 1 ? 1 : 0) : 0;
+
+  //     let color;
+
+  //     if (blended === 0 && lensValue === 0) {
+  //       color = NO_DATA_COLOR;
+  //     } else if (blended === 0 && lensValue === 1) {
+  //       color = LENS_HIGHLIGHT_COLOR;
+  //     } else if (area && unique) {
+  //       color = UNIQUE_AREA_COLOR;
+  //     } else if (area) {
+  //       color = SELECTED_AREA_COLOR;
+  //     } else {
+  //       color = TOTAL_COLOR;
+  //     }
+
+  //     pixels[i] = color;
+  //   }
+
+  //   // Paint
+  //   ctx.putImageData(imageData, 0, 0);
+  //   // dataURL = canvas.toDataURL("image/png");
+
+  //   //Note: no longer a dataURL with this method - worth changing the names of things if we keep this solution
+  //   canvas.toBlob((blob) => {
+  //     dataURL = URL.createObjectURL(blob);
+  //   });
+
+  //   done = true;
+  //   console.timeEnd("canvas-combined");
+  // }
+
+  //iOS-safe version of the canvas but has some issues at the edges that need to worked out...
+
   function makeAndPaintCombinedCanvas() {
     console.time("canvas-combined");
     done = false;
 
-    // Reuse or create canvas
     const canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
+
     const ctx = canvas.getContext("2d");
 
-    // Create ImageData
+    // Reuse ImageData if you want to go further later
     const imageData = ctx.createImageData(width, height);
     const pixels = new Uint32Array(imageData.data.buffer);
 
-    // Get reference arrays
     const hasSelection = selectedRestrictionIndex >= 0 && renderUnique;
-    const currentBitArray = hasSelection
+    const blendedArr = blendedArray;
+    const lensArr = policyLensLayer;
+    const areaArr = hasSelection
       ? currentBitArrays[selectedRestrictionIndex]
       : null;
+    const uniqueArr = hasSelection ? uniqueArray : null;
 
-    for (let i = 0; i < blendedArray.length; i++) {
-      const lensValue = policyLensLayer ? policyLensLayer[i] : 0;
-      const blended = blendedArray[i]; // 0 or 1
-      const area = hasSelection ? currentBitArray[i] : 0;
-      const unique = hasSelection ? (uniqueArray[i] === 1 ? 1 : 0) : 0;
+    for (let i = 0; i < blendedArr.length; i++) {
+      const key =
+        (blendedArr[i] << 3) |
+        ((lensArr ? lensArr[i] : 0) << 2) |
+        ((areaArr ? areaArr[i] : 0) << 1) |
+        (uniqueArr && uniqueArr[i] === 1 ? 1 : 0);
 
-      let color;
-
-      if (blended === 0 && lensValue === 0) {
-        color = NO_DATA_COLOR;
-      } else if (blended === 0 && lensValue === 1) {
-        color = LENS_HIGHLIGHT_COLOR;
-      } else if (area && unique) {
-        color = UNIQUE_AREA_COLOR;
-      } else if (area) {
-        color = SELECTED_AREA_COLOR;
-      } else {
-        color = TOTAL_COLOR;
-      }
-
-      pixels[i] = color;
+      pixels[i] = COLOR_LUT[key];
     }
 
-    // Paint
     ctx.putImageData(imageData, 0, 0);
-    // dataURL = canvas.toDataURL("image/png");
 
-    //Note: no longer a dataURL with this method - worth changing the names of things if we keep this solution
     canvas.toBlob((blob) => {
       dataURL = URL.createObjectURL(blob);
     });
@@ -902,35 +958,142 @@
     console.timeEnd("canvas-combined");
   }
 
-  //iOS-safe version of the canvas but has some issues at the edges that need to worked out...
+  // async function makeAndPaintCombinedCanvasMobile() {
+  //   console.time("canvas-combined");
+  //   done = false;
+
+  //   // --- CONFIG ---
+  //   const MAX_TILE_PIXELS = 10_000_000; // ~3160×3160 per tile
+  //   const MAX_FINAL_PIXELS = 16_000_000; // Safari hard limit
+  //   // ---------------
+
+  //   // Precompute tile grid
+  //   const tileSize = Math.floor(Math.sqrt(MAX_TILE_PIXELS));
+  //   const cols = Math.ceil(width / tileSize);
+  //   const rows = Math.ceil(height / tileSize);
+
+  //   // Determine if we must scale the final output
+  //   let scale = 1;
+  //   const totalPixels = width * height;
+  //   if (totalPixels > MAX_FINAL_PIXELS) {
+  //     scale = Math.sqrt(MAX_FINAL_PIXELS / totalPixels);
+  //   }
+
+  //   // --- Prepare per-tile rendering ---
+  //   const tileBlobs = [];
+  //   const hasSelection = selectedRestrictionIndex >= 0 && renderUnique;
+  //   const currentBitArray = hasSelection
+  //     ? currentBitArrays[selectedRestrictionIndex]
+  //     : null;
+
+  //   for (let row = 0; row < rows; row++) {
+  //     for (let col = 0; col < cols; col++) {
+  //       const x0 = col * tileSize;
+  //       const y0 = row * tileSize;
+  //       const w = Math.min(tileSize, width - x0);
+  //       const h = Math.min(tileSize, height - y0);
+
+  //       // ---- Render one tile ----
+  //       const canvas = document.createElement("canvas");
+  //       canvas.width = w;
+  //       canvas.height = h;
+  //       const ctx = canvas.getContext("2d");
+  //       const imageData = ctx.createImageData(w, h);
+  //       const pixels = new Uint32Array(imageData.data.buffer);
+
+  //       for (let y = 0; y < h; y++) {
+  //         for (let x = 0; x < w; x++) {
+  //           const i = (y0 + y) * width + (x0 + x);
+  //           const lensValue = policyLensLayer ? policyLensLayer[i] : 0;
+  //           const blended = blendedArray[i];
+  //           const area = hasSelection ? currentBitArray[i] : 0;
+  //           const unique = hasSelection ? (uniqueArray[i] === 1 ? 1 : 0) : 0;
+
+  //           let color;
+  //           if (blended === 0 && lensValue === 0) color = NO_DATA_COLOR;
+  //           else if (blended === 0 && lensValue === 1)
+  //             color = LENS_HIGHLIGHT_COLOR;
+  //           else if (area && unique) color = UNIQUE_AREA_COLOR;
+  //           else if (area) color = SELECTED_AREA_COLOR;
+  //           else color = TOTAL_COLOR;
+
+  //           pixels[y * w + x] = color;
+  //         }
+  //       }
+
+  //       ctx.putImageData(imageData, 0, 0);
+
+  //       // Export the tile to a blob (sequentially to save memory)
+  //       const blob = await new Promise((r) => canvas.toBlob(r, "image/png"));
+  //       tileBlobs.push({ row, col, blob, w, h });
+  //     }
+  //   }
+
+  //   // --- Merge all tiles into one final canvas ---
+  //   const finalW = Math.floor(width * scale);
+  //   const finalH = Math.floor(height * scale);
+  //   const finalCanvas = document.createElement("canvas");
+  //   finalCanvas.width = finalW;
+  //   finalCanvas.height = finalH;
+  //   const finalCtx = finalCanvas.getContext("2d");
+
+  //   finalCtx.imageSmoothingEnabled = scale !== 1;
+  //   finalCtx.imageSmoothingQuality = "high";
+
+  //   const drawTilePromises = tileBlobs.map(async ({ row, col, blob, w, h }) => {
+  //     const img = await createImageBitmap(blob);
+
+  //     // Use exact float positions—no Math.floor
+  //     const x = col * tileSize * scale;
+  //     const y = row * tileSize * scale;
+  //     const drawW = w * scale;
+  //     const drawH = h * scale;
+
+  //     finalCtx.drawImage(img, x, y, drawW, drawH);
+  //   });
+  //   await Promise.all(drawTilePromises);
+
+  //   // Export final PNG blob
+  //   const finalBlob = await new Promise((r) =>
+  //     finalCanvas.toBlob(r, "image/png")
+  //   );
+  //   dataURL = URL.createObjectURL(finalBlob);
+  //   // console.log(dataURL);
+  //   done = true;
+  //   console.timeEnd("canvas-combined");
+
+  //   return { dataURL, scale };
+  // }
+  // $inspect({ dataURL });
 
   async function makeAndPaintCombinedCanvasMobile() {
     console.time("canvas-combined");
     done = false;
 
     // --- CONFIG ---
-    const MAX_TILE_PIXELS = 10_000_000; // ~3160×3160 per tile
-    const MAX_FINAL_PIXELS = 16_000_000; // Safari hard limit
+    const MAX_TILE_PIXELS = 10_000_000;
+    const MAX_FINAL_PIXELS = 16_000_000;
     // ---------------
 
-    // Precompute tile grid
     const tileSize = Math.floor(Math.sqrt(MAX_TILE_PIXELS));
     const cols = Math.ceil(width / tileSize);
     const rows = Math.ceil(height / tileSize);
 
-    // Determine if we must scale the final output
     let scale = 1;
     const totalPixels = width * height;
     if (totalPixels > MAX_FINAL_PIXELS) {
       scale = Math.sqrt(MAX_FINAL_PIXELS / totalPixels);
     }
 
-    // --- Prepare per-tile rendering ---
     const tileBlobs = [];
+
     const hasSelection = selectedRestrictionIndex >= 0 && renderUnique;
-    const currentBitArray = hasSelection
+    const blendedArr = blendedArray;
+    const lensArr = policyLensLayer;
+    const areaArr = hasSelection
       ? currentBitArrays[selectedRestrictionIndex]
       : null;
+    const uniqueArr = hasSelection ? uniqueArray : null;
 
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
@@ -939,43 +1102,40 @@
         const w = Math.min(tileSize, width - x0);
         const h = Math.min(tileSize, height - y0);
 
-        // ---- Render one tile ----
         const canvas = document.createElement("canvas");
         canvas.width = w;
         canvas.height = h;
         const ctx = canvas.getContext("2d");
+
         const imageData = ctx.createImageData(w, h);
         const pixels = new Uint32Array(imageData.data.buffer);
 
         for (let y = 0; y < h; y++) {
+          let base = (y0 + y) * width + x0;
+          let rowOffset = y * w;
+
           for (let x = 0; x < w; x++) {
-            const i = (y0 + y) * width + (x0 + x);
-            const lensValue = policyLensLayer ? policyLensLayer[i] : 0;
-            const blended = blendedArray[i];
-            const area = hasSelection ? currentBitArray[i] : 0;
-            const unique = hasSelection ? (uniqueArray[i] === 1 ? 1 : 0) : 0;
+            const i = base + x;
 
-            let color;
-            if (blended === 0 && lensValue === 0) color = NO_DATA_COLOR;
-            else if (blended === 0 && lensValue === 1)
-              color = LENS_HIGHLIGHT_COLOR;
-            else if (area && unique) color = UNIQUE_AREA_COLOR;
-            else if (area) color = SELECTED_AREA_COLOR;
-            else color = TOTAL_COLOR;
+            const key =
+              (blendedArr[i] << 3) |
+              ((lensArr ? lensArr[i] : 0) << 2) |
+              ((areaArr ? areaArr[i] : 0) << 1) |
+              (uniqueArr && uniqueArr[i] === 1 ? 1 : 0);
 
-            pixels[y * w + x] = color;
+            pixels[rowOffset + x] = COLOR_LUT[key];
           }
         }
 
         ctx.putImageData(imageData, 0, 0);
 
-        // Export the tile to a blob (sequentially to save memory)
         const blob = await new Promise((r) => canvas.toBlob(r, "image/png"));
+
         tileBlobs.push({ row, col, blob, w, h });
       }
     }
 
-    // --- Merge all tiles into one final canvas ---
+    // --- Merge tiles ---
     const finalW = Math.floor(width * scale);
     const finalH = Math.floor(height * scale);
     const finalCanvas = document.createElement("canvas");
@@ -986,31 +1146,29 @@
     finalCtx.imageSmoothingEnabled = scale !== 1;
     finalCtx.imageSmoothingQuality = "high";
 
-    const drawTilePromises = tileBlobs.map(async ({ row, col, blob, w, h }) => {
-      const img = await createImageBitmap(blob);
+    await Promise.all(
+      tileBlobs.map(async ({ row, col, blob, w, h }) => {
+        const img = await createImageBitmap(blob);
+        finalCtx.drawImage(
+          img,
+          col * tileSize * scale,
+          row * tileSize * scale,
+          w * scale,
+          h * scale
+        );
+      })
+    );
 
-      // Use exact float positions—no Math.floor
-      const x = col * tileSize * scale;
-      const y = row * tileSize * scale;
-      const drawW = w * scale;
-      const drawH = h * scale;
-
-      finalCtx.drawImage(img, x, y, drawW, drawH);
-    });
-    await Promise.all(drawTilePromises);
-
-    // Export final PNG blob
     const finalBlob = await new Promise((r) =>
       finalCanvas.toBlob(r, "image/png")
     );
+
     dataURL = URL.createObjectURL(finalBlob);
-    // console.log(dataURL);
     done = true;
     console.timeEnd("canvas-combined");
 
     return { dataURL, scale };
   }
-  // $inspect({ dataURL });
 
   function countOccurrences(uint8Array) {
     const counts = {};
@@ -1104,6 +1262,31 @@
   }
 
   let message = $state("");
+
+  function downloadUint32Array() {
+    let biggerBlendedArray = new Uint32Array(blendedArray);
+    // console.log(biggerBlendedArray.BYTES_PER_ELEMENT);
+    blendedArrayIndices = biggerBlendedArray
+      .map((d, i) => (d === 1 ? i : 4294967295))
+      .filter((d) => d !== 4294967295);
+
+    // console.log({ blendedArrayIndices });
+
+    // Use the underlying ArrayBuffer (no copy)
+    const filename = "data.bin";
+    const blob = new Blob([blendedArrayIndices.buffer], {
+      type: "application/octet-stream",
+    });
+
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+
+    URL.revokeObjectURL(url);
+  }
 </script>
 
 <svelte:head>
@@ -1484,62 +1667,67 @@
             on the map, with the total area in this category shown in
             <span class="areaHighlightText">pink</span>.
           </p>
-          {#key tableData}
-            {#if tableData && tableMetadata}
-              <Table
-                caption={""}
-                data={tableData.sort((a, b) => +b.unique - +a.unique)}
-                metaData={tableMetadata}
-                colourScale={"Off"}
-                bind:sortState
-                bind:selectedRestriction
-                bind:restrictionChanged
-                sortedColumn={"unique"}
-              />
-              <Button
-                buttonType="default"
-                textContent="Download data (.csv)"
-                onClickFunction={function () {
-                  const csvStr = jsonToCsv(
-                    tableData,
-                    policyLens,
-                    policyLensItems,
-                    selected
-                  );
-                  const blob = new Blob([csvStr], { type: "text/csv" });
-                  const link = document.createElement("a");
-                  link.href = URL.createObjectURL(blob);
-                  link.download = "land-data.csv";
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-                  URL.revokeObjectURL(link.href);
-                }}
-              ></Button>
-              <Button
-                buttonType="default"
-                textContent="Download Local Authority breakdown of data (.csv)"
-                onClickFunction={function () {
-                  if (!blendedArray || blendedArray.length === 0) return;
+          <!-- {#key tableData} -->
+          {#if tableData && tableMetadata}
+            <Table
+              caption={""}
+              data={tableData.sort((a, b) => +b.unique - +a.unique)}
+              metaData={tableMetadata}
+              colourScale={"Off"}
+              bind:sortState
+              bind:selectedRestriction
+              on:restrictionChanged={blendLayers}
+              sortedColumn={"unique"}
+            />
+            <Button
+              buttonType="default"
+              textContent="Download data (.csv)"
+              onClickFunction={function () {
+                const csvStr = jsonToCsv(
+                  tableData,
+                  policyLens,
+                  policyLensItems,
+                  selected
+                );
+                const blob = new Blob([csvStr], { type: "text/csv" });
+                const link = document.createElement("a");
+                link.href = URL.createObjectURL(blob);
+                link.download = "land-data.csv";
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(link.href);
+              }}
+            ></Button>
+            <Button
+              buttonType="default"
+              textContent="Download Local Authority breakdown of data (.csv)"
+              onClickFunction={function () {
+                if (!blendedArray || blendedArray.length === 0) return;
 
-                  const csvStr = jsonToCsv(
-                    breakdownData,
-                    policyLens,
-                    policyLensItems,
-                    selected
-                  );
-                  const blob = new Blob([csvStr], { type: "text/csv" });
-                  const link = document.createElement("a");
-                  link.href = URL.createObjectURL(blob);
-                  link.download = "land-data-by-la.csv";
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-                  URL.revokeObjectURL(link.href);
-                }}
-              ></Button>
-            {/if}
-          {/key}
+                const csvStr = jsonToCsv(
+                  breakdownData,
+                  policyLens,
+                  policyLensItems,
+                  selected
+                );
+                const blob = new Blob([csvStr], { type: "text/csv" });
+                const link = document.createElement("a");
+                link.href = URL.createObjectURL(blob);
+                link.download = "land-data-by-la.csv";
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(link.href);
+              }}
+            ></Button>
+            <Button
+              buttonType="secondary"
+              textContent="Download the selected area shape (.bin)"
+              onClickFunction={downloadUint32Array}
+            />
+          {/if}
+          <!-- {/key} -->
         {:else}
           <p>Select some categories to view the data.</p>
         {/if}
@@ -1555,404 +1743,4 @@
 <!-- <p>{message}</p> -->
 
 <style>
-  #map {
-    scroll-margin-top: 10px;
-  }
-
-  #side-panel {
-    line-height: 1.5;
-    -webkit-text-size-adjust: 100%;
-    tab-size: 4;
-    font-family: var(--default-font-family, --font-sans);
-    font-feature-settings: var(--default-font-feature-settings, normal);
-    font-variation-settings: var(--default-font-variation-settings, normal);
-    -webkit-tap-highlight-color: transparent;
-    box-sizing: border-box;
-    margin: 10px 0 0 0;
-    padding: 0;
-    border: 0 solid;
-    position: absolute;
-    z-index: 10;
-    /* height: 100dvh; */
-    height: calc(100vh - 150px);
-    translate: var(--tw-translate-x) 0;
-    transform: var(--tw-rotate-x,) var(--tw-rotate-y,) var(--tw-rotate-z,)
-      var(--tw-skew-x,) var(--tw-skew-y,);
-    background-color: #f3f2f1;
-    transition-property: transform, translate, scale, rotate;
-    transition-duration: 200ms;
-    transition-timing-function: var(--ease-in-out);
-    /* width: 45%; */
-    max-width: min(calc(100vw - 70px), 360px);
-    /* border-right: solid 1px #1d70b8; */
-  }
-
-  div.collapse-filters-div {
-    line-height: 1.5;
-    -webkit-text-size-adjust: 100%;
-    tab-size: 4;
-    font-family: var(--default-font-family, --font-sans);
-    font-feature-settings: var(--default-font-feature-settings, normal);
-    font-variation-settings: var(--default-font-variation-settings, normal);
-    -webkit-tap-highlight-color: transparent;
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-    border: 0 solid;
-    position: absolute;
-    top: calc(var(--spacing) * 0);
-    right: calc(40px * -1);
-    bottom: calc(var(--spacing) * 0);
-    margin-block: auto;
-    height: calc(var(--spacing) * 24);
-    width: 40px;
-  }
-
-  button.collapse-filters-button {
-    -webkit-text-size-adjust: 100%;
-    tab-size: 4;
-    -webkit-tap-highlight-color: transparent;
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-    border: 0 solid;
-    font: inherit;
-    font-feature-settings: inherit;
-    font-variation-settings: inherit;
-    letter-spacing: inherit;
-    color: inherit;
-    border-radius: 0;
-    opacity: 1;
-    appearance: button;
-    position: relative;
-    z-index: 50;
-    display: flex;
-    height: 76px;
-    width: 40px;
-    transform: translateZ(0) var(--tw-rotate-x,) var(--tw-rotate-y,)
-      var(--tw-rotate-z,) var(--tw-skew-x,) var(--tw-skew-y,);
-    cursor: pointer;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    border-top-right-radius: var(--radius-md);
-    border-bottom-right-radius: var(--radius-md);
-    background-color: #f3f2f1;
-    padding-block: calc(var(--spacing) * 3);
-    --tw-shadow: 6px 4px 10px -1px var(--tw-shadow-color, rgba(0, 0, 0, 0.3));
-    box-shadow: var(--tw-shadow);
-  }
-
-  button.collapse-filters-button:focus-visible {
-    outline: none;
-    box-shadow:
-      0 0 0 1px black,
-      0 0 0 4px #ffdd00;
-  }
-
-  button.collapse-filters-button:hover {
-    background-color: #eeeceb;
-  }
-
-  .text-gray-700 {
-    color: oklch(37.3% 0.034 259.733);
-  }
-
-  svg.h-6.w-6 {
-    -webkit-text-size-adjust: 100%;
-    tab-size: 4;
-    -webkit-tap-highlight-color: transparent;
-    font: inherit;
-    font-feature-settings: inherit;
-    font-variation-settings: inherit;
-    letter-spacing: inherit;
-    cursor: pointer;
-    color: var(--color-gray-700);
-    fill: none;
-    stroke: currentcolor;
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-    border: 0 solid;
-    display: block;
-    vertical-align: middle;
-    height: calc(var(--spacing) * 6);
-    width: calc(var(--spacing) * 6);
-  }
-
-  div.flex.items-center.px-2 {
-    -webkit-text-size-adjust: 100%;
-    tab-size: 4;
-    -webkit-tap-highlight-color: transparent;
-
-    font: inherit;
-    font-feature-settings: inherit;
-    font-variation-settings: inherit;
-    letter-spacing: inherit;
-    color: inherit;
-    cursor: pointer;
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-    border: 0 solid;
-    display: flex;
-    align-items: center;
-    padding-inline: calc(var(--spacing) * 2);
-  }
-
-  div.header-left {
-    display: grid;
-    grid-template-columns: 1fr 2fr;
-  }
-
-  @media (max-width: 600px) {
-    div.header-left {
-      display: flex;
-      flex-direction: column;
-    }
-  }
-
-  div.firstSelections {
-    background-color: #f3f2f1;
-    /* max-width: 50%; */
-    padding: 22px 26px;
-    /* margin: 25px; */
-  }
-
-  /* div.summaryStats {
-    margin: 25px;
-    max-width: 50%;
-  } */
-
-  :global(div.header-section div.p-4) {
-    max-height: 2rem;
-    padding-top: 30px;
-  }
-
-  :global(div.app-c-filter-panel__actions div.p-4) {
-    max-height: 2.5rem;
-  }
-
-  .header-section {
-    display: grid;
-    grid-template-columns: 1fr 3fr;
-    font-family: sans-serif;
-    padding: 10px;
-    min-height: 200px;
-  }
-
-  @media (max-width: 600px) {
-    .header-section {
-      display: flex;
-      flex-direction: column;
-      font-family: sans-serif;
-      padding: 10px;
-      min-height: 200px;
-    }
-  }
-
-  .header-right {
-    margin-top: 21.44px;
-    display: grid;
-    /* grid-template-columns: 50% 50%; */
-  }
-
-  .container {
-    display: grid;
-    /* grid-template-columns: 23% 40% 37%; */
-    font-family: sans-serif;
-    /* max-height: 85vh; */
-    /* overflow: scroll; */
-    transition: all 500ms;
-    position: relative;
-  }
-
-  .map-and-table {
-    display: grid;
-    grid-template-rows: minmax(0, 0px) 1fr;
-    position: relative;
-  }
-
-  @media (max-width: 600px) {
-    .container {
-      display: flex;
-      flex-direction: column;
-      font-family: sans-serif;
-    }
-
-    .map-and-table {
-      display: flex;
-      flex-direction: column;
-    }
-  }
-
-  .output {
-    padding: 0px 10px;
-    /* max-height: 700px; */
-    /* overflow-y: auto; */
-    /* overflow-x: scroll; */
-    /* width: 100%; */
-    height: calc(100vh - 150px);
-    transition: all 500ms;
-    max-width: calc(var(--mapWidth) - 50px);
-    position: absolute;
-    top: 10px;
-    z-index: 10;
-    background-color: white;
-    min-width: 260px;
-  }
-
-  .slider {
-    /* display: grid; */
-    /* grid-template-rows: minmax(0, 20px); */
-    /* max-height: 20px; */
-    grid-column: 1 / span 2;
-    grid-row: 1;
-  }
-
-  .slider input {
-    -webkit-appearance: none;
-    appearance: none;
-    width: calc(100% + 1rem);
-    /* margin-left: 10px; */
-    /* position: relative; */
-    margin-left: -0.25rem;
-  }
-
-  input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    position: relative;
-    top: 300px;
-    margin-top: -12px; /* Centers the thumb */
-    margin-left: -4px;
-    background-color: #d9d9d9;
-    background-image: url("/Vector.svg");
-    background-repeat: no-repeat;
-    background-position: center;
-    background-size: 50%;
-    height: 80px;
-    width: 20px;
-    border-radius: 0.25rem;
-    z-index: 1;
-    /* cursor: pointer; */
-  }
-
-  input[type="range"]::-moz-range-thumb {
-    background-color: #d9d9d9;
-    background-image: url("/Vector.svg");
-    background-repeat: no-repeat;
-    background-position: center;
-    background-size: 50%;
-    height: 80px;
-    width: 20px;
-    border-radius: 0.25rem;
-    /* cursor: pointer; */
-    /* position: relative; */
-    /* top: 300px; */
-    /* margin-top: -12px; */
-    /* margin-left: -40px; */
-    transform: translateY(300px) translateX(-0.45rem);
-    z-index: 1;
-  }
-
-  .slider input {
-    cursor: grab;
-  }
-
-  .slider input:active {
-    cursor: grabbing;
-  }
-
-  .slider input::-moz-range-track {
-    background: transparent;
-    border-color: transparent;
-    color: transparent;
-  }
-
-  .slider input::-webkit-slider-runnable-track {
-    background: transparent;
-    border-color: transparent;
-    color: transparent;
-  }
-
-  .map {
-    grid-column: 1;
-    grid-row: 2;
-    /* min-height: 700px; */
-  }
-
-  :global(.output div.app-c-filter-panel) {
-    padding-top: 0px;
-  }
-
-  .table {
-    padding: 0px 30px;
-    /* max-height: 700px; */
-    grid-column: 2;
-    grid-row: 2;
-  }
-
-  .os-map-container {
-    height: calc(100vh - 150px);
-  }
-  :global(td.govuk-table__cell) {
-    padding-right: 20px;
-  }
-  /* summary {
-    cursor: pointer;
-  } */
-
-  .lens-area {
-    background-color: #ff00ff44;
-    padding: 0 2px 2px;
-    border-radius: 2px;
-  }
-
-  .totalHighlightText {
-    font-weight: 700;
-    color: white;
-    background-color: dimgray;
-    padding: 0 2px 2px;
-    border-radius: 2px;
-  }
-
-  .uniqueHighlightText {
-    font-weight: 700;
-    color: white;
-    background-color: crimson;
-    padding: 0 2px 2px;
-    border-radius: 2px;
-  }
-
-  .areaHighlightText {
-    font-weight: 700;
-    color: #0b0c0c;
-    background-color: pink;
-    padding: 0 2px 2px;
-    border-radius: 2px;
-  }
-  .os-map-container:not(.done) {
-    background-color: grey;
-    opacity: 0.5;
-    transition: all 500ms ease-in-out;
-  }
-
-  .os-map-container:not(.done)::after {
-    content: "Recalculating...";
-  }
-
-  .stacked-bar {
-    width: 100px;
-    height: 1rem;
-    background-color: #99988f74;
-    border: 1px solid black;
-    /* border-radius: 0.5rem; */
-  }
-
-  .stacked-bar-inner {
-    /* width: 50px; */
-    height: 1rem;
-    background-color: #00625e;
-  }
 </style>

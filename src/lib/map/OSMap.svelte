@@ -13,6 +13,8 @@
   // import WebGLTileLayer from "ol/layer/WebGLTile";
   import { register } from "ol/proj/proj4";
   import { Map, View } from "ol";
+  import TileLayer from "ol/layer/Tile.js";
+  import XYZ from "ol/source/XYZ.js";
   import { VectorTile as VectorTileLayer, Image as ImageLayer } from "ol/layer";
   import VectorLayer from "ol/layer/Vector.js";
   import { VectorTile as VectorTileSource } from "ol/source";
@@ -26,12 +28,14 @@
   import { defaults as defaultControls } from "ol/control/defaults.js";
   import proj4 from "proj4";
   import { apply, applyStyle } from "ol-mapbox-style";
+  import { apiKey, serviceUrl } from "$lib/constants.ts";
 
   let mapElement;
   let map;
   let tiffLayer;
-  const apiKey = "oCUBI8DjgzTP5J8VptrnOAxYVeZc0cZ2";
-  const serviceUrl = "https://api.os.uk/maps/vector/v1/vts";
+  let baseLayer, vectorTileLayer, aerialLayer, currentBaseMap;
+  // const apiKey = "oCUBI8DjgzTP5J8VptrnOAxYVeZc0cZ2";
+  // const serviceUrl = "https://api.os.uk/maps/vector/v1/vts";
   // let worker;
   onMount(async () => {
     proj4.defs(
@@ -64,7 +68,7 @@
       tileSize,
     });
 
-    const vectorTileLayer = new VectorTileLayer({ declutter: true });
+    vectorTileLayer = new VectorTileLayer({ declutter: true });
 
     await vectorTileLayer.setSource(
       new VectorTileSource({
@@ -143,11 +147,27 @@
       opacity: 0.8,
     });
 
+    baseLayer = new TileLayer({
+      source: new XYZ({
+        url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+      }),
+    });
+
+    aerialLayer = new TileLayer({
+      source: new XYZ({
+        url: "https://tiledbasemaps.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      }),
+      // tileSize: 256,
+    });
+
+    currentBaseMap = vectorTileLayer;
+
     map = new Map({
       controls: defaultControls().extend([new FullScreen()]),
       target: mapElement,
       layers: [
-        vectorTileLayer,
+        // vectorTileLayer,
+        currentBaseMap,
         geoJsonVectorLayer,
         scotlandAndWalesVectorLayer,
         tiffLayer,
@@ -287,11 +307,37 @@
       }
     }
   });
+
+  function updateBaseMap(value) {
+    map.removeLayer(currentBaseMap);
+    console.log(value);
+    if (value == "OS") {
+      map.getLayers().insertAt(0, vectorTileLayer);
+      currentBaseMap = vectorTileLayer;
+    } else if (value == "osm") {
+      map.getLayers().insertAt(0, baseLayer);
+      currentBaseMap = baseLayer;
+    } else {
+      map.getLayers().insertAt(0, aerialLayer);
+      currentBaseMap = aerialLayer;
+    }
+  }
 </script>
 
 <div bind:this={mapElement} class="map-container" tabindex="0">
   <div id="info"></div>
 </div>
+
+<label for="basemap-picker">Select base map:</label>
+<select
+  name="Select base map"
+  id="basemap-picker"
+  onchange={(e) => updateBaseMap(e.target.value)}
+>
+  <option value="OS">OS</option>
+  <option value="osm">Open Street Map</option>
+  <option value="aerial">Aerial Imagery</option>
+</select>
 
 <style>
   @import url(//fonts.googleapis.com/css?family=Source+Sans+Pro);

@@ -1,26 +1,12 @@
 import { fromBlob } from "geotiff";
 
-//   function parseMetadataCsv(csvText) {
-//     const lines = csvText.trim().split("\n");
-//     const headers = lines[0].trim().split(",");
-
-//     return lines.slice(1).map((line) => {
-//       // console.log(line);
-//       const values = line.split(",");
-//       const row = {};
-//       headers.forEach((h, i) => (row[h] = values[i].replace("\r", "")));
-//       // console.log(row);
-//       return row;
-//     });
-//   }
-
 self.onmessage = async function (e) {
   const { layersToUnpack, base, policyLens } = e.data;
   console.log("starting to unpack", { policyLens });
   try {
     const rasterLayers = layersToUnpack;
     // console.log(rasterLayers);
-    const bitLayers = [];
+    // const bitLayers = [];
 
     let layerIndex = 0;
     let width, height, bbox;
@@ -97,7 +83,7 @@ self.onmessage = async function (e) {
           }
         }
 
-        bitLayers.push(result);
+        // bitLayers.push(result);
 
         const enriched = {
           ...layer,

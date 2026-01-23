@@ -1,6 +1,9 @@
 <script>
   import Button from "./Button.svelte";
   import { InsetText } from "@communitiesuk/svelte-component-library";
+  import { createEventDispatcher } from "svelte";
+
+  const dispatch = createEventDispatcher();
 
   let {
     data = undefined,
@@ -9,11 +12,11 @@
     colourScale = undefined,
     sortState = $bindable({ column: "unique", order: "descending" }),
     selectedRestriction = $bindable(),
-    restrictionChanged = $bindable(false),
   } = $props();
   //   $inspect(sortState);
   let localCopyOfData = $state([...data]);
-
+  let openInsets = $state(data.map((d) => false));
+  // $inspect(openInsets);
   function hasUniqueValues(array, key) {
     const seen = new Set();
     for (const obj of array) {
@@ -172,7 +175,7 @@
         </tr></thead
       >
       <tbody class="govuk-table__body">
-        {#each localCopyOfData as row}
+        {#each localCopyOfData as row, i}
           <tr
             class={"govuk-table__row" +
               (selectedRestriction === row.name ? " selected" : "")}
@@ -180,7 +183,7 @@
               selectedRestriction === row.name
                 ? (selectedRestriction = undefined)
                 : (selectedRestriction = row.name);
-              restrictionChanged = true;
+              dispatch("restrictionChanged");
             }}
             onkeydown={(e) => {
               //   console.log(e.code);
@@ -188,7 +191,7 @@
                 selectedRestriction === row.name
                   ? (selectedRestriction = undefined)
                   : (selectedRestriction = row.name);
-                restrictionChanged = true;
+                dispatch("restrictionChanged");
               }
             }}
             tabindex="0"
@@ -210,28 +213,73 @@
                   >
                 {/if}
               {:else}
-                <td class="govuk-table__cell"
-                  >{row[column.key]}
-                  {#if row.subLayers.length > 0}
-                    <div
+                <td class="govuk-table__cell">
+                  <div style="display: flex;">
+                    {row[column.key]}
+                    {#if row.subLayers.length > 0}
+                      <!-- <div
                       class="info-cell"
-                      aria-hidden="true"
                       aria-expanded="false"
+                      role="button"
+                      onclick={(e) => {
+                        e.stopPropagation();
+                        openInsets[row.name] = !openInsets[row.name];
+                      }}
+                      onkeydown={(e) => {
+                        console.log(e);
+                        if (e.code == "Enter" || e.code == "Space") {
+                          e.stopPropagation();
+                          openInsets[row.name] = !openInsets[row.name];
+                        }
+                      }}
+                      tabindex="0"
                     >
                       <svg
                         class="c h-16 w-16 inline"
                         viewBox="0 2 48 48"
                         style="width: 24px; height: 24px;"
+                        aria-hidden="true"
                         ><path
                           fill="black"
                           d="M24.15 34q.65 0 1.075-.425.425-.425.425-1.075v-9.05q0-.6-.45-1.025Q24.75 22 24.15 22q-.65 0-1.075.425-.425.425-.425 1.075v9.05q0 .6.45 1.025.45.425 1.05.425ZM24 18.3q.7 0 1.175-.45.475-.45.475-1.15t-.475-1.2Q24.7 15 24 15q-.7 0-1.175.5-.475.5-.475 1.2t.475 1.15q.475.45 1.175.45ZM24 44q-4.25 0-7.9-1.525-3.65-1.525-6.35-4.225-2.7-2.7-4.225-6.35Q4 28.25 4 24q0-4.2 1.525-7.85Q7.05 12.5 9.75 9.8q2.7-2.7 6.35-4.25Q19.75 4 24 4q4.2 0 7.85 1.55Q35.5 7.1 38.2 9.8q2.7 2.7 4.25 6.35Q44 19.8 44 24q0 4.25-1.55 7.9-1.55 3.65-4.25 6.35-2.7 2.7-6.35 4.225Q28.2 44 24 44Zm0-20Zm0 17q7 0 12-5t5-12q0-7-5-12T24 7q-7 0-12 5T7 24q0 7 5 12t12 5Z"
                         ></path></svg
                       >
-                    </div>
-                    <br />
-                    <span class="subLayers"
+                    </div> -->
+                      <!-- <div class="icon-container"> -->
+                      <Button
+                        textContent={"More information about the " +
+                          row.name +
+                          " layer"}
+                        buttonType="moreInfo"
+                        noPadding={true}
+                        onClickFunction={(e) => {
+                          e.stopPropagation();
+                          openInsets[i] = !openInsets[i];
+                        }}
+                        onKeydownFunction={(e) => {
+                          if (e.code == "Enter" || e.code == "Space") {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            openInsets[i] = !openInsets[i];
+                          }
+                        }}
+                        ariaExpanded={openInsets[i]}
+                      ></Button>
+                    {/if}
+                  </div>
+                  <!-- </div> -->
+                  <!-- <br /> -->
+                  <!-- <span class="subLayers"
                       >(made up of {row.subLayers.join(", ")})</span
-                    >
+                    > -->
+                  {#if openInsets[i]}
+                    <InsetText
+                      content={"Made up of:" +
+                        "<ul><li>" +
+                        row.subLayers.join("</li><li>") +
+                        "</li></ul>"}
+                      renderStringAsHTML={true}
+                    ></InsetText>
                   {/if}
                 </td>
               {/if}
@@ -302,11 +350,11 @@
     background-color: whitesmoke;
   }
 
-  .subLayers {
+  /* .subLayers {
     font-style: italic;
     color: #707170;
     font-size: small;
-  }
+  } */
 
   :global([aria-sort="ascending"].govuk-table__header .top-triangle) {
     fill: #222;
@@ -321,19 +369,19 @@
     fill: #222;
   }
 
-  .info-cell {
+  /* .info-cell {
     padding: 0 5px;
     margin: 0;
     display: inline-block;
     position: relative;
     transform: translateY(-1px);
     cursor: pointer;
-  }
+  } */
 
-  svg.inline {
+  /* svg.inline {
     vertical-align: middle;
     overflow: visible;
     forced-color-adjust: auto;
-    display: none; /* until we've coded this properly */
-  }
+    display: inline; 
+  } */
 </style>

@@ -20,7 +20,7 @@ self.onmessage = async function (e) {
   try {
     const rasterLayers = layersToUnpack;
     // console.log(rasterLayers, policyLensLayerToUnpack);
-    const bitLayers = [];
+    // const bitLayers = [];
 
     let layerIndex = 0;
     let width, height, bbox;
@@ -101,7 +101,7 @@ self.onmessage = async function (e) {
           }
         }
 
-        bitLayers.push(result);
+        // bitLayers.push(result);
 
         const enriched = {
           ...layer,
