@@ -2,9 +2,9 @@
   import { interpolateViridis } from "d3-scale-chromatic";
 
   let { histogram }: { histogram: Record<string, number> } = $props();
-  console.log("histogram", histogram);
+  // console.log("histogram", histogram);
   let vals: number[] = [];
-  let max = $state();
+  let max: number = $state();
 
   $effect(() => {
     vals = Object.values(histogram).map(Number);

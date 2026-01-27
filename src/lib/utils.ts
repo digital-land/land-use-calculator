@@ -1,3 +1,5 @@
+//@ts-check
+
 import { fromUrl } from "geotiff";
 import { interpolateViridis } from "d3-scale-chromatic";
 import ImageLayer from "ol/layer/Image.js";
@@ -15,10 +17,16 @@ export interface MapGroup {
     gridConfig: GridConfig;
     stats: any;
     histogram: any;
-    layer: ImageLayer;
+    layer: ImageLayer<ImageCanvasSource>;
   }
 
-export function parseCsv(csvText) {
+  export interface PolicyLensItem {
+    value: string;
+    text: string;
+    sentenceText: string;
+  }
+
+export function parseCsv(csvText: string): object[] {
   const lines = csvText.trim().split("\n");
   const headers = lines[0].trim().split(",");
 
@@ -32,7 +40,7 @@ export function parseCsv(csvText) {
   });
 }
 
-export function jsonToCsv(items, policyLens, policyLensItems, selected: string[]) {
+export function jsonToCsv(items: object[], policyLens: string, policyLensItems: PolicyLensItem[], selected: string[]): string {
   const title = `"Selected area covers : ${selected.map(d => makeFileNameReadable(d)).join(', ')}"\r\n`
   const footer =
     "\r\n Notes: \r\n 1. All figures are in hectares. \r\n 2. This is an experimental product under development.";
@@ -173,6 +181,8 @@ export function computeStats(group: MapGroup, densityArray: Uint16Array) {
 
     group.stats = { count: values.length, sum, mean, median, min, max };
     group.histogram = histogram;
+
+    return group
   }
 
   export function uploadedIndexToFullIndex(index: number, grid: GridConfig): number {
@@ -185,7 +195,7 @@ export function computeStats(group: MapGroup, densityArray: Uint16Array) {
     return row * grid.width + col;
   }
 
-  export function coordToIndex(x: number, y: number, grid: GridConfig) {
+  export function coordToIndex(x: number, y: number, grid: GridConfig): number {
     const cols = grid.width - (grid.colOffset || 0);
     const row = grid.height - 1 - Math.floor((y - originY) / cellSize);
     const col = Math.floor((x - originX) / cellSize);
@@ -193,7 +203,7 @@ export function computeStats(group: MapGroup, densityArray: Uint16Array) {
     return row * cols + col;
   }
 
-  export function indexToCoord(index: number, grid: GridConfig) {
+  export function indexToCoord(index: number, grid: GridConfig): {x: number, y: number} {
     const cols = grid.width - (grid.colOffset || 0);
     const row = Math.floor(index / cols);
     const col = index % cols;
@@ -263,7 +273,7 @@ export function drawGroupRaster(
       .replace(")", `, ${fillOpacity})`);
   }
 
-export function createGroupLayer(group: MapGroup, opacity, densityArray: Uint16Array): ImageLayer<ImageCanvasSource> {
+export function createGroupLayer(group: MapGroup, opacity: number, densityArray: Uint16Array): ImageLayer<ImageCanvasSource> {
     return new ImageLayer({
       source: new ImageCanvasSource({
         projection: "EPSG:27700",
@@ -301,4 +311,5 @@ export function countOccurrences(uint8Array: Uint8Array): object {
   export const cellSize = 100; // meters per cell/hectare
   export const fillOpacity = 0.5;
 
-export const colors = ['#00625E', '#932A72', '#85292A', '#BF4A1D', '#40611f', '#205083', '#333366']
+export const colors: string[] = ['#00625E', '#932A72', '#85292A', '#BF4A1D', '#40611f', '#205083', '#333366']
+

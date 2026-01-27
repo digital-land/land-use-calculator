@@ -177,7 +177,7 @@
       }),
     });
 
-    currentBaseMap = baseLayer;
+    currentBaseMap = vectorTileLayer;
 
     const group = {
       name: "Density layer",
@@ -351,9 +351,9 @@
   });
 
   $effect(() => {
-    if (seeDensity) {
+    if (seeDensity && blendedArrayIndices) {
       if (map && dataURL) {
-        console.log("Removing the total tiff layer");
+        console.log("Updating the density layer");
 
         map.removeLayer(densityLayer);
 
@@ -395,18 +395,19 @@
 
 <div bind:this={mapElement} class="map-container" tabindex="0">
   <div id="info"></div>
+  <div class="basemap-picker-control ol-control">
+    <label for="basemap-picker">Select base map:</label>
+    <select
+      name="Select base map"
+      id="basemap-picker"
+      onchange={(e) => updateBaseMap(e.target.value)}
+    >
+      <option value="OS">Ordnance Survey</option>
+      <option value="osm">Open Street Map</option>
+      <option value="aerial">Aerial Imagery</option>
+    </select>
+  </div>
 </div>
-
-<label for="basemap-picker">Select base map:</label>
-<select
-  name="Select base map"
-  id="basemap-picker"
-  onchange={(e) => updateBaseMap(e.target.value)}
->
-  <option value="OS">OS</option>
-  <option value="osm">Open Street Map</option>
-  <option value="aerial">Aerial Imagery</option>
-</select>
 
 <style>
   @import url(//fonts.googleapis.com/css?family=Source+Sans+Pro);
@@ -439,5 +440,20 @@
     transform: translateX(3%);
     visibility: hidden;
     pointer-events: none;
+  }
+
+  .basemap-picker-control {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    background: rgba(255, 255, 255, 0.5);
+    width: fit-content;
+    z-index: 9;
+    display: block;
+    padding: 3px;
+  }
+
+  .basemap-picker-control select {
+    background: rgba(255, 255, 255, 0.5);
   }
 </style>

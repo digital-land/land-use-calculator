@@ -1,9 +1,9 @@
-<script>
+<script lang="ts">
   import Button from "./Button.svelte";
   import { InsetText } from "@communitiesuk/svelte-component-library";
-  import { createEventDispatcher } from "svelte";
+  // import { createEventDispatcher } from "svelte";
 
-  const dispatch = createEventDispatcher();
+  // const dispatch = createEventDispatcher();
 
   let {
     data = undefined,
@@ -12,6 +12,7 @@
     colourScale = undefined,
     sortState = $bindable({ column: "unique", order: "descending" }),
     selectedRestriction = $bindable(),
+    blendLayers,
   } = $props();
   //   $inspect(sortState);
   let localCopyOfData = $state([...data]);
@@ -62,22 +63,22 @@
       if (typeof localCopyOfData[0][sortState["column"]] === "number") {
         if (sortState.order === "ascending") {
           localCopyOfData.sort(
-            (a, b) => +a[sortState.column] - +b[sortState.column]
+            (a, b) => +a[sortState.column] - +b[sortState.column],
           );
         } else {
           localCopyOfData.sort(
-            (a, b) => +b[sortState.column] - +a[sortState.column]
+            (a, b) => +b[sortState.column] - +a[sortState.column],
           );
         }
       }
       if (typeof localCopyOfData[0][sortState["column"]] === "string") {
         if (sortState.order === "ascending") {
           localCopyOfData.sort((a, b) =>
-            a[sortState["column"]].localeCompare(b[sortState["column"]])
+            a[sortState["column"]].localeCompare(b[sortState["column"]]),
           );
         } else {
           localCopyOfData.sort((a, b) =>
-            b[sortState["column"]].localeCompare(a[sortState["column"]])
+            b[sortState["column"]].localeCompare(a[sortState["column"]]),
           );
         }
       }
@@ -183,7 +184,8 @@
               selectedRestriction === row.name
                 ? (selectedRestriction = undefined)
                 : (selectedRestriction = row.name);
-              dispatch("restrictionChanged");
+              // dispatch("restrictionChanged");
+              blendLayers();
             }}
             onkeydown={(e) => {
               //   console.log(e.code);
@@ -191,7 +193,8 @@
                 selectedRestriction === row.name
                   ? (selectedRestriction = undefined)
                   : (selectedRestriction = row.name);
-                dispatch("restrictionChanged");
+                // dispatch("restrictionChanged");
+                blendLayers();
               }
             }}
             tabindex="0"
