@@ -1,0 +1,30 @@
+(function (console) {
+  console.saveUint32Set = function (set, filename = 'data.bin') {
+    if (!(set instanceof Set)) {
+      console.error('console.saveUint32Set: data is not a Set');
+      return;
+    }
+
+    const length = set.size;
+    const buffer = new ArrayBuffer(length * 4); // 4 bytes per Uint32
+    const view = new Uint32Array(buffer);
+
+    let i = 0;
+    for (const value of set) {
+      if (!Number.isInteger(value) || value < 0 || value > 0xFFFFFFFF) {
+        console.error('Invalid Uint32 value in Set:', value);
+        return;
+      }
+      view[i++] = value;
+    }
+
+    const blob = new Blob([view], { type: 'application/octet-stream' });
+
+    const a = document.createElement('a');
+    a.download = filename;
+    a.href = URL.createObjectURL(blob);
+    a.click();
+
+    URL.revokeObjectURL(a.href);
+  };
+})(console);

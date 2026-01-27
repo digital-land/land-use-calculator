@@ -370,8 +370,17 @@
     grid-row: 2;
   }
 
+  @media (max-width: 600px) {
+    .table {
+      padding: 20px 30px;
+    }
+  }
+
   .os-map-container {
     height: calc(100vh - 150px);
+      transition: background-color 500ms ease-in-out,
+              opacity 500ms ease-in-out;
+
   }
   :global(td.govuk-table__cell) {
     padding-right: 20px;
@@ -417,6 +426,12 @@
 
   .os-map-container:not(.done)::after {
     content: "Recalculating...";
+    /* position: absolute;
+    top: 50vh;
+    left: auto;
+    font-size: large;
+    background-color: #eeeceb;
+    color: black; */
   }
 
   .stacked-bar {

@@ -45,8 +45,8 @@
       Object.entries(zones).map(([zoneName, chipIds]) => [
         zoneName,
         [...new Set(chipIds.map((id) => chipData[id]?.category))],
-      ])
-    )
+      ]),
+    ),
   );
 
   // Update functions only change selected/policyLens
@@ -116,7 +116,7 @@
 <div class="filters-and-legend-container">
   <div class="drop-zone" data-zone="zone2">
     {#each zones.zone2 as id}
-      {#if id !== "England"}
+      {#if id !== "England" && id !== policyLens}
         <FilterChip
           {...chipData[id]}
           currentZone="zone2"

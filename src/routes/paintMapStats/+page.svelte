@@ -38,7 +38,7 @@
 
   proj4.defs(
     "EPSG:27700",
-    "+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +datum=OSGB36 +units=m +no_defs"
+    "+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +datum=OSGB36 +units=m +no_defs",
   );
   register(proj4);
 
@@ -150,7 +150,7 @@
         const index = coordToIndex(
           originX + (colCenter + i) * cellSize,
           originY + (rowCenter + j) * cellSize,
-          group.gridConfig
+          group.gridConfig,
         );
         if (index !== null) group.paintedIndices.add(index);
       }
@@ -175,7 +175,7 @@
         const index = coordToIndex(
           originX + (colCenter + i) * cellSize,
           originY + (rowCenter + j) * cellSize,
-          group.gridConfig
+          group.gridConfig,
         );
         if (index !== null) group.paintedIndices.delete(index);
       }
@@ -237,7 +237,7 @@
 
   onMount(async () => {
     const tiffData = await loadDensityTiff(
-      "/range/hectare_counts_adjusted_nox.tif"
+      "/range/hectare_counts_adjusted_nox.tif",
     );
     densityArray = tiffData.densityArray;
     width = tiffData.width;
@@ -312,17 +312,17 @@
         const index = coordToIndex(
           evt.coordinate[0],
           evt.coordinate[1],
-          group.gridConfig
+          group.gridConfig,
         );
         if (index !== null && group.paintedIndices.has(index)) {
           // const value = densityArray[index];
           const fullIndex = uploadedIndexToFullIndex(index, group.gridConfig);
-          console.log(
-            densityArray[27732014],
-            index,
-            fullIndex,
-            densityArray[fullIndex]
-          );
+          // console.log(
+          //   densityArray[27732014],
+          //   index,
+          //   fullIndex,
+          //   densityArray[fullIndex],
+          // );
           const value = densityArray[fullIndex];
           tooltipText = `(Title deeds with centroids in hovered area: ${value})`;
           tooltipX = evt.originalEvent.pageX + 10;
@@ -439,11 +439,9 @@
     };
 
     group.layer = createGroupLayer(group, opacity, densityArray);
-
+    computeStats(group, densityArray);
     groups = [...groups, group];
     map.addLayer(group.layer);
-
-    computeStats(group, densityArray);
   }
 
   async function handleFile(e: Event) {
@@ -463,11 +461,9 @@
     };
 
     group.layer = createGroupLayer(group, opacity, densityArray);
-
+    computeStats(group, densityArray);
     groups = [...groups, group];
     map.addLayer(group.layer);
-
-    computeStats(group, densityArray);
   }
 
   function clearGroup(group: MapGroup) {
@@ -483,7 +479,7 @@
 
   function computeStatsPure(
     paintedIndices: Set<number>,
-    gridConfig: GridConfig
+    gridConfig: GridConfig,
   ) {
     if (!densityArray || paintedIndices.size === 0) {
       return {
@@ -554,7 +550,7 @@
       e.target?.files[0].webkitRelativePath.includes("geographies");
 
     const files = Array.from((e.target as HTMLInputElement).files ?? []).filter(
-      (f) => f.name.endsWith(".bin")
+      (f) => f.name.endsWith(".bin"),
     );
 
     const results = [];
@@ -562,7 +558,7 @@
     for (const file of files) {
       const buffer = await file.arrayBuffer();
       const indices = new Uint32Array(buffer).map((d) =>
-        isLAFiles ? d : d + 1
+        isLAFiles ? d : d + 1,
       );
 
       const paintedIndices = new Set(indices);
@@ -713,7 +709,7 @@
           <div>Minimum number in a hectare: {g.stats.min.toFixed(0)}</div>
           <div>
             Maximum number in a hectare : {(+g.stats.max.toFixed(
-              0
+              0,
             )).toLocaleString()}
           </div>
           <div bind:this={tooltipEl} class="tooltip">

@@ -582,7 +582,7 @@
 
       startingPosition = parseCsv(metadataCsv);
     } catch (err) {
-      message = `CSV Load Error: ${err.message}`;
+      console.error(err.message);
     }
 
     if (startingPosition) {
@@ -599,8 +599,6 @@
   });
 
   function prepareToUnpack() {
-    message = "Processing layers...";
-
     layersToUnpack = selected.map((d) =>
       parseCsv(metadataCsv).find((layer) => layer.filename === d),
     );
@@ -617,7 +615,7 @@
 
     simpleWorker.onmessage = (e) => {
       if (e.data.error) {
-        message = `Worker error: ${e.data.error}`;
+        console.warn(e.data.error);
         return;
       }
 
@@ -629,7 +627,6 @@
       bbox = e.data.bbox;
       policyLensArea = e.data.policyLensArea;
       policyLensLayer = e.data.policyLensLayer;
-      message = `Processed ${enrichedLayers.length} layers.`;
 
       // England = enrichedLayers.find(
       //   (l) => l.filename === "ENGLAND_100M.tif"
@@ -640,7 +637,6 @@
 
     simpleWorker.onerror = (e) => {
       console.error("Worker error:", e);
-      message = `Error: ${e.message}`;
     };
 
     const safeLayersToUnpack = layersToUnpack.map((layer) => ({
@@ -666,7 +662,7 @@
 
     simpleZipWorker.onmessage = (e) => {
       if (e.data.error) {
-        message = `Worker error: ${e.data.error}`;
+        console.warn(e.data.error);
         return;
       }
 
@@ -678,7 +674,6 @@
       bbox = e.data.bbox;
       policyLensArea = e.data.policyLensArea;
       policyLensLayer = e.data.policyLensLayer;
-      message = `Processed ${enrichedLayers.length} layers.`;
 
       // England = enrichedLayers.find(
       //   (l) => l.filename === "ENGLAND_100M.tif"
@@ -706,7 +701,6 @@
 
     simpleZipWorker.onerror = (e) => {
       console.error("Worker error:", e);
-      message = `Error: ${e.message}`;
     };
 
     const clonedLayersToUnpack = layersToUnpack.map((layer) => {
@@ -814,6 +808,11 @@
   }
 
   function blendLayers() {
+    // if (tableSectionHeight) {
+    //   console.log($state.snapshot(tableSectionHeight));
+    //   document.getElementById("table").style["min-height"] =
+    //     tableSectionHeight - 100 + "px";
+    // }
     done = selected.length > 0 ? false : true;
     console.time("blendLayers");
     const blendWorker = new Worker(
@@ -846,7 +845,10 @@
       } else if (e.data.type === "done") {
         blendedArrayLength = e.data.activeCount;
         blendedArray = new Uint8Array(e.data.result); // re-wrap transferred buffer
-        if (seeDensity) showDensity();
+        if (seeDensity) {
+          done = false;
+          showDensity();
+        }
         // occurrences = e.data.occurrences;
         blending = false;
         blendingProgress.set(100);
@@ -874,6 +876,7 @@
         console.error("Blend worker error:", e.data.error);
         blendedArray = [];
         // blendedArrayIndices = [];
+        done = false;
         showDensity();
         mobile.current
           ? makeAndPaintCombinedCanvasMobile()
@@ -1120,8 +1123,6 @@
     });
   }
 
-  let message = $state("");
-
   function downloadUint32Array() {
     let biggerBlendedArray = new Uint32Array(blendedArray);
     // console.log(biggerBlendedArray.BYTES_PER_ELEMENT);
@@ -1145,9 +1146,10 @@
     URL.revokeObjectURL(url);
   }
 
-  function showDensity() {
+  async function showDensity() {
     console.time("show-density");
     done = false;
+    await tick();
     seeDensity = true;
     seeArea = false;
     let biggerBlendedArray = new Uint32Array(blendedArray);
@@ -1175,6 +1177,9 @@
     seeArea = true;
     console.log("showing area");
   }
+
+  let tableSectionHeight = $state();
+  $inspect(tableSectionHeight);
 </script>
 
 <svelte:head>
@@ -1231,10 +1236,12 @@
           on:itemRemoved={() => {
             // console.log(startingPosition);
             startingPosition.forEach((d) =>
-              selected.includes(d.filename) || policyLens === d.filename
+              // selected.includes(d.filename) || policyLens === d.filename
+              selected.includes(d.filename) // Fix for the above line, which was including the policyLens in any new selections
                 ? (d.initially_checked = "y")
                 : (d.initially_checked = false),
             );
+            startingPosition; // Trigger $state() reactivity update
             // done = false;
             blendLayers();
           }}
@@ -1394,7 +1401,7 @@
       {/if}
     </div>
 
-    <div class="table">
+    <div class="table" bind:clientHeight={tableSectionHeight}>
       <Tabs
         title="Summary"
         selectedTabId="table"
@@ -1494,67 +1501,67 @@
               on the map, with the total area in this category shown in
               <span class="areaHighlightText">pink</span>.
             </p>
-            <!-- {#key tableData} -->
-            {#if tableData && tableMetadata}
-              <Table
-                caption={""}
-                data={tableData.sort((a, b) => +b.unique - +a.unique)}
-                metaData={tableMetadata}
-                colourScale={"Off"}
-                bind:sortState
-                bind:selectedRestriction
-                on:restrictionChanged={blendLayers}
-                sortedColumn={"unique"}
-              />
-              <Button
-                buttonType="default"
-                textContent="Download data (.csv)"
-                onClickFunction={function () {
-                  const csvStr = jsonToCsv(
-                    tableData,
-                    policyLens,
-                    policyLensItems,
-                    selected,
-                  );
-                  const blob = new Blob([csvStr], { type: "text/csv" });
-                  const link = document.createElement("a");
-                  link.href = URL.createObjectURL(blob);
-                  link.download = "land-data.csv";
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-                  URL.revokeObjectURL(link.href);
-                }}
-              ></Button>
-              <Button
-                buttonType="default"
-                textContent="Download Local Authority breakdown of data (.csv)"
-                onClickFunction={function () {
-                  if (!blendedArray || blendedArray.length === 0) return;
+            {#key tableData}
+              {#if tableData && tableMetadata}
+                <Table
+                  caption={""}
+                  data={tableData.sort((a, b) => +b.unique - +a.unique)}
+                  metaData={tableMetadata}
+                  colourScale={"Off"}
+                  bind:sortState
+                  bind:selectedRestriction
+                  {blendLayers}
+                  sortedColumn={"unique"}
+                />
+                <Button
+                  buttonType="default"
+                  textContent="Download data (.csv)"
+                  onClickFunction={function () {
+                    const csvStr = jsonToCsv(
+                      tableData,
+                      policyLens,
+                      policyLensItems,
+                      selected,
+                    );
+                    const blob = new Blob([csvStr], { type: "text/csv" });
+                    const link = document.createElement("a");
+                    link.href = URL.createObjectURL(blob);
+                    link.download = "land-data.csv";
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(link.href);
+                  }}
+                ></Button>
+                <Button
+                  buttonType="default"
+                  textContent="Download Local Authority breakdown of data (.csv)"
+                  onClickFunction={function () {
+                    if (!blendedArray || blendedArray.length === 0) return;
 
-                  const csvStr = jsonToCsv(
-                    breakdownData,
-                    policyLens,
-                    policyLensItems,
-                    selected,
-                  );
-                  const blob = new Blob([csvStr], { type: "text/csv" });
-                  const link = document.createElement("a");
-                  link.href = URL.createObjectURL(blob);
-                  link.download = "land-data-by-la.csv";
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-                  URL.revokeObjectURL(link.href);
-                }}
-              ></Button>
-              <Button
-                buttonType="secondary"
-                textContent="Download the selected area shape (.bin)"
-                onClickFunction={downloadUint32Array}
-              />
-            {/if}
-            <!-- {/key} -->
+                    const csvStr = jsonToCsv(
+                      breakdownData,
+                      policyLens,
+                      policyLensItems,
+                      selected,
+                    );
+                    const blob = new Blob([csvStr], { type: "text/csv" });
+                    const link = document.createElement("a");
+                    link.href = URL.createObjectURL(blob);
+                    link.download = "land-data-by-la.csv";
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(link.href);
+                  }}
+                ></Button>
+                <Button
+                  buttonType="secondary"
+                  textContent="Download the selected area shape (.bin)"
+                  onClickFunction={downloadUint32Array}
+                />
+              {/if}
+            {/key}
           {:else}
             <p>Select some categories to view the data.</p>
           {/if}
@@ -1567,7 +1574,7 @@
       {#snippet densitySnippet()}
         {#if blendedArray.length > 0}
           <p>Title density for the selected area.</p>
-          {#if densityGroup?.histogram && done}
+          {#if densityGroup && done}
             <div class="font-semibold">
               <b> {densityGroup.name}</b>
             </div>
@@ -1581,7 +1588,7 @@
               )).toLocaleString()} title deeds
             </div>
             <div>
-              Density is {densityGroup.stats.mean.toFixed(2)} titles per hectare.
+              Density is {densityGroup.stats.mean.toFixed(2)} titles per hectare
             </div>
             <div>
               The median hectare's number of titles is {densityGroup.stats.median.toFixed(
@@ -1597,7 +1604,7 @@
               )).toLocaleString()}
             </div>
 
-            <Histogram histogram={densityGroup?.histogram} />
+            <Histogram histogram={densityGroup.histogram} />
           {:else}
             <Spinner />
           {/if}
@@ -1606,8 +1613,6 @@
     </div>
   </div>
 </div>
-
-<!-- <p>{message}</p> -->
 
 <style>
 </style>

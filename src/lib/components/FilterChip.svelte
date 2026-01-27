@@ -90,22 +90,21 @@
   let tooltipContent = $derived(
     subLayers.length > 0
       ? "Made up of:" + "<ul><li>" + subLayers.join("</li><li>") + "</li></ul>"
-      : ""
+      : "",
   );
 
-  function showTooltip(e) {
-    // console.log(filterTooltip);
-    let position = [e.pageX, e.pageY];
+  // function showTooltip(e) {
+  //   let position = [e.pageX, e.pageY];
 
-    if (subLayers && filterTooltip) {
-      filterTooltip.style.left = position[0] + 15 + "px";
-      filterTooltip.style.top = position[1] + 15 + "px";
-      filterTooltip.style.visibility = "visible";
+  //   if (subLayers && filterTooltip) {
+  //     filterTooltip.style.left = position[0] + 15 + "px";
+  //     filterTooltip.style.top = position[1] + 15 + "px";
+  //     filterTooltip.style.visibility = "visible";
 
-      filterTooltip.innerHTML = tooltipContent;
-    }
-    if (subLayers.length === 0) filterTooltip.style.visibility = "hidden";
-  }
+  //     filterTooltip.innerHTML = tooltipContent;
+  //   }
+  //   if (subLayers.length === 0) filterTooltip.style.visibility = "hidden";
+  // }
 
   function removeChip() {
     if (filterTooltip) filterTooltip.style.visibility = "hidden";
@@ -113,29 +112,82 @@
   }
 </script>
 
-<div
-  bind:this={el}
-  class="draggable choices__item choices__item--selectable"
-  onmousedown={startDrag}
-  ontouchstart={startDrag}
-  onmousemove={showTooltip}
-  onmouseleave={() =>
-    filterTooltip ? (filterTooltip.style.visibility = "hidden") : ""}
-  style={"border: 2px solid " + color}
-  data-id={id}
->
-  <span class="choices__item-circle" style={"background: " + color}></span>
-  {title}
-  <button
-    type="button"
-    class="choices__button"
-    data-button=""
-    aria-label={"Remove" + title}
-    onclick={removeChip}
-  ></button>
+<div class="tooltip-wrapper">
+  <div
+    bind:this={el}
+    class="draggable choices__item choices__item--selectable"
+    onmousedown={startDrag}
+    ontouchstart={startDrag}
+    onmouseleave={() =>
+      filterTooltip ? (filterTooltip.style.visibility = "hidden") : ""}
+    style={"border: 2px solid " + color}
+    data-id={id}
+  >
+    <span class="choices__item-circle" style={"background: " + color}></span>
+    {title}
+    <button
+      type="button"
+      class="choices__button"
+      data-button=""
+      aria-label={"Remove" + title}
+      onclick={removeChip}
+    ></button>
+  </div>
+  <div class={"tooltip" + (tooltipContent === "" ? "empty" : "")}>
+    {@html tooltipContent}
+  </div>
 </div>
 
 <style>
+  .tooltip-wrapper {
+    position: relative;
+    display: inline-block;
+  }
+
+  .tooltip.empty {
+    display: none;
+  }
+
+  .tooltip {
+    position: absolute;
+    top: 100%; /* sit just below the trigger */
+    left: 50%; /* center horizontally */
+    transform: translateX(-50%);
+    margin-top: 0.5rem; /* space between trigger and tooltip */
+    max-width: 80vw;
+    /* overflow: visible; */
+    overflow-wrap: anywhere;
+
+    padding: 0.5rem 0.75rem;
+    background: #333;
+    color: white;
+    font-size: 0.875rem;
+    border-radius: 4px;
+
+    white-space: nowrap;
+    pointer-events: none;
+
+    opacity: 0;
+    transition: opacity 0.15s ease;
+
+    z-index: 100;
+  }
+
+  .tooltip-wrapper:hover .tooltip {
+    opacity: 1;
+  }
+
+  .tooltip::before {
+    content: "";
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 6px;
+    border-style: solid;
+    border-color: transparent transparent #333 transparent;
+  }
+
   :global(.draggable) {
     border: 2px solid rgb(202, 53, 124);
     box-shadow: none;
