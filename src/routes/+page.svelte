@@ -593,7 +593,7 @@
     }
 
     const tiffData = await loadDensityTiff(
-      "/range/hectare_counts_adjusted_nox.tif",
+      `${base}/range/hectare_counts_adjusted_nox.tif`,
     );
     densityArray = tiffData.densityArray;
   });
