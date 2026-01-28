@@ -1,12 +1,12 @@
 ﻿Level,Tier,Category,Data_layer,filename,initially_checked
-1,Locally or Regionally Protected Areas,All categories,All data layers,Physically_restricted.tif,y
-2,Locally or Regionally Protected Areas,Automatic exclusion,All data layers,Automatic_exclusion.tif,
-3,Locally or Regionally Protected Areas,Automatic exclusion,Bodies of water,Bodies_of_water.tif,
-2,Locally or Regionally Protected Areas,Built infrastructure constraints,All data layers,Built_infrastructure_constraints.tif,
-3,Locally or Regionally Protected Areas,Built infrastructure constraints,Built up areas,Built_up_areas.tif,
-3,Locally or Regionally Protected Areas,Built infrastructure constraints,National Grid infrastructure,National_Grid_infrastructure.tif,
-3,Locally or Regionally Protected Areas,Built infrastructure constraints,Current rail network,Current_rail_network.tif,
-3,Locally or Regionally Protected Areas,Built infrastructure constraints,Current major roads,Current_major_roads.tif,
+1,Physically restricted,All categories,All data layers,Physically_restricted.tif,y
+2,Physically restricted,Automatic exclusion,All data layers,Automatic_exclusion.tif,
+3,Physically restricted,Automatic exclusion,Bodies of water,Bodies_of_water.tif,
+2,Physically restricted,Built infrastructure constraints,All data layers,Built_infrastructure_constraints.tif,
+3,Physically restricted,Built infrastructure constraints,Built up areas,Built_up_areas.tif,
+3,Physically restricted,Built infrastructure constraints,National Grid infrastructure,National_Grid_infrastructure.tif,
+3,Physically restricted,Built infrastructure constraints,Current rail network,Current_rail_network.tif,
+3,Physically restricted,Built infrastructure constraints,Current major roads,Current_major_roads.tif,
 1,Development restricted,All categories,All data layers,Development_restricted.tif,y
 2,Development restricted,Wildlife sites of national and international importance ,All data layers,Wildlife_sites_of_national_and_international_importance_.tif,
 3,Development restricted,Wildlife sites of national and international importance ,Ramsar,Ramsar.tif,
