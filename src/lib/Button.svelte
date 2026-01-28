@@ -19,13 +19,13 @@
           ? "govuk-button govuk-button--warning"
           : buttonType === "dark background"
             ? "govuk-button govuk-button--inverse"
-            : undefined
+            : undefined,
   );
 </script>
 
 {#if noPadding}
   {#if buttonType === "moreInfo"}
-    <div>
+    <div style="padding-left: 10px;">
       <button
         class="more-info-button"
         onclick={onClickFunction}
