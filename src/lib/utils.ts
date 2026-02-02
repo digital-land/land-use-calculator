@@ -310,6 +310,3 @@ export function countOccurrences(uint8Array: Uint8Array): object {
   export const originY = 5339;
   export const cellSize = 100; // meters per cell/hectare
   export const fillOpacity = 0.5;
-
-export const colors: string[] = ['#00625E', '#932A72', '#85292A', '#BF4A1D', '#40611f', '#205083', '#333366']
-

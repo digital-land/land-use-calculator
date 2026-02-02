@@ -38,11 +38,11 @@
     parseCsv,
     jsonToCsv,
     makeFileNameReadable,
-    colors,
     loadDensityTiff,
     computeStats,
     countOccurrences,
   } from "$lib/utils";
+  import { colors } from "$lib/constants";
   import FilterChipParent from "$lib/components/FilterChipParent.svelte";
   import Tabs from "$lib/components/Tabs.svelte";
   import Histogram from "$lib/components/Histogram.svelte";
@@ -102,7 +102,7 @@
   let width = $state(0),
     height = $state(0);
   let bbox = $state([]);
-  // $inspect({ width, height, bbox });
+  $inspect({ width, height, bbox });
 
   const NO_DATA_COLOR = 0x00000000; // Transparent
   const LENS_HIGHLIGHT_COLOR = 0x44ff00ff; // Pale pink
@@ -359,7 +359,7 @@
       };
     }),
   );
-  // $inspect({ tableData });
+  // $inspect({ enrichedLayers });
   let tableMetadata = {
     name: {
       explainer: "Sort by restriction name",
@@ -857,7 +857,7 @@
         findTheOnes(currentBitArrays)?.then(
           ({ finalArray, uniqueArray, occurrences, done }) => {
             // console.log("Done processing.", done);
-            // console.log("Final result:", finalArray);
+            console.log("Final result:", finalArray, uniqueArray);
             // console.log("Selected mask:", countOccurrences(uniqueArray));
             // console.log("Occurrences:", occurrences);
             blendWorker.terminate();
@@ -1031,19 +1031,6 @@
 
     return { dataURL, scale };
   }
-
-  // function countOccurrences(uint8Array) {
-  //   const counts = {};
-  //   for (let i = 0; i < uint8Array.length; i++) {
-  //     const value = uint8Array[i];
-  //     if (counts[value] === undefined) {
-  //       counts[value] = 1;
-  //     } else {
-  //       counts[value]++;
-  //     }
-  //   }
-  //   return counts;
-  // }
 
   function findTheOnes(bitArrays) {
     console.time("findTheOnes");

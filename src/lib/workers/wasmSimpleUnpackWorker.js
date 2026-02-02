@@ -34,7 +34,7 @@ function countActive(mask) {
 self.onmessage = async function (e) {
   const { layersToUnpack, base, policyLens } = e.data;
   console.log("starting to unpack", { policyLens });
-
+  console.time("unpack");
   try {
     await ensureWasm();
 
@@ -82,21 +82,21 @@ self.onmessage = async function (e) {
 
         // 1️⃣ Threshold raster → binary mask
         const { data: result } = rasterToBinaryMask(rasters[0]);
-
+        // console.log(result.findIndex((e) => e == 1));
         // 2️⃣ Apply policy lens using WASM (if needed)
         if (lensLayer) {
-            binary_and(result, lensLayer.data);
+          binary_and(result, lensLayer.data);
         }
-
+        // console.log(result.findIndex((e) => e == 1));
         // 3️⃣ Count active pixels
         const area = countActive(result);
 
         return {
           ...layer,
           area,
-          data: result
+          data: result,
         };
-      })
+      }),
     );
 
     self.postMessage(
@@ -106,11 +106,11 @@ self.onmessage = async function (e) {
         height,
         bbox,
         policyLensArea: lensLayer?.area ?? 13_046_002,
-        policyLensLayer: lensLayer?.data
+        policyLensLayer: lensLayer?.data,
       },
-      enrichedRasterLayers.map((layer) => layer.data.buffer)
+      enrichedRasterLayers.map((layer) => layer.data.buffer),
     );
-
+    console.timeEnd("unpack");
   } catch (error) {
     console.error("unpackWorker error:", error);
     self.postMessage({ error: error.message || "Unknown error" });

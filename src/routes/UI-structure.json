@@ -1,0 +1,35 @@
+{
+  "Physically_restricted": {
+    "children": [
+      {
+        "Automatic_exclusion": {
+          "children": ["Bodies_of_water_bin"],
+          "name": "Automatic exclusion"
+        }
+      },
+      {
+        "Built_infrastructure_constraints": {
+          "children": ["Built_up_areas_bin", "National_grid_bin"],
+          "name": "Built infrastructure constraints"
+        }
+      }
+    ]
+  },
+  "Development_restricted": {
+    "children": [
+      {
+        "Wildlife_sites": {
+          "children": ["Ramsar_bin", "Special_areas_of_conservation_bin"],
+          "name": "Wildlife sites"
+        },
+        "Heritage_constraints": {
+          "children": [
+            "Registered_parks_and_gardens_bin",
+            "Registered_battlefields_bin"
+          ],
+          "name": "Heritage constraints"
+        }
+      }
+    ]
+  }
+}
