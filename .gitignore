@@ -6,17 +6,19 @@ node_modules/
 # Ignore big source binaries
 *.bin
 
+static/data/ALL_LAYERS/
+static/data
+docs/data/ALL_LAYERS/
+
 # But explicitly allow chunked files
 !docs/data/LAs/chunks/
 !docs/data/LAs/chunks/*.bin
+!static/data/
 !static/data/LAs/chunks/
 !static/data/LAs/chunks/*.bin
 !static/data/PUBLIC_BIN_LAYERS/
 !static/data/PUBLIC_BIN_LAYERS/*.bin
 
-static/data/ALL_LAYERS/
-static/data
-docs/data/ALL_LAYERS/
 
 .venv/
 
