@@ -11,6 +11,10 @@
     height,
     opacity = 0.8,
     densityArray,
+    customArea = $bindable(),
+    policyLens = $bindable(),
+    drawing = $bindable(),
+    unpackSelectedLayers,
   } = $props();
 
   import "/node_modules/ol/ol.css";
@@ -31,17 +35,33 @@
   import { MVT } from "ol/format";
   import ImageStatic from "ol/source/ImageStatic";
   import { Style, Stroke, Fill } from "ol/style";
+  import CircleStyle from "ol/style/Circle";
   import FullScreen from "ol/control/FullScreen.js";
   import { defaults as defaultControls } from "ol/control/defaults.js";
+  import Draw from "ol/interaction/Draw.js";
   import proj4 from "proj4";
   import { apply, applyStyle } from "ol-mapbox-style";
   import { apiKey, serviceUrl } from "$lib/constants.ts";
   import { createGroupLayer } from "$lib/utils";
+  import Page from "../../routes/+page.svelte";
 
   let mapElement;
   let map;
   let tiffLayer, densityLayer;
   let baseLayer, vectorTileLayer, aerialLayer, currentBaseMap;
+
+  const drawSource = new VectorSource({ wrapX: false });
+
+  const drawLayer = new VectorLayer({
+    source: drawSource,
+  });
+
+  let draw = $state();
+  // $effect(() => {
+  //   console.log(draw);
+  //   draw?.on("finishDrawing", () => console.log(drawLayer.features));
+  //   console.log(drawLayer);
+  // });
 
   let tiffLayerSource = $derived(
     new ImageStatic({
@@ -200,6 +220,7 @@
           scotlandAndWalesVectorLayer,
           tiffLayer,
           densityLayer,
+          drawLayer,
         ],
         view: new View({
           projection: "EPSG:27700",
@@ -218,14 +239,112 @@
       }
     }
 
+    const drawStyle = new Style({
+      fill: new Fill({
+        color: "rgba(255, 0, 0, 0.2)", // red with transparency (polygon fill)
+      }),
+      stroke: new Stroke({
+        color: "red", // line color
+        width: 2,
+      }),
+      image: new CircleStyle({
+        radius: 6,
+        fill: new Fill({
+          color: "red", // point color
+        }),
+        stroke: new Stroke({
+          color: "#fff",
+          width: 1,
+        }),
+      }),
+    });
+
+    draw = new Draw({
+      source: drawSource,
+      type: "Polygon",
+      style: drawStyle,
+    });
+
+    drawLayer.setStyle(drawStyle);
+
+    // map.addInteraction(draw);
+
+    draw.on("drawend", function (event) {
+      const feature = event.feature;
+      const geometry = feature.getGeometry();
+
+      // For a Polygon, this is an array of rings
+      const coordinates = geometry.getCoordinates();
+      const extent = geometry.getExtent();
+
+      console.log(coordinates, extent);
+
+      const cellWidth = (bbox[2] - bbox[0]) / width;
+      const cellHeight = (bbox[3] - bbox[1]) / height;
+
+      const polyExtent = geometry.getExtent();
+
+      const colMin = Math.max(
+        0,
+        Math.floor((polyExtent[0] - bbox[0]) / cellWidth),
+      );
+      const colMax = Math.min(
+        width - 1,
+        Math.ceil((polyExtent[2] - bbox[0]) / cellWidth),
+      );
+
+      const rowMin = Math.max(
+        0,
+        Math.floor((polyExtent[1] - bbox[1]) / cellHeight),
+      );
+      const rowMax = Math.min(
+        height - 1,
+        Math.ceil((polyExtent[3] - bbox[1]) / cellHeight),
+      );
+
+      const hits = [];
+
+      function coordToGridIndex(x, y) {
+        const col = Math.floor((x - bbox[0]) / cellWidth);
+        const row = Math.floor((bbox[3] - y) / cellHeight);
+
+        if (col < 0 || col >= width || row < 0 || row >= height) {
+          return null; // outside grid
+        }
+
+        return row * width + col;
+      }
+
+      for (let row = rowMin; row <= rowMax; row++) {
+        for (let col = colMin; col <= colMax; col++) {
+          const center = [
+            bbox[0] + (col + 0.5) * cellWidth,
+            bbox[1] + (row + 0.5) * cellHeight,
+          ];
+
+          if (geometry.intersectsCoordinate(center)) {
+            // hits.push(row * width + col);
+            const index = coordToGridIndex(center[0], center[1]);
+            hits.push(index);
+          }
+        }
+      }
+      customArea = hits;
+      console.log(customArea);
+      policyLens = "customArea";
+      unpackSelectedLayers();
+      drawing = false;
+    });
+
     //Zoom to the area
     map.getView().fit(bbox, { duration: 1000 });
 
     map.on("singleclick", function (evt) {
+      // console.log(evt.target.getCoordinateFromPixel(evt.pixel));
       map.forEachFeatureAtPixel(evt.pixel, function (feature, layer) {
         const props = feature.getProperties();
 
-        console.log("Feature clicked:", props, evt.pixel);
+        // console.log("Feature clicked:", props, evt.pixel);
         if (props.LAD25NM) {
           selectedAreaName = props.LAD25NM;
 
@@ -339,6 +458,12 @@
   //     }
   //   }
   // });
+
+  $effect(() => {
+    if (drawing) {
+      map.addInteraction(draw);
+    }
+  });
 
   $effect(() => {
     if (seeArea) {

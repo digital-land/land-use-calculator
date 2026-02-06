@@ -42,7 +42,7 @@
     computeStats,
     countOccurrences,
   } from "$lib/utils";
-  import { colors } from "$lib/constants";
+  import { colors, width, height, bbox } from "$lib/constants";
   import FilterChipParent from "$lib/components/FilterChipParent.svelte";
   import Tabs from "$lib/components/Tabs.svelte";
   import Histogram from "$lib/components/Histogram.svelte";
@@ -94,14 +94,17 @@
   $inspect(seeArea);
   let densityGroup = $state();
 
+  let customArea = $state();
+  let drawing = $state(false);
+
   let ones;
 
   let occurrences = $state();
-  // $inspect(occurrences);
+  $inspect(occurrences);
   let finalArray = $state();
-  let width = $state(0),
-    height = $state(0);
-  let bbox = $state([]);
+  // let width = $state(0),
+  //   height = $state(0);
+  // let bbox = $state([]);
   $inspect({ width, height, bbox });
 
   const NO_DATA_COLOR = 0x00000000; // Transparent
@@ -139,174 +142,179 @@
       sentenceText: "England",
     },
     {
-      value: "Physically_restricted.tif",
+      value: "Physically_restricted.bin",
       text: "Only physically restricted land",
       sentenceText: "physically restricted land",
     },
     {
-      value: "Bodies_of_water.tif",
+      value: "Bodies_of_water.bin",
       text: "Only bodies of water",
       sentenceText: "bodies of water",
     },
     {
-      value: "Built_infrastructure_constraints.tif",
+      value: "Built_infrastructure_constraints.bin",
       text: "Only built infrastructure constraints",
       sentenceText: "land with built infrastructure constraints",
     },
     {
-      value: "Built_up_areas.tif",
+      value: "Built_up_areas.bin",
       text: "Only built up areas",
       sentenceText: "built up areas",
     },
     {
-      value: "National_Grid_infrastructure.tif",
+      value: "National_Grid_infrastructure.bin",
       text: "Only national Grid infrastructure",
       sentenceText: "national Grid infrastructure",
     },
     {
-      value: "Current_rail_network.tif",
+      value: "Current_rail_network.bin",
       text: "Only current rail network",
       sentenceText: "current rail network",
     },
     {
-      value: "Current_major_roads.tif",
+      value: "Current_major_roads.bin",
       text: "Only current major roads",
       sentenceText: "current major roads",
     },
     {
-      value: "Development_restricted.tif",
+      value: "Development_restricted.bin",
       text: "Only development restricted land",
       sentenceText: "land where development is restricted",
     },
     {
-      value: "Wildlife_sites_of_national_and_international_importance_.tif",
+      value: "Wildlife_sites_of_national_and_international_importance_.bin",
       text: "Only wildlife sites of national and international importance",
       sentenceText: "wildlife sites of national and international importance",
     },
     {
-      value: "Ramsar.tif",
+      value: "Ramsar.bin",
       text: "Only Ramsar",
       sentenceText: "Ramsar sites",
     },
     {
-      value: "Special_areas_of_conservation.tif",
+      value: "Special_areas_of_conservation.bin",
       text: "Only special areas of conservation",
       sentenceText: "special areas of conservation",
     },
     {
-      value: "Special_protection_areas.tif",
+      value: "Special_protection_areas.bin",
       text: "Only special protection areas",
       sentenceText: "special protection areas",
     },
     {
-      value: "Sites_of_Special_Scientific_Interest.tif",
+      value: "Sites_of_Special_Scientific_Interest.bin",
       text: "Only Sites of Special Scientific Interest",
       sentenceText: "Sites of Special Scientific Interest",
     },
     {
-      value: "Heritage_constraint.tif",
+      value: "Heritage_constraint.bin",
       text: "Only heritage constraint",
       sentenceText: "land with heritage constraints",
     },
     {
-      value: "Registered_parks_and_gardens.tif",
+      value: "Registered_parks_and_gardens.bin",
       text: "Only registered parks and gardens",
       sentenceText: "registered parks and gardens",
     },
     {
-      value: "Registered_battlefields.tif",
+      value: "Registered_battlefields.bin",
       text: "Only registered battlefields",
       sentenceText: "registered battlefields",
     },
     {
-      value: "Scheduled_monuments.tif",
+      value: "Scheduled_monuments.bin",
       text: "Only scheduled monuments",
       sentenceText: "scheduled monuments",
     },
     {
-      value: "World_Heritage_Sites.tif",
+      value: "World_Heritage_Sites.bin",
       text: "Only World Heritage Sites",
       sentenceText: "World Heritage Sites",
     },
     {
-      value: "World_Heritage_Buffer_Zones.tif",
+      value: "World_Heritage_Buffer_Zones.bin",
       text: "Only World Heritage Buffer Zones",
       sentenceText: "World Heritage Buffer Zones",
     },
     {
-      value: "Greenbelt.tif",
+      value: "Greenbelt.bin",
       text: "Only greenbelt",
       sentenceText: "greenbelt land",
     },
     {
-      value: "Development_limited.tif",
+      value: "Development_limited.bin",
       text: "Only development limited land",
       sentenceText: "land where development is limited",
     },
     {
-      value: "Protected_landscapes.tif",
+      value: "Protected_landscapes.bin",
       text: "Only protected landscapes",
       sentenceText: "protected landscapes",
     },
     {
-      value: "national_parks.tif",
+      value: "national_parks.bin",
       text: "Only national parks",
       sentenceText: "national parks",
     },
     {
-      value: "Wildlife_sites_.tif",
+      value: "Wildlife_sites_.bin",
       text: "Only wildlife sites",
       sentenceText: "wildlife sites",
     },
     {
-      value: "National_nature_reserves.tif",
+      value: "National_nature_reserves.bin",
       text: "Only national nature reserves",
       sentenceText: "national nature reserves",
     },
     {
-      value: "Local_nature_reserves.tif",
+      value: "Local_nature_reserves.bin",
       text: "Only local nature reserves",
       sentenceText: "local nature reserves",
     },
     {
-      value: "Conservation_areas.tif",
+      value: "Conservation_areas.bin",
       text: "Only conservation areas",
       sentenceText: "conservation areas",
     },
     {
-      value: "Planned_infrastructure_sites.tif",
+      value: "Planned_infrastructure_sites.bin",
       text: "Only planned infrastructure sites",
       sentenceText: "planned infrastructure sites",
     },
     {
-      value: "Nationally_Significant_Infrastructure_Projects.tif",
+      value: "Nationally_Significant_Infrastructure_Projects.bin",
       text: "Only Nationally Significant Infrastructure Projects",
       sentenceText: "Nationally Significant Infrastructure Projects",
     },
     {
-      value: "HS2.tif",
+      value: "HS2.bin",
       text: "Only HS2",
       sentenceText: "HS2",
     },
     {
-      value: "Flood_risk_.tif",
+      value: "Flood_risk_.bin",
       text: "Only flood risk",
       sentenceText: "land where there is a flood risk",
     },
     {
-      value: "Flood_zone_2.tif",
+      value: "Flood_zone_2.bin",
       text: "Only flood zone 2",
       sentenceText: "flood zone 2",
     },
     {
-      value: "Flood_zone_3.tif",
+      value: "Flood_zone_3.bin",
       text: "Only flood zone 3",
       sentenceText: "flood zone 3",
     },
     {
-      value: "within_KM_of_BUA.tif",
+      value: "within_KM_of_BUA.bin",
       text: "Only land within 1km of built up areas",
       sentenceText: "the land within 1km of built up areas",
+    },
+    {
+      value: "customArea",
+      text: "The custom area",
+      sentenceText: "the custom area",
     },
   ];
 
@@ -433,7 +441,7 @@
                   label: layer.Data_layer,
                   exclusive: layer.Level == 2 ? true : false,
                   checked: layer.initially_checked === "y" ? true : false,
-                  parentCheckBoxName: section.replaceAll(" ", "_") + ".tif",
+                  parentCheckBoxName: section.replaceAll(" ", "_") + ".bin",
                   section: category,
                 };
               }),
@@ -555,7 +563,7 @@
 
     csvFile?.length > 0
       ? csvFile[0]
-      : `${base}/data/PUBLIC_LAYERS/ultimate_land_metadata.csv`,
+      : `${base}/data/PUBLIC_BIN_LAYERS/ultimate_land_metadata.csv`,
   );
 
   let geotiff = $state();
@@ -622,9 +630,9 @@
       // console.log("Processed data:", e.data);
       // bitLayers = e.data.rasterLayers.map((layer) => layer.data);
       enrichedLayers = e.data.rasterLayers;
-      height = e.data.height;
-      width = e.data.width;
-      bbox = e.data.bbox;
+      // height = e.data.height;
+      // width = e.data.width;
+      // bbox = e.data.bbox;
       policyLensArea = e.data.policyLensArea;
       policyLensLayer = e.data.policyLensLayer;
 
@@ -647,6 +655,7 @@
       layersToUnpack: safeLayersToUnpack,
       base,
       policyLens,
+      customArea: new Uint32Array(customArea).buffer,
     });
   }
 
@@ -669,9 +678,9 @@
       // console.log("Processed data:", e.data);
       // bitLayers = e.data.rasterLayers.map((layer) => layer.data);
       enrichedLayers = e.data.rasterLayers;
-      height = e.data.height;
-      width = e.data.width;
-      bbox = e.data.bbox;
+      // height = e.data.height;
+      // width = e.data.width;
+      // bbox = e.data.bbox;
       policyLensArea = e.data.policyLensArea;
       policyLensLayer = e.data.policyLensLayer;
 
@@ -736,7 +745,7 @@
 
   async function getLABreakdown(cRoutes, bitArray) {
     const urls = Array.isArray(cRoutes) ? cRoutes : [cRoutes];
-    const width = 5728;
+    // const width = 5728;
 
     let accumulatedResult = null;
     let rowOffset = 0;
@@ -1192,6 +1201,13 @@
               ? unpackZippedLayers()
               : unpackSelectedLayers()}
         />
+        <Button
+          buttonType="secondary"
+          textContent="Draw an area to explore"
+          onClickFunction={() => {
+            drawing = true;
+          }}
+        />
         <Details
           summaryText={"Use a local file (optional)"}
           detailedText={detailsContent}
@@ -1295,7 +1311,7 @@
           selected = [];
           dataURL = null;
           startingPosition.forEach((d) => (d.initially_checked = false));
-          bbox = null;
+          // bbox = null;
           // console.log(startingPosition, selected);
         }}
       />
@@ -1377,6 +1393,10 @@
             {width}
             {height}
             {densityArray}
+            bind:customArea
+            bind:policyLens
+            bind:drawing
+            {unpackSelectedLayers}
           />
         </div>
       {:else if bbox}

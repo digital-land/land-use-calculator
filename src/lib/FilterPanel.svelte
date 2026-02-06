@@ -118,11 +118,11 @@
     const thistier = d.tier;
     acc[thistier] =
       d.allOption && d.allChecked
-        ? [d.tier.replaceAll(" ", "_") + ".tif"]
+        ? [d.tier.replaceAll(" ", "_") + ".bin"]
         : d.sections.flatMap((section) =>
             section.options
               .filter((option) => option.checked)
-              .map((d) => d.value)
+              .map((d) => d.value),
           );
     return acc;
   }, {});
@@ -148,11 +148,11 @@
   let checkedLevel1s = $derived(
     Object.fromEntries(
       Object.entries(allSelectedCheckBoxes).map(([key, values]) => {
-        const expectedFileName = key.replaceAll(" ", "_") + ".tif";
+        const expectedFileName = key.replaceAll(" ", "_") + ".bin";
         const found = values.includes(expectedFileName);
         return [key, found];
-      })
-    )
+      }),
+    ),
   );
   // $inspect({ checkedLevel1s });
 
@@ -161,15 +161,15 @@
       Object.keys(checkedLevel1s).map((key) => [
         key,
         {
-          value: key.replaceAll(" ", "_") + ".tif",
+          value: key.replaceAll(" ", "_") + ".bin",
           label: "All " + key,
           exclusive: true,
           checked: checkedLevel1s[key],
-          parentCheckBoxName: key.replaceAll(" ", "_") + ".tif",
+          parentCheckBoxName: key.replaceAll(" ", "_") + ".bin",
           section: key,
         },
-      ])
-    )
+      ]),
+    ),
   );
   // $inspect(level1Options);
   // Call $props.id() once at the top level
@@ -190,7 +190,7 @@
 
   // Helper to create items for DateInput, now including spellcheck attribute
   function createDateInputItems(
-    initialValues: { day?: string; month?: string; year?: string } | undefined
+    initialValues: { day?: string; month?: string; year?: string } | undefined,
   ) {
     return [
       {
