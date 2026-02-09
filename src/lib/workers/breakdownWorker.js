@@ -3,6 +3,7 @@ import { parseCsv } from "$lib/utils";
 // import { base } from "$app/paths";
 const base = import.meta.env.BASE_URL || "/";
 import areaSizeLookup from '$lib/data/areas_las_pixels.json';
+import { width, height } from "$lib/constants";
 
 let wasmReady = false;
 
@@ -29,15 +30,15 @@ const { categoricalArray, bitArray, csvUrl } = e.data;
 
   try {
     // Trim extra rows if needed (assumes full raster: width*height)
-    const width = 5728;
-    const height = 6521;
+    // const width = 5728;
+    // const height = 6521;
     const expectedLength = width * height;
 
     const c = categoricalArray.length > expectedLength
       ? categoricalArray.subarray(0, expectedLength)
       : categoricalArray;
 
-    const b = bitArray; // already full length
+    const b = (bitArray); // already full length
 
     console.log("Processing chunk:", c.length, b.length);
 

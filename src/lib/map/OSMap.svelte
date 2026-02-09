@@ -12,6 +12,7 @@
     opacity = 0.8,
     densityArray,
     customArea = $bindable(),
+    customAreaBBox = $bindable(),
     policyLens = $bindable(),
     drawing = $bindable(),
     unpackSelectedLayers,
@@ -276,6 +277,7 @@
       // For a Polygon, this is an array of rings
       const coordinates = geometry.getCoordinates();
       const extent = geometry.getExtent();
+      customAreaBBox = extent;
 
       console.log(coordinates, extent);
 
@@ -330,14 +332,20 @@
         }
       }
       customArea = hits;
-      console.log(customArea);
+      // console.log(customArea);
       policyLens = "customArea";
       unpackSelectedLayers();
       drawing = false;
     });
 
-    //Zoom to the area
-    map.getView().fit(bbox, { duration: 1000 });
+    if (customAreaBBox) {
+      map
+        .getView()
+        .fit(customAreaBBox, { duration: 1000, padding: [20, 20, 20, 20] });
+    } else {
+      //Zoom to the area
+      map.getView().fit(bbox, { duration: 1000 });
+    }
 
     map.on("singleclick", function (evt) {
       // console.log(evt.target.getCoordinateFromPixel(evt.pixel));

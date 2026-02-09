@@ -89,23 +89,27 @@
 
   let densityArray = $state();
   let seeDensity = $state(false);
-  $inspect(seeDensity);
+  $inspect({ seeDensity });
   let seeArea = $state(true);
-  $inspect(seeArea);
+  $inspect({ seeArea });
   let densityGroup = $state();
 
   let customArea = $state();
+  let customAreaBBox = $state();
   let drawing = $state(false);
 
   let ones;
 
   let occurrences = $state();
-  $inspect(occurrences);
+  $inspect({ occurrences });
+  let uniqueCounts = $state();
+  let uniqueIndices = $state();
+  // $inspect(uniqueCounts, uniqueIndices);
   let finalArray = $state();
   // let width = $state(0),
   //   height = $state(0);
   // let bbox = $state([]);
-  $inspect({ width, height, bbox });
+  // $inspect({ width, height, bbox });
 
   const NO_DATA_COLOR = 0x00000000; // Transparent
   const LENS_HIGHLIGHT_COLOR = 0x44ff00ff; // Pale pink
@@ -321,7 +325,7 @@
   let policyLens = $state("England");
 
   let policyLensArea = $state();
-  $inspect(policyLensArea);
+  // $inspect(policyLensArea);
   // let rasterLayers = $state([]);
   // let lookup = [];
   // let bitLayers = $state([]);
@@ -333,22 +337,22 @@
 
   let enrichedLayers = $state([]);
   // $inspect(enrichedLayers);
-  let policyLensLayer = $state();
-  $inspect({ policyLensLayer });
+  let lensIndices = $state();
+  // $inspect({ lensIndices });
   // let englandArea = $derived(
   //   enrichedLayers?.find((d) => d.filename == "ENGLAND_100M.tif")?.area
   // );
   // $inspect(englandArea);
 
-  let blendedArray = $state([]);
-  let blendedArrayIndices = $state([]);
+  let blendedIndices = $state([]);
+  // let blendedArrayIndices = $state([]);
 
   let breakdownData = $state(null);
   let breakdownLoading = $state(false);
   let breakdownError = $state(null);
 
   // $inspect(blendedArray);
-  let blendedArrayLength = $state(0);
+  let blendedArrayLength = $derived(blendedIndices?.length);
   let selected = $state([]);
   $inspect({ selected });
   // $inspect({ enrichedLayers });
@@ -362,7 +366,7 @@
         area: enrichedLayers?.find((d) => d.filename == layer)?.area
           ? enrichedLayers?.find((d) => d.filename == layer)?.area
           : "-",
-        unique: occurrences && occurrences[i] ? occurrences[i] : "",
+        unique: uniqueCounts && uniqueCounts[i] ? uniqueCounts[i] : "",
         subLayers: selectedSubLayers[layer],
       };
     }),
@@ -478,7 +482,7 @@
     }, {});
   });
 
-  $inspect(selectedSubLayers);
+  // $inspect(selectedSubLayers);
 
   let uniqueArray = $state([]);
   // let selectedRestrictionIndex = 0;
@@ -634,8 +638,9 @@
       // width = e.data.width;
       // bbox = e.data.bbox;
       policyLensArea = e.data.policyLensArea;
-      policyLensLayer = e.data.policyLensLayer;
+      lensIndices = e.data.lensIndices;
 
+      // console.log(enrichedLayers);
       // England = enrichedLayers.find(
       //   (l) => l.filename === "ENGLAND_100M.tif"
       // )?.data;
@@ -682,7 +687,7 @@
       // width = e.data.width;
       // bbox = e.data.bbox;
       policyLensArea = e.data.policyLensArea;
-      policyLensLayer = e.data.policyLensLayer;
+      lensIndices = e.data.lensIndices;
 
       // England = enrichedLayers.find(
       //   (l) => l.filename === "ENGLAND_100M.tif"
@@ -816,12 +821,22 @@
     return { json: accumulatedResult, bitArray };
   }
 
+  function indicesToBinaryMask(bin) {
+    const out = new Uint8Array(width * height).fill(0);
+    console.log(bin.length);
+    for (let i = 0; i < bin.length; i++) {
+      out[bin[i]] = 1;
+    }
+    return out;
+  }
+
   function blendLayers() {
     // if (tableSectionHeight) {
     //   console.log($state.snapshot(tableSectionHeight));
     //   document.getElementById("table").style["min-height"] =
     //     tableSectionHeight - 100 + "px";
     // }
+    // console.log(enrichedLayers);
     done = selected.length > 0 ? false : true;
     console.time("blendLayers");
     const blendWorker = new Worker(
@@ -832,8 +847,9 @@
     // Select the active layers
     const active = enrichedLayers.filter((l) => selected.includes(l.filename));
     currentBitArrays = active.map((l) => l.data);
+    // console.log(currentBitArrays);
     // Ensure Uint8Arrays
-    const duplicateBitLayers = active.map((l) => new Uint8Array(l.data));
+    const duplicateBitLayers = active.map((l) => new Uint32Array(l.data));
 
     // Get the raw buffers
     const buffers = duplicateBitLayers.map((arr) => arr.buffer);
@@ -841,19 +857,20 @@
     // Post to the worker (transferring buffers)
     blendWorker.postMessage(
       {
-        bitArrays: buffers, // send raw ArrayBuffers
+        indexArrays: buffers, // send raw ArrayBuffers
       },
       buffers, // transfer buffers (zero-copy)
     );
     // console.log({ duplicateBitLayers });
     // Listen for messages
-    blendWorker.onmessage = (e) => {
+    blendWorker.onmessage = async (e) => {
       if (e.data.progress !== undefined) {
         blending = true;
         blendingProgress.set(e.data.progress);
       } else if (e.data.type === "done") {
         blendedArrayLength = e.data.activeCount;
-        blendedArray = new Uint8Array(e.data.result); // re-wrap transferred buffer
+        blendedIndices = new Uint32Array(e.data.result); // re-wrap transferred buffer
+        // console.log(blendedArray, blendedArrayLength);
         if (seeDensity) {
           done = false;
           showDensity();
@@ -863,33 +880,38 @@
         blendingProgress.set(100);
         // console.log("Blending complete:", blendedArrayLength);
         console.timeEnd("blendLayers");
-        findTheOnes(currentBitArrays)?.then(
-          ({ finalArray, uniqueArray, occurrences, done }) => {
-            // console.log("Done processing.", done);
-            console.log("Final result:", finalArray, uniqueArray);
-            // console.log("Selected mask:", countOccurrences(uniqueArray));
-            // console.log("Occurrences:", occurrences);
-            blendWorker.terminate();
-            getLABreakdown(chunkUrls, blendedArray).then((result) => {
-              breakdownData = result.json;
-              // console.log("done breaking down: ", breakdownData);
-              breakdownLoading = false;
-            });
-            mobile.current
-              ? makeAndPaintCombinedCanvasMobile()
-              : makeAndPaintCombinedCanvas();
+
+        await findTheOnes([...currentBitArrays]);
+
+        // ({ uniqueCounts, uniqueIndices, done }) => {
+        // console.log("Done processing.", done);
+        // console.log("Final result:", uniqueCounts, uniqueIndices, done);
+        // console.log("Selected mask:", countOccurrences(uniqueArray));
+        // console.log("Occurrences:", occurrences);
+        blendWorker.terminate();
+
+        getLABreakdown(chunkUrls, indicesToBinaryMask(blendedIndices)).then(
+          (result) => {
+            breakdownData = result.json;
+            // console.log("done breaking down: ", breakdownData);
+            breakdownLoading = false;
           },
         );
+        mobile.current
+          ? makeAndPaintCombinedCanvasMobile()
+          : makeAndPaintCanvasFromIndices();
+        // },
+        // );
         // .then();
       } else if (e.data.error) {
         console.error("Blend worker error:", e.data.error);
-        blendedArray = [];
+        blendedIndices = [];
         // blendedArrayIndices = [];
         done = false;
         showDensity();
         mobile.current
           ? makeAndPaintCombinedCanvasMobile()
-          : makeAndPaintCombinedCanvas();
+          : makeAndPaintCanvasFromIndices();
       }
     };
   }
@@ -934,6 +956,85 @@
 
     done = true;
     console.timeEnd("canvas-combined");
+  }
+
+  function makeAndPaintCanvasFromIndices() {
+    console.time("canvas-indices");
+    done = false;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext("2d");
+
+    // Reuse ImageData if you want to go further later
+    const imageData = ctx.createImageData(width, height);
+
+    const pixelCount = imageData.data.length / 4;
+    const mask = new Uint8Array(pixelCount);
+
+    const areaIndices = currentBitArrays[selectedRestrictionIndex];
+    // blendedIndices, lensIndices, areaIndices, uniqueIndices
+    // are Uint32Arrays of indices where value === 1
+
+    for (let i = 0; i < blendedIndices.length; i++) {
+      mask[blendedIndices[i]] |= 1 << 3;
+    }
+
+    if (lensIndices) {
+      for (let i = 0; i < lensIndices.length; i++) {
+        mask[lensIndices[i]] |= 1 << 2;
+      }
+    }
+
+    if (areaIndices) {
+      for (let i = 0; i < areaIndices.length; i++) {
+        mask[areaIndices[i]] |= 1 << 1;
+      }
+    }
+
+    if (uniqueIndices) {
+      for (let i = 0; i < uniqueIndices.length; i++) {
+        mask[uniqueIndices[i]] |= 1;
+      }
+    }
+
+    // Final render loop (very close to your original)
+    const pixels = new Uint32Array(imageData.data.buffer);
+
+    for (let i = 0; i < pixelCount; i++) {
+      pixels[i] = COLOR_LUT[mask[i]];
+    }
+
+    // const pixels = new Uint32Array(imageData.data.buffer);
+
+    // const hasSelection = selectedRestrictionIndex >= 0 && renderUnique;
+    // const blendedArr = blendedArray;
+    // const lensArr = policyLensLayer;
+    // const areaArr = hasSelection
+    //   ? currentBitArrays[selectedRestrictionIndex]
+    //   : null;
+    // const uniqueArr = hasSelection ? uniqueArray : null;
+
+    // for (let i = 0; i < blendedArr.length; i++) {
+    //   const key =
+    //     (blendedArr[i] << 3) |
+    //     ((lensArr ? lensArr[i] : 0) << 2) |
+    //     ((areaArr ? areaArr[i] : 0) << 1) |
+    //     (uniqueArr && uniqueArr[i] === 1 ? 1 : 0);
+
+    //   pixels[i] = COLOR_LUT[key];
+    // }
+
+    ctx.putImageData(imageData, 0, 0);
+
+    canvas.toBlob((blob) => {
+      dataURL = URL.createObjectURL(blob);
+    });
+
+    done = true;
+    console.timeEnd("canvas-indices");
   }
 
   //iOS-safe version of the canvas but has some issues at the edges that need to worked out...
@@ -1041,94 +1142,201 @@
     return { dataURL, scale };
   }
 
-  function findTheOnes(bitArrays) {
+  // async function findTheOnes(indexArrays) {
+  //   console.time("findTheOnes");
+  //   if (!indexArrays.length) return;
+
+  //   const uniqueIndicesWorker = new Worker(
+  //     new URL("../lib/workers/uniqueIndicesWorker.js?worker", import.meta.url),
+  //     { type: "module" },
+  //   );
+
+  //   uniqueIndicesWorker.onmessage = function (e) {
+  //     if (e.data.error) {
+  //       console.error(`Worker ${w} reported error:`, e.data.error);
+  //       reject(new Error(e.data.error));
+  //       return;
+  //     }
+
+  //     // let { uniqueCounts, uniqueIndices } = e.data;
+  //     // done = false;
+  //     // Ensure these are Uint32Arrays
+  //     uniqueCounts = new Uint32Array(e.data.uniqueCounts);
+  //     uniqueIndices = new Uint32Array(e.data.uniqueIndices);
+
+  //     // resolve();
+  //     console.log(uniqueCounts, uniqueIndices, done);
+
+  //     uniqueIndicesWorker.terminate();
+  //   };
+
+  //   uniqueIndicesWorker.onerror = function (err) {
+  //     console.error(`Worker ${w} failed:`, err.message);
+  //     reject(err);
+  //   };
+
+  //   const duplicateIndexArrays = indexArrays.map((l) => new Uint32Array(l));
+  //   const buffers = duplicateIndexArrays.map((arr) => arr.buffer);
+
+  //   uniqueIndicesWorker.postMessage(
+  //     {
+  //       arrays: buffers,
+  //       selectedRestrictionIndex,
+  //     },
+  //     // [...indexArrays.map((a) => a.buffer)], // Transfer input buffers
+  //     buffers,
+  //   );
+
+  //   done = true;
+  //   console.timeEnd("findTheOnes");
+
+  //   return {
+  //     uniqueCounts,
+  //     uniqueIndices,
+  //     done,
+  //   };
+  // }
+
+  // function findTheOnes(bitArrays) {
+  //   console.time("findTheOnes");
+  //   if (!bitArrays.length) return;
+
+  //   const NUM_WORKERS = 4;
+  //   const length = bitArrays[0].length;
+  //   const chunkSize = Math.ceil(length / NUM_WORKERS);
+
+  //   finalArray = new Uint8Array(length);
+  //   let interimUniqueArray = new Uint8Array(length);
+  //   const promises = [];
+
+  //   for (let w = 0; w < NUM_WORKERS; w++) {
+  //     const worker = new Worker(
+  //       new URL("../lib/workers/onesWorker.js?worker", import.meta.url),
+  //       { type: "module" },
+  //     );
+
+  //     const start = w * chunkSize;
+  //     const end = Math.min(start + chunkSize, length);
+
+  //     const chunkSlices = bitArrays.map((arr) => arr.slice(start, end));
+
+  //     const p = new Promise((resolve, reject) => {
+  //       worker.onmessage = function (e) {
+  //         if (e.data.error) {
+  //           console.error(`Worker ${w} reported error:`, e.data.error);
+  //           reject(new Error(e.data.error));
+  //           return;
+  //         }
+
+  //         const { result, uniqueResult } = e.data;
+
+  //         // Ensure these are Uint8Arrays
+  //         const resultArray = new Uint8Array(result);
+  //         const uniqueResultArray = new Uint8Array(uniqueResult);
+
+  //         finalArray.set(resultArray, start);
+  //         interimUniqueArray.set(uniqueResultArray, start);
+
+  //         resolve();
+
+  //         worker.terminate();
+  //       };
+
+  //       worker.onerror = function (err) {
+  //         console.error(`Worker ${w} failed:`, err.message);
+  //         reject(err);
+  //       };
+
+  //       worker.postMessage(
+  //         {
+  //           arrays: chunkSlices,
+  //           start,
+  //           end,
+  //           selectedRestrictionIndex,
+  //         },
+  //         [...chunkSlices.map((a) => a.buffer)], // Transfer input buffers
+  //       );
+  //     });
+
+  //     promises.push(p);
+  //   }
+
+  //   return Promise.all(promises).then(() => {
+  //     occurrences = countOccurrences(finalArray);
+  //     uniqueArray = new Uint8Array(interimUniqueArray);
+  //     const done = true;
+  //     console.timeEnd("findTheOnes");
+  //     return {
+  //       finalArray,
+  //       uniqueArray,
+  //       occurrences,
+  //       done,
+  //     };
+  //   });
+  // }
+
+  function findTheOnes(indexArrays) {
     console.time("findTheOnes");
-    if (!bitArrays.length) return;
 
-    const NUM_WORKERS = 4;
-    const length = bitArrays[0].length;
-    const chunkSize = Math.ceil(length / NUM_WORKERS);
+    if (!indexArrays.length) {
+      return Promise.resolve();
+    }
 
-    finalArray = new Uint8Array(length);
-    let interimUniqueArray = new Uint8Array(length);
-    const promises = [];
-
-    for (let w = 0; w < NUM_WORKERS; w++) {
-      const worker = new Worker(
-        new URL("../lib/workers/onesWorker.js?worker", import.meta.url),
+    return new Promise((resolve, reject) => {
+      const uniqueIndicesWorker = new Worker(
+        new URL(
+          "../lib/workers/uniqueIndicesWorker.js?worker",
+          import.meta.url,
+        ),
         { type: "module" },
       );
 
-      const start = w * chunkSize;
-      const end = Math.min(start + chunkSize, length);
+      uniqueIndicesWorker.onmessage = (e) => {
+        if (e.data.error) {
+          uniqueIndicesWorker.terminate();
+          reject(new Error(e.data.error));
+          return;
+        }
 
-      const chunkSlices = bitArrays.map((arr) => arr.slice(start, end));
+        uniqueCounts = new Uint32Array(e.data.uniqueCounts);
+        uniqueIndices = new Uint32Array(e.data.uniqueIndices);
 
-      const p = new Promise((resolve, reject) => {
-        worker.onmessage = function (e) {
-          if (e.data.error) {
-            console.error(`Worker ${w} reported error:`, e.data.error);
-            reject(new Error(e.data.error));
-            return;
-          }
+        done = true;
 
-          const { result, uniqueResult } = e.data;
+        console.timeEnd("findTheOnes");
 
-          // Ensure these are Uint8Arrays
-          const resultArray = new Uint8Array(result);
-          const uniqueResultArray = new Uint8Array(uniqueResult);
-
-          finalArray.set(resultArray, start);
-          interimUniqueArray.set(uniqueResultArray, start);
-
-          resolve();
-
-          worker.terminate();
-        };
-
-        worker.onerror = function (err) {
-          console.error(`Worker ${w} failed:`, err.message);
-          reject(err);
-        };
-
-        worker.postMessage(
-          {
-            arrays: chunkSlices,
-            start,
-            end,
-            selectedRestrictionIndex,
-          },
-          [...chunkSlices.map((a) => a.buffer)], // Transfer input buffers
-        );
-      });
-
-      promises.push(p);
-    }
-
-    return Promise.all(promises).then(() => {
-      occurrences = countOccurrences(finalArray);
-      uniqueArray = new Uint8Array(interimUniqueArray);
-      const done = true;
-      console.timeEnd("findTheOnes");
-      return {
-        finalArray,
-        uniqueArray,
-        occurrences,
-        done,
+        uniqueIndicesWorker.terminate();
+        resolve();
       };
+
+      uniqueIndicesWorker.onerror = (err) => {
+        uniqueIndicesWorker.terminate();
+        reject(err);
+      };
+
+      const duplicateIndexArrays = indexArrays.map((l) => new Uint32Array(l));
+      const buffers = duplicateIndexArrays.map((arr) => arr.buffer);
+
+      uniqueIndicesWorker.postMessage(
+        {
+          arrays: buffers,
+          selectedRestrictionIndex,
+        },
+        buffers,
+      );
     });
   }
 
   function downloadUint32Array() {
-    let biggerBlendedArray = new Uint32Array(blendedArray);
-    // console.log(biggerBlendedArray.BYTES_PER_ELEMENT);
-    blendedArrayIndices = biggerBlendedArray
-      .map((d, i) => (d === 1 ? i : 4294967295))
-      .filter((d) => d !== 4294967295);
+    // let biggerBlendedArray = new Uint32Array(blendedArray);
+    // // console.log(biggerBlendedArray.BYTES_PER_ELEMENT);
+    // blendedArrayIndices = biggerBlendedArray
+    //   .map((d, i) => (d === 1 ? i : 4294967295))
+    //   .filter((d) => d !== 4294967295);
 
     // Use the underlying ArrayBuffer (no copy)
     const filename = "data.bin";
-    const blob = new Blob([blendedArrayIndices.buffer], {
+    const blob = new Blob([blendedIndices.buffer], {
       type: "application/octet-stream",
     });
 
@@ -1148,16 +1356,16 @@
     await tick();
     seeDensity = true;
     seeArea = false;
-    let biggerBlendedArray = new Uint32Array(blendedArray);
+    // let biggerBlendedArray = new Uint32Array(blendedArray);
 
-    blendedArrayIndices = biggerBlendedArray
-      .map((d, i) => (d === 1 ? i : 4294967295))
-      .filter((d) => d !== 4294967295)
-      .map((d) => d + 1);
+    // blendedArrayIndices = biggerBlendedArray
+    //   .map((d, i) => (d === 1 ? i : 4294967295))
+    //   .filter((d) => d !== 4294967295)
+    //   .map((d) => d + 1);
 
     densityGroup = {
       name: "Selected area",
-      paintedIndices: new Set(blendedArrayIndices),
+      paintedIndices: new Set(blendedIndices),
       gridConfig: { width, height, colOffset: 0 }, // uploaded files need offset
       stats: {},
       histogram: {},
@@ -1196,10 +1404,13 @@
           items={policyLensItems}
           bind:value={policyLens}
           label={"Select area to explore"}
-          onchange={() =>
+          onchange={() => {
+            customAreaBBox = null;
+            customArea = null;
             Object.keys(tiffArrayBuffersFromZip).length > 0
               ? unpackZippedLayers()
-              : unpackSelectedLayers()}
+              : unpackSelectedLayers();
+          }}
         />
         <Button
           buttonType="secondary"
@@ -1387,13 +1598,14 @@
             {dataURL}
             {bbox}
             {breakdownData}
-            {blendedArrayIndices}
+            {blendedIndices}
             bind:seeDensity
             bind:seeArea
             {width}
             {height}
             {densityArray}
             bind:customArea
+            bind:customAreaBBox
             bind:policyLens
             bind:drawing
             {unpackSelectedLayers}
@@ -1429,157 +1641,155 @@
         forceTabBehavior={true}
       />
       {#snippet tableSnippet()}
-        {#if done && dataURL}
-          <div class="summaryStats">
-            {#if blending && $blendingProgress < 100}
-              <p>Blending... {$blendingProgress.toFixed(1)}%</p>
-              <progress max="100" value={$blendingProgress}></progress>
-            {:else if $blendingProgress == 100}
-              <p>
-                The total area in England is 13,046,002 ha.
-                <!-- {#if blendedArrayLength > 0}
+        <!-- {#if done && dataURL} -->
+        <div class="summaryStats">
+          {#if blending && $blendingProgress < 100}
+            <p>Blending... {$blendingProgress.toFixed(1)}%</p>
+            <progress max="100" value={$blendingProgress}></progress>
+          {:else if $blendingProgress == 100}
+            <p>
+              The total area in England is 13,046,002 ha.
+              <!-- {#if blendedArrayLength > 0}
           {blendedArrayLength.toLocaleString()} ha is covered by the selected categories.
         {/if} -->
-              </p>
-            {/if}
-            {#if policyLensArea && policyLens !== "England"}
-              <p>
-                The total area in England within {policyLensItems.find(
-                  (d) => d.value == policyLens,
-                )?.sentenceText ?? '"' + makeFileNameReadable(policyLens) + '"'}
-                is
-                {policyLensArea.toLocaleString()}
-                ha.
-              </p>
-            {/if}
-          </div>
-          {#if policyLens !== "England"}
-            <h2>
-              Within <span class="lens-area"
-                >{policyLensItems.find((d) => d.value == policyLens)
-                  ?.sentenceText ??
-                  'the "' + makeFileNameReadable(policyLens) + '" layer'}</span
-              >
-            </h2>
+            </p>
           {/if}
-          {#if tableData?.length > 0}
+          {#if policyLensArea && policyLens !== "England"}
             <p>
-              The total area covered by the selected categories is shown in <span
-                class="totalHighlightText">grey</span
-              >
-              on the map.
+              The total area in England within {policyLensItems.find(
+                (d) => d.value == policyLens,
+              )?.sentenceText ?? '"' + makeFileNameReadable(policyLens) + '"'}
+              is
+              {policyLensArea.toLocaleString()}
+              ha.
             </p>
-            {#if blendedArrayLength > 0}
-              <p>
-                That's {blendedArrayLength.toLocaleString()} hectares with the current
-                selections, or about
-                <b
-                  >{((blendedArrayLength / policyLensArea) * 100).toFixed(
-                    0,
-                  )}%</b
-                >
-                of
-                {policyLensItems.find((d) => d.value == policyLens)
-                  ?.sentenceText ??
-                  'the "' + makeFileNameReadable(policyLens) + '" layer'}, which
-                means that {(
-                  policyLensArea - blendedArrayLength
-                ).toLocaleString()} hectares ({(
-                  ((policyLensArea - blendedArrayLength) / policyLensArea) *
-                  100
-                ).toFixed(0)}%) of {policyLensItems.find(
-                  (d) => d.value == policyLens,
-                )?.sentenceText ??
-                  'the "' + makeFileNameReadable(policyLens) + '" layer'} is not
-                in the area covered by the current selections.
-              </p>
-            {/if}
-
-            <p>
-              You can change the categories using the options {mobile.current
-                ? "above."
-                : "on the left."}
-            </p>
-            <p>
-              Select a row in the table below to see areas that are covered by
-              this category and no others, highlighted in <span
-                class="uniqueHighlightText">red</span
-              >
-              on the map, with the total area in this category shown in
-              <span class="areaHighlightText">pink</span>.
-            </p>
-            {#key tableData}
-              {#if tableData && tableMetadata}
-                <Table
-                  caption={""}
-                  data={tableData.sort((a, b) => +b.unique - +a.unique)}
-                  metaData={tableMetadata}
-                  colourScale={"Off"}
-                  bind:sortState
-                  bind:selectedRestriction
-                  {blendLayers}
-                  sortedColumn={"unique"}
-                />
-                <Button
-                  buttonType="default"
-                  textContent="Download data (.csv)"
-                  onClickFunction={function () {
-                    const csvStr = jsonToCsv(
-                      tableData,
-                      policyLens,
-                      policyLensItems,
-                      selected,
-                    );
-                    const blob = new Blob([csvStr], { type: "text/csv" });
-                    const link = document.createElement("a");
-                    link.href = URL.createObjectURL(blob);
-                    link.download = "land-data.csv";
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    URL.revokeObjectURL(link.href);
-                  }}
-                ></Button>
-                <Button
-                  buttonType="default"
-                  textContent="Download Local Authority breakdown of data (.csv)"
-                  onClickFunction={function () {
-                    if (!blendedArray || blendedArray.length === 0) return;
-
-                    const csvStr = jsonToCsv(
-                      breakdownData,
-                      policyLens,
-                      policyLensItems,
-                      selected,
-                    );
-                    const blob = new Blob([csvStr], { type: "text/csv" });
-                    const link = document.createElement("a");
-                    link.href = URL.createObjectURL(blob);
-                    link.download = "land-data-by-la.csv";
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    URL.revokeObjectURL(link.href);
-                  }}
-                ></Button>
-                <Button
-                  buttonType="secondary"
-                  textContent="Download the selected area shape (.bin)"
-                  onClickFunction={downloadUint32Array}
-                />
-              {/if}
-            {/key}
-          {:else}
-            <p>Select some categories to view the data.</p>
           {/if}
-        {:else if bbox}
+        </div>
+        {#if policyLens !== "England"}
+          <h2>
+            Within <span class="lens-area"
+              >{policyLensItems.find((d) => d.value == policyLens)
+                ?.sentenceText ??
+                'the "' + makeFileNameReadable(policyLens) + '" layer'}</span
+            >
+          </h2>
+        {/if}
+        {#if tableData?.length > 0}
+          <p>
+            The total area covered by the selected categories is shown in <span
+              class="totalHighlightText">grey</span
+            >
+            on the map.
+          </p>
+          {#if blendedArrayLength > 0}
+            <p>
+              That's {blendedArrayLength.toLocaleString()} hectares with the current
+              selections, or about
+              <b>{((blendedArrayLength / policyLensArea) * 100).toFixed(0)}%</b>
+              of
+              {policyLensItems.find((d) => d.value == policyLens)
+                ?.sentenceText ??
+                'the "' + makeFileNameReadable(policyLens) + '" layer'}, which
+              means that {(
+                policyLensArea - blendedArrayLength
+              ).toLocaleString()} hectares ({(
+                ((policyLensArea - blendedArrayLength) / policyLensArea) *
+                100
+              ).toFixed(0)}%) of {policyLensItems.find(
+                (d) => d.value == policyLens,
+              )?.sentenceText ??
+                'the "' + makeFileNameReadable(policyLens) + '" layer'} is not in
+              the area covered by the current selections.
+            </p>
+          {/if}
+
+          <p>
+            You can change the categories using the options {mobile.current
+              ? "above."
+              : "on the left."}
+          </p>
+          <p>
+            Select a row in the table below to see areas that are covered by
+            this category and no others, highlighted in <span
+              class="uniqueHighlightText">red</span
+            >
+            on the map, with the total area in this category shown in
+            <span class="areaHighlightText">pink</span>.
+          </p>
+          {#key tableData}
+            {#if tableData && tableMetadata}
+              <Table
+                caption={""}
+                data={tableData.sort((a, b) => +b.unique - +a.unique)}
+                metaData={tableMetadata}
+                colourScale={"Off"}
+                bind:sortState
+                bind:selectedRestriction
+                {blendLayers}
+                sortedColumn={"unique"}
+              />
+              <Button
+                buttonType="default"
+                textContent="Download data (.csv)"
+                onClickFunction={function () {
+                  const csvStr = jsonToCsv(
+                    tableData,
+                    policyLens,
+                    policyLensItems,
+                    selected,
+                  );
+                  const blob = new Blob([csvStr], { type: "text/csv" });
+                  const link = document.createElement("a");
+                  link.href = URL.createObjectURL(blob);
+                  link.download = "land-data.csv";
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  URL.revokeObjectURL(link.href);
+                }}
+              ></Button>
+              <Button
+                buttonType="default"
+                textContent="Download Local Authority breakdown of data (.csv)"
+                onClickFunction={function () {
+                  if (!blendedIndices || blendedIndices.length === 0) return;
+
+                  const csvStr = jsonToCsv(
+                    breakdownData,
+                    policyLens,
+                    policyLensItems,
+                    selected,
+                  );
+                  const blob = new Blob([csvStr], { type: "text/csv" });
+                  const link = document.createElement("a");
+                  link.href = URL.createObjectURL(blob);
+                  link.download = "land-data-by-la.csv";
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  URL.revokeObjectURL(link.href);
+                }}
+              ></Button>
+              <Button
+                buttonType="secondary"
+                textContent="Download the selected area shape (.bin)"
+                onClickFunction={downloadUint32Array}
+              />
+            {:else}
+              <Spinner />
+            {/if}
+          {/key}
+        {:else}
+          <p>Select some categories to view the data.</p>
+        {/if}
+        <!-- {:else if bbox}
           <Spinner />
         {:else}
           <p></p>
-        {/if}
+        {/if} -->
       {/snippet}
       {#snippet densitySnippet()}
-        {#if blendedArray.length > 0}
+        {#if blendedIndices.length > 0}
           <p>Title density for the selected area.</p>
           {#if densityGroup && done}
             <div class="font-semibold">

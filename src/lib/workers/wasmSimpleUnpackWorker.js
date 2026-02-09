@@ -10,37 +10,68 @@ async function ensureWasm() {
   }
 }
 
-function indicesToBinaryMask(bin) {
-  const out = new Uint8Array(width * height).fill(0);
-  console.log(bin.length);
-  for (let i = 0; i < bin.length; i++) {
-    out[bin[i]] = 1;
+// function indicesToBinaryMask(bin) {
+//   const out = new Uint8Array(width * height).fill(0);
+//   console.log(bin.length);
+//   for (let i = 0; i < bin.length; i++) {
+//     out[bin[i]] = 1;
+//   }
+
+//   return { data: out, area: bin.length };
+// }
+
+// function rasterToBinaryMask(raster) {
+//   const out = new Uint8Array(raster.length);
+//   let count = 0;
+
+//   for (let i = 0; i < raster.length; i++) {
+//     if (raster[i]) {
+//       out[i] = 1;
+//       count++;
+//     }
+//   }
+
+//   return { data: out, area: count };
+// }
+
+// function countActive(mask) {
+//   let count = 0;
+//   for (let i = 0; i < mask.length; i++) {
+//     if (mask[i] === 1) count++;
+//   }
+//   return count;
+// }
+
+function intersectUint32(a, b) {
+  if (a.length === 0 || b.length === 0) {
+    return new Uint32Array(0);
   }
 
-  return { data: out, area: bin.length };
-}
+  // Build the Set from the smaller array
+  let small = a, large = b;
+  if (a.length > b.length) {
+    small = b;
+    large = a;
+  }
 
-function rasterToBinaryMask(raster) {
-  const out = new Uint8Array(raster.length);
-  let count = 0;
+  const set = new Set();
+  for (let i = 0; i < small.length; i++) {
+    set.add(small[i]);
+  }
 
-  for (let i = 0; i < raster.length; i++) {
-    if (raster[i]) {
-      out[i] = 1;
-      count++;
+  const result = new Uint32Array(Math.min(small.length, large.length));
+  let k = 0;
+
+  for (let i = 0; i < large.length; i++) {
+    const v = large[i];
+    if (set.has(v)) {
+      result[k++] = v;
     }
   }
 
-  return { data: out, area: count };
+  return result.subarray(0, k);
 }
 
-function countActive(mask) {
-  let count = 0;
-  for (let i = 0; i < mask.length; i++) {
-    if (mask[i] === 1) count++;
-  }
-  return count;
-}
 
 self.onmessage = async function (e) {
   const { layersToUnpack, base, policyLens, customArea } = e.data;
@@ -70,13 +101,13 @@ self.onmessage = async function (e) {
       const bin = new Uint32Array(response.slice(0));
 
       // return rasterToBinaryMask(rasters[0]);
-      return indicesToBinaryMask(bin);
+      return bin;
     }
 
     if (policyLens !== "England") {
       // console.log(processedCustomArea)
-      lensLayer = policyLens === 'customArea' ? indicesToBinaryMask(processedCustomArea) : await loadLensMask();
-      console.log("Loaded policy lens", lensLayer.area);
+      lensLayer = policyLens === 'customArea' ? processedCustomArea : await loadLensMask();
+      console.log("Loaded policy lens", lensLayer.length);
     }
 
     const enrichedRasterLayers = await Promise.all(
@@ -99,17 +130,18 @@ self.onmessage = async function (e) {
 
         // 1️⃣ Threshold raster → binary mask
         // const { data: result } = rasterToBinaryMask(rasters[0]);
-        const { data: result } = indicesToBinaryMask(bin);
+        let result = bin;
         // console.log(result.findIndex((e) => e == 1));
         // 2️⃣ Apply policy lens using WASM (if needed)
         if (lensLayer) {
-          binary_and(result, lensLayer.data);
+          // binary_and(result, lensLayer.data);
+          result = intersectUint32(result, lensLayer)
         }
-        console.log(result);
+        // console.log(result);
         // console.log(result.findIndex((e) => e == 1));
         // 3️⃣ Count active pixels
-        const area = countActive(result);
-        console.log(area);
+        let area = result.length
+        // console.log(area);
         return {
           ...layer,
           area,
@@ -124,10 +156,10 @@ self.onmessage = async function (e) {
         // width,
         // height,
         // bbox,
-        policyLensArea: lensLayer?.area ?? 13_046_002,
-        policyLensLayer: lensLayer?.data,
+        policyLensArea: lensLayer?.length ?? 13_046_002,
+        lensIndices: lensLayer,
       },
-      enrichedRasterLayers.map((layer) => layer.data.buffer),
+      enrichedRasterLayers.map((layer) => layer.data.buffer)
     );
     console.timeEnd("unpack");
   } catch (error) {
