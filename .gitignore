@@ -14,3 +14,8 @@ node_modules/
 
 static/data/ALL_LAYERS/
 docs/data/ALL_LAYERS/
+
+#python stuff 
+.venv/
+scripts/
+static/data/
