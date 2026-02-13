@@ -4,13 +4,14 @@
     bbox,
     selectedAreaName = $bindable(),
     breakdownData,
-    blendedArrayIndices,
+    blendedIndices,
     seeDensity = $bindable(),
     seeArea = $bindable(),
     width,
     height,
-    opacity = 0.8,
+    opacity = $bindable(),
     densityArray,
+    densityGroup,
     customArea = $bindable(),
     customAreaBBox = $bindable(),
     policyLens = $bindable(),
@@ -50,6 +51,7 @@
   let map;
   let tiffLayer, densityLayer;
   let baseLayer, vectorTileLayer, aerialLayer, currentBaseMap;
+  let group = $state();
 
   const drawSource = new VectorSource({ wrapX: false });
 
@@ -200,9 +202,9 @@
 
     currentBaseMap = vectorTileLayer;
 
-    const group = {
+    group = {
       name: "Density layer",
-      paintedIndices: new Set(blendedArrayIndices),
+      paintedIndices: blendedIndices.map((d) => d + 1),
       gridConfig: { width, height, colOffset: 0 }, // uploaded files need offset
       stats: {},
       histogram: {},
@@ -211,34 +213,34 @@
 
     group.layer = createGroupLayer(group, opacity, densityArray);
     densityLayer = group.layer;
-    if (densityLayer) {
-      map = new Map({
-        controls: defaultControls().extend([new FullScreen()]),
-        target: mapElement,
-        layers: [
-          currentBaseMap,
-          geoJsonVectorLayer,
-          scotlandAndWalesVectorLayer,
-          tiffLayer,
-          densityLayer,
-          drawLayer,
-        ],
-        view: new View({
-          projection: "EPSG:27700",
-          extent: [-238375.0, 0.0, 900000.0, 1376256.0],
-          resolutions,
-          minZoom: 1,
-          maxZoom: 12,
-          center: [377297, 353995],
-          // zoom: 1,
-        }),
-      });
-      if (seeArea) {
-        densityLayer?.setVisible(false);
-      } else {
-        tiffLayer?.setVisible(false);
-      }
+    // if (densityLayer) {
+    map = new Map({
+      controls: defaultControls().extend([new FullScreen()]),
+      target: mapElement,
+      layers: [
+        currentBaseMap,
+        geoJsonVectorLayer,
+        scotlandAndWalesVectorLayer,
+        tiffLayer,
+        densityLayer,
+        drawLayer,
+      ],
+      view: new View({
+        projection: "EPSG:27700",
+        extent: [-238375.0, 0.0, 900000.0, 1376256.0],
+        resolutions,
+        minZoom: 1,
+        maxZoom: 12,
+        center: [377297, 353995],
+        // zoom: 1,
+      }),
+    });
+    if (seeArea) {
+      densityLayer?.setVisible(false);
+    } else {
+      tiffLayer?.setVisible(false);
     }
+    // }
 
     const drawStyle = new Style({
       fill: new Fill({
@@ -374,51 +376,54 @@
     }
 
     const displayFeatureInfo = function (pixel, target) {
-      const feature = target.closest(".ol-control")
-        ? undefined
-        : map.forEachFeatureAtPixel(pixel, (feature) => feature);
+      if (!drawing) {
+        const feature = target.closest(".ol-control")
+          ? undefined
+          : map.forEachFeatureAtPixel(pixel, (feature) => feature);
 
-      // Handle hover state
-      if (feature !== currentFeature) {
-        if (isFeature(currentFeature)) {
-          currentFeature.set("hover", false);
+        // Handle hover state
+        if (feature !== currentFeature) {
+          if (isFeature(currentFeature)) {
+            currentFeature.set("hover", false);
+          }
+
+          if (isFeature(feature)) {
+            feature.set("hover", true);
+          }
+
+          currentFeature = feature;
+          // geoJsonVectorSource.changed();
         }
 
-        if (isFeature(feature)) {
-          feature.set("hover", true);
-        }
+        // Tooltip UI
+        if (isFeature(feature) && feature.get("LAD25NM")) {
+          info.style.left = pixel[0] + 15 + "px";
+          info.style.top = pixel[1] + 15 + "px";
+          info.style.visibility = "visible";
 
-        currentFeature = feature;
-        // geoJsonVectorSource.changed();
-      }
-
-      // Tooltip UI
-      if (isFeature(feature) && feature.get("LAD25NM")) {
-        info.style.left = pixel[0] + 15 + "px";
-        info.style.top = pixel[1] + 15 + "px";
-        info.style.visibility = "visible";
-
-        info.innerHTML =
-          "<b>" +
-          feature.get("LAD25NM") +
-          "</b>" +
-          "<br>" +
-          "Area covered by the current selections: " +
-          Number(
-            breakdownData.find((d) => d.area_code === feature.get("LAD25CD"))
-              ?.selected_area,
-          ).toLocaleString() +
-          "ha" +
-          "<br> (" +
-          (
+          info.innerHTML =
+            "<b>" +
+            feature.get("LAD25NM") +
+            "</b>" +
+            "<br>" +
+            "Area covered by the current selections: " +
             Number(
               breakdownData.find((d) => d.area_code === feature.get("LAD25CD"))
-                ?.selected_area_as_a_proportion_of_total_area,
-            ) * 100
-          ).toFixed(0) +
-          "%)";
-      } else {
-        info.style.visibility = "hidden";
+                ?.selected_area,
+            ).toLocaleString() +
+            "ha" +
+            "<br> (" +
+            (
+              Number(
+                breakdownData.find(
+                  (d) => d.area_code === feature.get("LAD25CD"),
+                )?.selected_area_as_a_proportion_of_total_area,
+              ) * 100
+            ).toFixed(0) +
+            "%)";
+        } else {
+          info.style.visibility = "hidden";
+        }
       }
     };
 
@@ -483,28 +488,38 @@
     }
   });
 
+  // $effect(() => {
+  //   if (seeDensity && blendedIndices) {
+  //     if (map && dataURL) {
+  //       console.log("Updating the density layer");
+
+  //       map.removeLayer(densityLayer);
+
+  //       const group = {
+  //         name: "Density layer",
+  //         paintedIndices: blendedIndices,
+  //         gridConfig: { width, height, colOffset: 0 }, // uploaded files need offset
+  //         stats: {},
+  //         histogram: {},
+  //         layer: null,
+  //       };
+
+  //       group.layer = createGroupLayer(group, opacity, densityArray);
+  //       densityLayer = group.layer;
+  //       map.addLayer(densityLayer);
+  //     }
+  //     // seeDensity = false;
+  //   }
+  // });
+
   $effect(() => {
-    if (seeDensity && blendedArrayIndices) {
-      if (map && dataURL) {
-        console.log("Updating the density layer");
+    if (!group) return;
 
-        map.removeLayer(densityLayer);
+    group.paintedIndices = blendedIndices.map((d) => d + 1);
+    densityLayer.setOpacity(opacity);
 
-        const group = {
-          name: "Density layer",
-          paintedIndices: new Set(blendedArrayIndices),
-          gridConfig: { width, height, colOffset: 0 }, // uploaded files need offset
-          stats: {},
-          histogram: {},
-          layer: null,
-        };
-
-        group.layer = createGroupLayer(group, opacity, densityArray);
-        densityLayer = group.layer;
-        map.addLayer(densityLayer);
-      }
-      // seeDensity = false;
-    }
+    // Force OpenLayers to re-render
+    densityLayer.getSource()?.changed();
   });
 
   $effect(() => {

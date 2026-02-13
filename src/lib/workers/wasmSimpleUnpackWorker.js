@@ -1,6 +1,6 @@
 import { fromBlob } from "geotiff";
 import init, { binary_and } from "$lib/raster_ops/pkg/raster_ops.js";
-import { width, height } from "$lib/constants";
+import { width, height, gridSize, sourceFolder } from "$lib/constants";
 
 let wasmReady = false;
 async function ensureWasm() {
@@ -85,7 +85,7 @@ self.onmessage = async function (e) {
     let lensLayer = null;
 
     async function loadLensMask() {
-      const url = `${base}/data/PUBLIC_BIN_LAYERS/${policyLens}`;
+      const url = `${base}/data/${sourceFolder}/${policyLens}`;
       const response = await fetch(url).then((r) => r.arrayBuffer());
       // if (!response.ok) throw new Error(`Failed to load ${url}`);
 
@@ -112,7 +112,7 @@ self.onmessage = async function (e) {
 
     const enrichedRasterLayers = await Promise.all(
       layersToUnpack.map(async (layer) => {
-        const url = `${base}/data/PUBLIC_BIN_LAYERS/${layer.filename}`;
+        const url = `${base}/data/${sourceFolder}/${layer.filename}`;
         const response = await fetch(url).then((r) => r.arrayBuffer());
         // if (!response.ok) throw new Error(`Failed to load ${url}`);
 
@@ -156,7 +156,7 @@ self.onmessage = async function (e) {
         // width,
         // height,
         // bbox,
-        policyLensArea: lensLayer?.length ?? 13_046_002,
+        policyLensArea: lensLayer?.length ?? (13_046_002 * 10_000)/(gridSize*gridSize),
         lensIndices: lensLayer,
       },
       enrichedRasterLayers.map((layer) => layer.data.buffer)

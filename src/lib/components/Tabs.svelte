@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { replaceState } from "$app/navigation";
+  // import { replaceState } from "$app/navigation";
   import type { SvelteComponent, Snippet } from "svelte";
   import DOMPurify from "dompurify";
 
@@ -72,7 +72,8 @@
       const baseUrl =
         hashIndex !== -1 ? currentUrl.slice(0, hashIndex) : currentUrl;
       const newUrl = `${baseUrl}#${tabId}`;
-      replaceState(newUrl, {}); // Use SvelteKit's function
+      // replaceState(newUrl, {}); // Use SvelteKit's function
+      history.replaceState({}, "", newUrl);
     }
     console.log(selectedTabId);
     if (selectedTabId === "density") {
@@ -208,7 +209,7 @@
 
   // Handle media query changes
   function handleMediaChange(
-    event: MediaQueryListEvent | MediaQueryList
+    event: MediaQueryListEvent | MediaQueryList,
   ): void {
     // Handle both modern and deprecated event/object types
     isMobile = !event.matches;
@@ -235,9 +236,19 @@
     ) {
       // If selected tab ID is no longer valid, default to the first available tab
       console.log(
-        `Effect: selectedTabId '${selectedTabId}' no longer valid. Resetting.`
+        `Effect: selectedTabId '${selectedTabId}' no longer valid. Resetting.`,
       ); // Optional Debug
       selectedTabId = tabs[0]?.id ?? null; // Use optional chaining and nullish coalescing
+    }
+  });
+
+  $effect(() => {
+    const hash = window.location.hash.substring(1);
+    if (hash) {
+      const tabFromHash = tabs.find((tab) => tab.id === hash);
+      if (tabFromHash && tabFromHash.id !== selectedTabId) {
+        selectTab(tabFromHash.id, true);
+      }
     }
   });
 </script>

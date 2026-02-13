@@ -4,6 +4,7 @@ import { fromUrl } from "geotiff";
 import { interpolateViridis } from "d3-scale-chromatic";
 import ImageLayer from "ol/layer/Image.js";
 import ImageCanvasSource from "ol/source/ImageCanvas.js";
+import { width, height, gridSize, bbox } from "./constants";
 
 export interface GridConfig {
   width: number;
@@ -13,7 +14,7 @@ export interface GridConfig {
 
 export interface MapGroup {
   name: string;
-  paintedIndices: Set<number>;
+  paintedIndices: number[];
   gridConfig: GridConfig;
   stats: any;
   histogram: any;
@@ -140,7 +141,7 @@ export function downloadCSV(results: any[]) {
 }
 
 export function computeStats(group: MapGroup, densityArray: Uint16Array) {
-  if (!densityArray || group.paintedIndices.size === 0) {
+  if (!densityArray || group.paintedIndices.length === 0) {
     group.stats = { count: 0, sum: 0, mean: 0, median: 0, min: 0, max: 0 };
     group.histogram = {};
     return;
@@ -208,6 +209,8 @@ export function uploadedIndexToFullIndex(
 export function coordToIndex(x: number, y: number, grid: GridConfig): number {
   const cols = grid.width - (grid.colOffset || 0);
   const row = grid.height - 1 - Math.floor((y - originY) / cellSize);
+  // const row = Math.floor((y - originY)/(-cellSize))
+  // console.log(row)
   const col = Math.floor((x - originX) / cellSize);
   if (col < 0 || col >= cols || row < 0 || row >= grid.height) return null;
   return row * cols + col;
@@ -222,6 +225,7 @@ export function indexToCoord(
   const col = index % cols;
   const x = originX + col * cellSize;
   const y = originY + (grid.height - row) * cellSize; //Had to remove the -1 to match previous method and data
+  // const y = originY + row * (-cellSize);
   return { x, y };
 }
 
@@ -233,11 +237,17 @@ export async function loadDensityTiff(url: string): Promise<{
 }> {
   const tiff = await fromUrl(url);
   const image = await tiff.getImage();
+  // console.log(image.getBoundingBox())
+  if (image.getBoundingBox() !== bbox) {
+    console.error('Mismatch between density tiff and other data layers. Density tiff bbox: ', image.getBoundingBox(), "Other data layers bbox: ", bbox)
+  }
   const rasters = await image.readRasters();
   return {
     densityArray: rasters[0],
     width: image.getWidth(),
     height: image.getHeight(),
+    // densityOriginX: image.getOrigin()[0],
+    // densityOriginY: image.getOrigin()[1]
   };
 }
 
@@ -313,21 +323,34 @@ export function createGroupLayer(
   });
 }
 
-export function countOccurrences(uint8Array: Uint8Array): object {
-  const counts = {};
-  for (let i = 0; i < uint8Array.length; i++) {
-    const value = uint8Array[i];
-    if (counts[value] === undefined) {
-      counts[value] = 1;
-    } else {
-      counts[value]++;
-    }
-  }
-  return counts;
+export function convertPixelsToHectares(value: number): number {
+  return Math.round(value * gridSize * gridSize / 10_000)
 }
+
+export function indicesToBinaryMask(bin) {
+    const out = new Uint8Array(width * height).fill(0);
+    console.log(bin.length);
+    for (let i = 0; i < bin.length; i++) {
+      out[bin[i]] = 1;
+    }
+    return out;
+  }
+// export function countOccurrences(uint8Array: Uint8Array): object {
+//   const counts = {};
+//   for (let i = 0; i < uint8Array.length; i++) {
+//     const value = uint8Array[i];
+//     if (counts[value] === undefined) {
+//       counts[value] = 1;
+//     } else {
+//       counts[value]++;
+//     }
+//   }
+//   return counts;
+// }
 
 // --- Constants ---
 export const originX = 82668;
 export const originY = 5339;
+// export const originY = 657439;
 export const cellSize = 100; // meters per cell/hectare
 export const fillOpacity = 0.5;

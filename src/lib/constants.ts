@@ -11,4 +11,11 @@ export const colors: string[] = [
 ];
 export const width: number = 5728,
   height: number = 6521,
-  bbox: number[] = [82768, 5339, 655568, 657439];
+  bbox: number[] = [82768, 5339, 655568, 657439],
+  gridSize: number = 100,
+  sourceFolder: string = 'PUBLIC_BIN_LAYERS';
+// export const width: number = 5000,
+//   height: number = 5000,
+//   bbox: number[] = [350000, 150000, 400000, 200000],
+//   gridSize: number = 10,
+//   sourceFolder: string = "10mBinFiles";

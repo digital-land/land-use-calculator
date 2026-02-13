@@ -449,7 +449,7 @@
     if (!file) return;
 
     const buffer = await file.arrayBuffer();
-    const indices = new Uint32Array(buffer).map((d) => d + 1); //Hard coded +1 to the index to match the underlying data - possibly due to indexing difference between JS and other languages
+    const indices = new Uint32Array(buffer).map((d) => d + 1); //Hard coded +1 to the index to match the underlying data - misaligned bounding boxes between the density tiff and the rest of the data is the cause
 
     const group = {
       name: file.name,

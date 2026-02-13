@@ -1,38 +1,25 @@
-<script>
+<script lang="ts">
   //trigger deploy
 
-  import init, {
-    binary_and_unpack_simd,
-    binary_buffer,
-    categorical_count_masked,
-    unpack_bitmask,
-    categorical_matrix,
-  } from "$lib/raster_ops/pkg/raster_ops";
+  import init from "$lib/raster_ops/pkg/raster_ops"; // categorical_matrix, // unpack_bitmask, // categorical_count_masked, // binary_buffer, // binary_and_unpack_simd,
   import { onMount, tick } from "svelte";
   import { enhance } from "$app/forms";
-  import { fromUrl, fromBlob, fromArrayBuffer } from "geotiff";
-  import { writable } from "svelte/store";
   import { MediaQuery } from "svelte/reactivity";
-  import { browser } from "$app/environment";
+  import { base } from "$app/paths";
+  // import { browser } from "$app/environment";
   import {
-    CheckBox,
+    // CheckBox,
     Select,
-    Tooltip,
-    ServiceNavigation,
+    // Tooltip,
+    // ServiceNavigation,
     // Tabs,
   } from "@communitiesuk/svelte-component-library";
-  // import Map from "$lib/map/Map.svelte";
-
   import FilterPanel from "$lib/FilterPanel.svelte";
   import Button from "$lib/Button.svelte";
   import Details from "$lib/Details.svelte";
   import OsMap from "$lib/map/OSMap.svelte";
   import Spinner from "$lib/Spinner.svelte";
-  // import proj4 from "proj4";
-  import { base } from "$app/paths";
   import Table from "$lib/Table.svelte";
-  // import { csvParse } from "d3-dsv";
-  // import LALookup from "$lib/LALookup.js";
   import JSZip from "jszip";
   import {
     parseCsv,
@@ -40,19 +27,24 @@
     makeFileNameReadable,
     loadDensityTiff,
     computeStats,
-    countOccurrences,
+    // countOccurrences,
+    convertPixelsToHectares,
+    createGroupLayer,
+    indicesToBinaryMask,
   } from "$lib/utils";
-  import { colors, width, height, bbox } from "$lib/constants";
+  import { computeDensityStats } from "$lib/densityStats";
+  import { colors, width, height, bbox, sourceFolder } from "$lib/constants";
   import FilterChipParent from "$lib/components/FilterChipParent.svelte";
   import Tabs from "$lib/components/Tabs.svelte";
   import Histogram from "$lib/components/Histogram.svelte";
+  import type { GridConfig, MapGroup } from "$lib/utils";
 
   const mobile = new MediaQuery("max-width: 600px");
   // let pageLayout = $state("grid-template-columns: 23% 40% 37%");
-  let currentMousePosition = $state();
-  let hoveredArea = $state();
+  // let currentMousePosition = $state();
+  // let hoveredArea = $state();
   let showFilters = $state(true);
-  let mapSize = $state();
+  let mapSize: number = $state();
   // $inspect(mapSize);
 
   $effect(() => {
@@ -69,20 +61,12 @@
   let dataURL = $state();
 
   let containerLayout = $derived(
-    mobile.current
-      ? ""
-      : // : showFilters
-        //   ? // ? "grid-template-columns: 23% 40% 37%;"
-        //     `grid-template-columns: 23% 77%;`
-        `grid-template-columns: 100%;`,
+    mobile.current ? "" : `grid-template-columns: 100%;`,
   );
   let pageLayout = $derived(
     mobile.current
       ? ""
-      : // showFilters
-        //   ? // ? "grid-template-columns: 23% 40% 37%;"
-        //     `grid-template-columns: 23% ${0.77 * mapSize}% ${0.77 * (100 - mapSize)}%;`
-        dataURL
+      : dataURL
         ? `grid-template-columns: ${mapSize}% ${100 - mapSize}%;`
         : "grid-template-columns: 50% 50%",
   );
@@ -92,24 +76,17 @@
   $inspect({ seeDensity });
   let seeArea = $state(true);
   $inspect({ seeArea });
-  let densityGroup = $state();
+  let densityGroup: MapGroup = $state();
+  $inspect({ densityGroup });
 
-  let customArea = $state();
+  let customArea: Uint32Array = $state();
   let customAreaBBox = $state();
   let drawing = $state(false);
+  let opacity: number = $state(0.8);
 
-  let ones;
-
-  let occurrences = $state();
-  $inspect({ occurrences });
   let uniqueCounts = $state();
   let uniqueIndices = $state();
   // $inspect(uniqueCounts, uniqueIndices);
-  let finalArray = $state();
-  // let width = $state(0),
-  //   height = $state(0);
-  // let bbox = $state([]);
-  // $inspect({ width, height, bbox });
 
   const NO_DATA_COLOR = 0x00000000; // Transparent
   const LENS_HIGHLIGHT_COLOR = 0x44ff00ff; // Pale pink
@@ -326,52 +303,43 @@
 
   let policyLensArea = $state();
   // $inspect(policyLensArea);
-  // let rasterLayers = $state([]);
-  // let lookup = [];
-  // let bitLayers = $state([]);
-  // $inspect(bitLayers);
+
   let currentBitArrays = $state();
   // $inspect({ currentBitArrays });
-  // let England = $state();
-  // let englandLength = $derived(England?.length);
 
   let enrichedLayers = $state([]);
   // $inspect(enrichedLayers);
   let lensIndices = $state();
   // $inspect({ lensIndices });
-  // let englandArea = $derived(
-  //   enrichedLayers?.find((d) => d.filename == "ENGLAND_100M.tif")?.area
-  // );
-  // $inspect(englandArea);
 
   let blendedIndices = $state([]);
   // let blendedArrayIndices = $state([]);
 
   let breakdownData = $state(null);
-  let breakdownLoading = $state(false);
-  let breakdownError = $state(null);
 
-  // $inspect(blendedArray);
   let blendedArrayLength = $derived(blendedIndices?.length);
   let selected = $state([]);
   $inspect({ selected });
   // $inspect({ enrichedLayers });
 
   let tableData = $derived(
-    //DERIVED 6
-    // if (englandArea && blendedArrayLength) {
     selected?.map((layer, i) => {
       return {
         name: makeFileNameReadable(layer),
         area: enrichedLayers?.find((d) => d.filename == layer)?.area
-          ? enrichedLayers?.find((d) => d.filename == layer)?.area
+          ? convertPixelsToHectares(
+              enrichedLayers?.find((d) => d.filename == layer)?.area,
+            )
           : "-",
-        unique: uniqueCounts && uniqueCounts[i] ? uniqueCounts[i] : "",
+        unique:
+          uniqueCounts && uniqueCounts[i]
+            ? convertPixelsToHectares(uniqueCounts[i])
+            : "",
         subLayers: selectedSubLayers[layer],
       };
     }),
   );
-  // $inspect({ enrichedLayers });
+
   let tableMetadata = {
     name: {
       explainer: "Sort by restriction name",
@@ -399,7 +367,8 @@
 
   let sortState = $state({ column: "unique", order: "descending" });
 
-  let startingPosition = $state();
+  let startingPosition: object[] = $state();
+  $inspect({ startingPosition });
 
   let categoryToColor = $derived(
     [...new Set(startingPosition?.map((d) => d.Tier))].reduce(
@@ -410,7 +379,6 @@
       {},
     ),
   );
-
   // $inspect(categoryToColor);
 
   let filterSections = $derived(
@@ -456,8 +424,6 @@
           thisSectionData?.find((d) => d.Level == 1)?.initially_checked === "y"
             ? true
             : false,
-
-        // selectedValues: startingPosition, //If we want all selected initially
       };
     }),
   );
@@ -481,22 +447,21 @@
       return acc;
     }, {});
   });
-
   // $inspect(selectedSubLayers);
 
   let uniqueArray = $state([]);
-  // let selectedRestrictionIndex = 0;
-  let selectedRestriction = $state();
+
+  let selectedRestriction: string = $state();
   // $inspect({ selectedRestriction });
   let selectedRestrictionIndex = $derived(
     selectedRestriction
       ? selected
           ?.map((d) => makeFileNameReadable(d))
-          // .filter((d) => !d.includes("ENGLAND"))
           .indexOf(selectedRestriction)
       : undefined,
   );
   // $inspect({ selectedRestrictionIndex });
+
   let renderUnique = $derived(
     selected.map((d) => makeFileNameReadable(d)).includes(selectedRestriction)
       ? selectedRestrictionIndex >= 0
@@ -505,9 +470,6 @@
       : false,
   );
   // $inspect({ renderUnique });
-
-  const blendingProgress = writable(0);
-  let blending = $state(false);
 
   let csvFile = $state();
   let zipFile = $state();
@@ -563,19 +525,13 @@
   }
 
   let csvLocation = $derived(
-    //DERIVED 3
-
     csvFile?.length > 0
       ? csvFile[0]
-      : `${base}/data/PUBLIC_BIN_LAYERS/ultimate_land_metadata.csv`,
+      : `${base}/data/${sourceFolder}/ultimate_land_metadata.csv`,
   );
 
-  let geotiff = $state();
-  let metadataCsv = $state();
+  let metadataCsv: string = $state();
   // $inspect(metadataCsv);
-
-  // let unpackWorker;
-  let blendWorker;
 
   onMount(async () => {
     await init({
@@ -632,18 +588,12 @@
       }
 
       // console.log("Processed data:", e.data);
-      // bitLayers = e.data.rasterLayers.map((layer) => layer.data);
       enrichedLayers = e.data.rasterLayers;
-      // height = e.data.height;
-      // width = e.data.width;
-      // bbox = e.data.bbox;
       policyLensArea = e.data.policyLensArea;
       lensIndices = e.data.lensIndices;
 
       // console.log(enrichedLayers);
-      // England = enrichedLayers.find(
-      //   (l) => l.filename === "ENGLAND_100M.tif"
-      // )?.data;
+
       blendLayers();
       simpleWorker.terminate();
     };
@@ -681,17 +631,10 @@
       }
 
       // console.log("Processed data:", e.data);
-      // bitLayers = e.data.rasterLayers.map((layer) => layer.data);
+
       enrichedLayers = e.data.rasterLayers;
-      // height = e.data.height;
-      // width = e.data.width;
-      // bbox = e.data.bbox;
       policyLensArea = e.data.policyLensArea;
       lensIndices = e.data.lensIndices;
-
-      // England = enrichedLayers.find(
-      //   (l) => l.filename === "ENGLAND_100M.tif"
-      // )?.data;
 
       blendLayers();
       simpleZipWorker.terminate();
@@ -821,22 +764,7 @@
     return { json: accumulatedResult, bitArray };
   }
 
-  function indicesToBinaryMask(bin) {
-    const out = new Uint8Array(width * height).fill(0);
-    console.log(bin.length);
-    for (let i = 0; i < bin.length; i++) {
-      out[bin[i]] = 1;
-    }
-    return out;
-  }
-
   function blendLayers() {
-    // if (tableSectionHeight) {
-    //   console.log($state.snapshot(tableSectionHeight));
-    //   document.getElementById("table").style["min-height"] =
-    //     tableSectionHeight - 100 + "px";
-    // }
-    // console.log(enrichedLayers);
     done = selected.length > 0 ? false : true;
     console.time("blendLayers");
     const blendWorker = new Worker(
@@ -848,7 +776,7 @@
     const active = enrichedLayers.filter((l) => selected.includes(l.filename));
     currentBitArrays = active.map((l) => l.data);
     // console.log(currentBitArrays);
-    // Ensure Uint8Arrays
+    // Ensure Uint32Arrays
     const duplicateBitLayers = active.map((l) => new Uint32Array(l.data));
 
     // Get the raw buffers
@@ -864,10 +792,7 @@
     // console.log({ duplicateBitLayers });
     // Listen for messages
     blendWorker.onmessage = async (e) => {
-      if (e.data.progress !== undefined) {
-        blending = true;
-        blendingProgress.set(e.data.progress);
-      } else if (e.data.type === "done") {
+      if (e.data.type === "done") {
         blendedArrayLength = e.data.activeCount;
         blendedIndices = new Uint32Array(e.data.result); // re-wrap transferred buffer
         // console.log(blendedArray, blendedArrayLength);
@@ -875,34 +800,21 @@
           done = false;
           showDensity();
         }
-        // occurrences = e.data.occurrences;
-        blending = false;
-        blendingProgress.set(100);
-        // console.log("Blending complete:", blendedArrayLength);
         console.timeEnd("blendLayers");
 
         await findTheOnes([...currentBitArrays]);
 
-        // ({ uniqueCounts, uniqueIndices, done }) => {
-        // console.log("Done processing.", done);
-        // console.log("Final result:", uniqueCounts, uniqueIndices, done);
-        // console.log("Selected mask:", countOccurrences(uniqueArray));
-        // console.log("Occurrences:", occurrences);
         blendWorker.terminate();
 
         getLABreakdown(chunkUrls, indicesToBinaryMask(blendedIndices)).then(
           (result) => {
             breakdownData = result.json;
             // console.log("done breaking down: ", breakdownData);
-            breakdownLoading = false;
           },
         );
         mobile.current
           ? makeAndPaintCombinedCanvasMobile()
           : makeAndPaintCanvasFromIndices();
-        // },
-        // );
-        // .then();
       } else if (e.data.error) {
         console.error("Blend worker error:", e.data.error);
         blendedIndices = [];
@@ -916,47 +828,47 @@
     };
   }
 
-  function makeAndPaintCombinedCanvas() {
-    console.time("canvas-combined");
-    done = false;
+  // function makeAndPaintCombinedCanvas() {
+  //   console.time("canvas-combined");
+  //   done = false;
 
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
+  //   const canvas = document.createElement("canvas");
+  //   canvas.width = width;
+  //   canvas.height = height;
 
-    const ctx = canvas.getContext("2d");
+  //   const ctx = canvas.getContext("2d");
 
-    // Reuse ImageData if you want to go further later
-    const imageData = ctx.createImageData(width, height);
-    const pixels = new Uint32Array(imageData.data.buffer);
+  //   // Reuse ImageData if you want to go further later
+  //   const imageData = ctx.createImageData(width, height);
+  //   const pixels = new Uint32Array(imageData.data.buffer);
 
-    const hasSelection = selectedRestrictionIndex >= 0 && renderUnique;
-    const blendedArr = blendedArray;
-    const lensArr = policyLensLayer;
-    const areaArr = hasSelection
-      ? currentBitArrays[selectedRestrictionIndex]
-      : null;
-    const uniqueArr = hasSelection ? uniqueArray : null;
+  //   const hasSelection = selectedRestrictionIndex >= 0 && renderUnique;
+  //   const blendedArr = blendedArray;
+  //   const lensArr = policyLensLayer;
+  //   const areaArr = hasSelection
+  //     ? currentBitArrays[selectedRestrictionIndex]
+  //     : null;
+  //   const uniqueArr = hasSelection ? uniqueArray : null;
 
-    for (let i = 0; i < blendedArr.length; i++) {
-      const key =
-        (blendedArr[i] << 3) |
-        ((lensArr ? lensArr[i] : 0) << 2) |
-        ((areaArr ? areaArr[i] : 0) << 1) |
-        (uniqueArr && uniqueArr[i] === 1 ? 1 : 0);
+  //   for (let i = 0; i < blendedArr.length; i++) {
+  //     const key =
+  //       (blendedArr[i] << 3) |
+  //       ((lensArr ? lensArr[i] : 0) << 2) |
+  //       ((areaArr ? areaArr[i] : 0) << 1) |
+  //       (uniqueArr && uniqueArr[i] === 1 ? 1 : 0);
 
-      pixels[i] = COLOR_LUT[key];
-    }
+  //     pixels[i] = COLOR_LUT[key];
+  //   }
 
-    ctx.putImageData(imageData, 0, 0);
+  //   ctx.putImageData(imageData, 0, 0);
 
-    canvas.toBlob((blob) => {
-      dataURL = URL.createObjectURL(blob);
-    });
+  //   canvas.toBlob((blob) => {
+  //     dataURL = URL.createObjectURL(blob);
+  //   });
 
-    done = true;
-    console.timeEnd("canvas-combined");
-  }
+  //   done = true;
+  //   console.timeEnd("canvas-combined");
+  // }
 
   function makeAndPaintCanvasFromIndices() {
     console.time("canvas-indices");
@@ -968,7 +880,6 @@
 
     const ctx = canvas.getContext("2d");
 
-    // Reuse ImageData if you want to go further later
     const imageData = ctx.createImageData(width, height);
 
     const pixelCount = imageData.data.length / 4;
@@ -1000,7 +911,6 @@
       }
     }
 
-    // Final render loop (very close to your original)
     const pixels = new Uint32Array(imageData.data.buffer);
 
     for (let i = 0; i < pixelCount; i++) {
@@ -1060,7 +970,7 @@
     const tileBlobs = [];
 
     const hasSelection = selectedRestrictionIndex >= 0 && renderUnique;
-    const blendedArr = blendedArray;
+    const blendedArr = blendedIndices;
     const lensArr = policyLensLayer;
     const areaArr = hasSelection
       ? currentBitArrays[selectedRestrictionIndex]
@@ -1142,139 +1052,6 @@
     return { dataURL, scale };
   }
 
-  // async function findTheOnes(indexArrays) {
-  //   console.time("findTheOnes");
-  //   if (!indexArrays.length) return;
-
-  //   const uniqueIndicesWorker = new Worker(
-  //     new URL("../lib/workers/uniqueIndicesWorker.js?worker", import.meta.url),
-  //     { type: "module" },
-  //   );
-
-  //   uniqueIndicesWorker.onmessage = function (e) {
-  //     if (e.data.error) {
-  //       console.error(`Worker ${w} reported error:`, e.data.error);
-  //       reject(new Error(e.data.error));
-  //       return;
-  //     }
-
-  //     // let { uniqueCounts, uniqueIndices } = e.data;
-  //     // done = false;
-  //     // Ensure these are Uint32Arrays
-  //     uniqueCounts = new Uint32Array(e.data.uniqueCounts);
-  //     uniqueIndices = new Uint32Array(e.data.uniqueIndices);
-
-  //     // resolve();
-  //     console.log(uniqueCounts, uniqueIndices, done);
-
-  //     uniqueIndicesWorker.terminate();
-  //   };
-
-  //   uniqueIndicesWorker.onerror = function (err) {
-  //     console.error(`Worker ${w} failed:`, err.message);
-  //     reject(err);
-  //   };
-
-  //   const duplicateIndexArrays = indexArrays.map((l) => new Uint32Array(l));
-  //   const buffers = duplicateIndexArrays.map((arr) => arr.buffer);
-
-  //   uniqueIndicesWorker.postMessage(
-  //     {
-  //       arrays: buffers,
-  //       selectedRestrictionIndex,
-  //     },
-  //     // [...indexArrays.map((a) => a.buffer)], // Transfer input buffers
-  //     buffers,
-  //   );
-
-  //   done = true;
-  //   console.timeEnd("findTheOnes");
-
-  //   return {
-  //     uniqueCounts,
-  //     uniqueIndices,
-  //     done,
-  //   };
-  // }
-
-  // function findTheOnes(bitArrays) {
-  //   console.time("findTheOnes");
-  //   if (!bitArrays.length) return;
-
-  //   const NUM_WORKERS = 4;
-  //   const length = bitArrays[0].length;
-  //   const chunkSize = Math.ceil(length / NUM_WORKERS);
-
-  //   finalArray = new Uint8Array(length);
-  //   let interimUniqueArray = new Uint8Array(length);
-  //   const promises = [];
-
-  //   for (let w = 0; w < NUM_WORKERS; w++) {
-  //     const worker = new Worker(
-  //       new URL("../lib/workers/onesWorker.js?worker", import.meta.url),
-  //       { type: "module" },
-  //     );
-
-  //     const start = w * chunkSize;
-  //     const end = Math.min(start + chunkSize, length);
-
-  //     const chunkSlices = bitArrays.map((arr) => arr.slice(start, end));
-
-  //     const p = new Promise((resolve, reject) => {
-  //       worker.onmessage = function (e) {
-  //         if (e.data.error) {
-  //           console.error(`Worker ${w} reported error:`, e.data.error);
-  //           reject(new Error(e.data.error));
-  //           return;
-  //         }
-
-  //         const { result, uniqueResult } = e.data;
-
-  //         // Ensure these are Uint8Arrays
-  //         const resultArray = new Uint8Array(result);
-  //         const uniqueResultArray = new Uint8Array(uniqueResult);
-
-  //         finalArray.set(resultArray, start);
-  //         interimUniqueArray.set(uniqueResultArray, start);
-
-  //         resolve();
-
-  //         worker.terminate();
-  //       };
-
-  //       worker.onerror = function (err) {
-  //         console.error(`Worker ${w} failed:`, err.message);
-  //         reject(err);
-  //       };
-
-  //       worker.postMessage(
-  //         {
-  //           arrays: chunkSlices,
-  //           start,
-  //           end,
-  //           selectedRestrictionIndex,
-  //         },
-  //         [...chunkSlices.map((a) => a.buffer)], // Transfer input buffers
-  //       );
-  //     });
-
-  //     promises.push(p);
-  //   }
-
-  //   return Promise.all(promises).then(() => {
-  //     occurrences = countOccurrences(finalArray);
-  //     uniqueArray = new Uint8Array(interimUniqueArray);
-  //     const done = true;
-  //     console.timeEnd("findTheOnes");
-  //     return {
-  //       finalArray,
-  //       uniqueArray,
-  //       occurrences,
-  //       done,
-  //     };
-  //   });
-  // }
-
   function findTheOnes(indexArrays) {
     console.time("findTheOnes");
 
@@ -1328,13 +1105,6 @@
   }
 
   function downloadUint32Array() {
-    // let biggerBlendedArray = new Uint32Array(blendedArray);
-    // // console.log(biggerBlendedArray.BYTES_PER_ELEMENT);
-    // blendedArrayIndices = biggerBlendedArray
-    //   .map((d, i) => (d === 1 ? i : 4294967295))
-    //   .filter((d) => d !== 4294967295);
-
-    // Use the underlying ArrayBuffer (no copy)
     const filename = "data.bin";
     const blob = new Blob([blendedIndices.buffer], {
       type: "application/octet-stream",
@@ -1365,16 +1135,37 @@
 
     densityGroup = {
       name: "Selected area",
-      paintedIndices: new Set(blendedIndices),
+      paintedIndices: blendedIndices.map((d) => d + 1), //!
       gridConfig: { width, height, colOffset: 0 }, // uploaded files need offset
       stats: {},
       histogram: {},
       layer: null,
     };
-    computeStats(densityGroup, densityArray);
+    // computeStats(densityGroup, densityArray);
+    // computeDensityStats(blendedIndices.map((d) => d + 1), densityArray, { width, height, colOffset: 0 });
+
+    densityGroup.layer = createGroupLayer(densityGroup, opacity, densityArray);
     done = true;
     console.timeEnd("show-density");
   }
+
+  // $inspect(
+  //   blendedIndices?.[1000000],
+  //   densityArray?.[blendedIndices[0]],
+  //   densityArray?.[blendedIndices[0] + 1],
+  // );
+
+  const densityStats = $derived(
+    computeDensityStats(
+      blendedIndices.map((d) => d + 1),
+      densityArray,
+      {
+        width,
+        height,
+        colOffset: 0,
+      },
+    ),
+  );
 
   function showArea() {
     seeDensity = false;
@@ -1590,7 +1381,7 @@
     </div>
 
     <div class="map">
-      {#if dataURL && bbox.length > 0}
+      {#if dataURL}
         <!-- {console.log("Rendering the map!")} -->
 
         <div id="map" class={["os-map-container", { done }]}>
@@ -1603,7 +1394,9 @@
             bind:seeArea
             {width}
             {height}
+            bind:opacity
             {densityArray}
+            {densityGroup}
             bind:customArea
             bind:customAreaBBox
             bind:policyLens
@@ -1643,24 +1436,24 @@
       {#snippet tableSnippet()}
         <!-- {#if done && dataURL} -->
         <div class="summaryStats">
-          {#if blending && $blendingProgress < 100}
+          <!-- {#if blending && $blendingProgress < 100}
             <p>Blending... {$blendingProgress.toFixed(1)}%</p>
             <progress max="100" value={$blendingProgress}></progress>
-          {:else if $blendingProgress == 100}
-            <p>
-              The total area in England is 13,046,002 ha.
-              <!-- {#if blendedArrayLength > 0}
+          {:else if $blendingProgress == 100} -->
+          <p>
+            The total area in England is 13,046,002 ha.
+            <!-- {#if blendedArrayLength > 0}
           {blendedArrayLength.toLocaleString()} ha is covered by the selected categories.
         {/if} -->
-            </p>
-          {/if}
+          </p>
+          <!-- {/if} -->
           {#if policyLensArea && policyLens !== "England"}
             <p>
               The total area in England within {policyLensItems.find(
                 (d) => d.value == policyLens,
               )?.sentenceText ?? '"' + makeFileNameReadable(policyLens) + '"'}
               is
-              {policyLensArea.toLocaleString()}
+              {convertPixelsToHectares(policyLensArea).toLocaleString()}
               ha.
             </p>
           {/if}
@@ -1683,15 +1476,16 @@
           </p>
           {#if blendedArrayLength > 0}
             <p>
-              That's {blendedArrayLength.toLocaleString()} hectares with the current
-              selections, or about
+              That's {convertPixelsToHectares(
+                blendedArrayLength,
+              ).toLocaleString()} hectares with the current selections, or about
               <b>{((blendedArrayLength / policyLensArea) * 100).toFixed(0)}%</b>
               of
               {policyLensItems.find((d) => d.value == policyLens)
                 ?.sentenceText ??
                 'the "' + makeFileNameReadable(policyLens) + '" layer'}, which
-              means that {(
-                policyLensArea - blendedArrayLength
+              means that {convertPixelsToHectares(
+                policyLensArea - blendedArrayLength,
               ).toLocaleString()} hectares ({(
                 ((policyLensArea - blendedArrayLength) / policyLensArea) *
                 100
@@ -1717,7 +1511,7 @@
             <span class="areaHighlightText">pink</span>.
           </p>
           {#key tableData}
-            {#if tableData && tableMetadata}
+            {#if tableData && tableMetadata && done}
               <Table
                 caption={""}
                 data={tableData.sort((a, b) => +b.unique - +a.unique)}
@@ -1791,37 +1585,37 @@
       {#snippet densitySnippet()}
         {#if blendedIndices.length > 0}
           <p>Title density for the selected area.</p>
-          {#if densityGroup && done}
+          {#if densityStats && done}
             <div class="font-semibold">
-              <b> {densityGroup.name}</b>
+              <b> {densityGroup?.name}</b>
             </div>
             <div>
-              {densityGroup.name} measures {densityGroup.stats.count.toLocaleString()}
+              {densityGroup?.name} measures {densityStats.stats.count.toLocaleString()}
               hectares
             </div>
             <div>
-              It contains {(+densityGroup.stats.sum.toFixed(
+              It contains {(+densityStats.stats.sum.toFixed(
                 0,
               )).toLocaleString()} title deeds
             </div>
             <div>
-              Density is {densityGroup.stats.mean.toFixed(2)} titles per hectare
+              Density is {densityStats.stats.mean.toFixed(2)} titles per hectare
             </div>
             <div>
-              The median hectare's number of titles is {densityGroup.stats.median.toFixed(
+              The median hectare's number of titles is {densityStats.stats.median.toFixed(
                 0,
               )}
             </div>
             <div>
-              Minimum number in a hectare: {densityGroup.stats.min.toFixed(0)}
+              Minimum number in a hectare: {densityStats.stats.min.toFixed(0)}
             </div>
             <div>
-              Maximum number in a hectare : {(+densityGroup.stats.max.toFixed(
+              Maximum number in a hectare : {(+densityStats.stats.max.toFixed(
                 0,
               )).toLocaleString()}
             </div>
 
-            <Histogram histogram={densityGroup.histogram} />
+            <Histogram histogram={densityStats.histogram} />
           {:else}
             <Spinner />
           {/if}
