@@ -44,8 +44,7 @@
   import proj4 from "proj4";
   import { apply, applyStyle } from "ol-mapbox-style";
   import { apiKey, serviceUrl } from "$lib/constants.ts";
-  import { createGroupLayer } from "$lib/utils";
-  import Page from "../../routes/+page.svelte";
+  import { coordToIndex, createGroupLayer } from "$lib/utils";
 
   let mapElement;
   let map;
@@ -434,11 +433,25 @@
         currentFeature = undefined;
         return;
       }
-      displayFeatureInfo(evt.pixel, evt.originalEvent.target);
+      if (seeArea) {
+        displayFeatureInfo(evt.pixel, evt.originalEvent.target);
+      } else if (blendedIndices.includes(coordToIndex(...evt.coordinate))) {
+        info.style.left = evt.pixel[0] + 15 + "px";
+        info.style.top = evt.pixel[1] + 15 + "px";
+        info.style.visibility = "visible";
+
+        info.innerHTML =
+          "Number of titles at this location: <br>" +
+          densityArray[coordToIndex(...evt.coordinate)];
+      } else {
+        info.style.visibility = "hidden";
+      }
     });
 
     map.on("singleclick", function (evt) {
-      displayFeatureInfo(evt.pixel, evt.originalEvent.target);
+      if (seeArea) {
+        displayFeatureInfo(evt.pixel, evt.originalEvent.target);
+      }
     });
 
     map.getTargetElement().addEventListener("pointerleave", function () {

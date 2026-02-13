@@ -206,7 +206,7 @@ export function uploadedIndexToFullIndex(
   return row * grid.width + col;
 }
 
-export function coordToIndex(x: number, y: number, grid: GridConfig): number {
+export function coordToIndex(x: number, y: number, grid: GridConfig = {width, height}): number {
   const cols = grid.width - (grid.colOffset || 0);
   const row = grid.height - 1 - Math.floor((y - originY) / cellSize);
   // const row = Math.floor((y - originY)/(-cellSize))
@@ -349,7 +349,7 @@ export function indicesToBinaryMask(bin) {
 // }
 
 // --- Constants ---
-export const originX = 82668;
+export const originX = 82768;
 export const originY = 5339;
 // export const originY = 657439;
 export const cellSize = 100; // meters per cell/hectare
