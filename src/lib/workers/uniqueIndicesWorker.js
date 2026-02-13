@@ -1,8 +1,9 @@
 self.onmessage = function (e) {
   try {
     const { arrays, selectedRestrictionIndex } = e.data;
-
-    const rebuiltArrays = arrays.map(buf => new Uint32Array(buf));
+  
+    const rebuiltArrays = arrays.map((buf) => new Uint32Array(buf));
+  
     const count = rebuiltArrays.length;
 
     // 1. Find max index (cheap single scan)
@@ -14,8 +15,8 @@ self.onmessage = function (e) {
     }
 
     // 2. Typed arrays instead of Maps
-    const freq = new Uint8Array(maxIndex + 1);      // 0,1,2 (clamped)
-    const owner = new Int32Array(maxIndex + 1);     // owning array index
+    const freq = new Uint8Array(maxIndex + 1); // 0,1,2 (clamped)
+    const owner = new Int32Array(maxIndex + 1); // owning array index
 
     // 3. Count pass
     for (let i = 0; i < count; i++) {
@@ -63,11 +64,10 @@ self.onmessage = function (e) {
     self.postMessage(
       {
         uniqueCounts: uniqueCounts.buffer,
-        uniqueIndices: uniqueIndices.buffer
+        uniqueIndices: uniqueIndices.buffer,
       },
-      [uniqueCounts.buffer, uniqueIndices.buffer]
+      [uniqueCounts.buffer, uniqueIndices.buffer],
     );
-
   } catch (err) {
     self.postMessage({ error: err.message || "Unknown error" });
   }

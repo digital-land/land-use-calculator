@@ -1,15 +1,17 @@
-import init, { categorical_count_masked } from "$lib/raster_ops/pkg/raster_ops.js";
+import init, {
+  categorical_count_masked,
+} from "$lib/raster_ops/pkg/raster_ops.js";
 import { parseCsv } from "$lib/utils";
 // import { base } from "$app/paths";
 const base = import.meta.env.BASE_URL || "/";
-import areaSizeLookup from '$lib/data/areas_las_pixels.json';
+import areaSizeLookup from "$lib/data/areas_las_pixels.json";
 import { width, height } from "$lib/constants";
 
 let wasmReady = false;
 
 // Worker receives { categoricalArray: Uint16Array, bitArray: Uint16Array }
 self.onmessage = async (e) => {
-const { categoricalArray, bitArray, csvUrl } = e.data;
+  const { categoricalArray, bitArray, csvUrl } = e.data;
   // console.log("Worker received chunk:", categoricalArray.length, bitArray.length);
 
   // Initialize WASM once
@@ -17,7 +19,10 @@ const { categoricalArray, bitArray, csvUrl } = e.data;
     try {
       console.log("Initializing WASM...");
       await init({
-        module_or_path: new URL("$lib/raster_ops/pkg/raster_ops_bg.wasm", import.meta.url),
+        module_or_path: new URL(
+          "$lib/raster_ops/pkg/raster_ops_bg.wasm",
+          import.meta.url,
+        ),
       });
       wasmReady = true;
       console.log("WASM ready");
@@ -34,23 +39,20 @@ const { categoricalArray, bitArray, csvUrl } = e.data;
     // const height = 6521;
     const expectedLength = width * height;
 
-    const c = categoricalArray.length > expectedLength
-      ? categoricalArray.subarray(0, expectedLength)
-      : categoricalArray;
+    const c =
+      categoricalArray.length > expectedLength
+        ? categoricalArray.subarray(0, expectedLength)
+        : categoricalArray;
 
-    const b = (bitArray); // already full length
+    const b = bitArray; // already full length
 
     console.log("Processing chunk:", c.length, b.length);
 
     // Fetch CSV lookup once per message
 
-
-
-  const response = await fetch(csvUrl);
-if (!response.ok) throw new Error(`Failed to fetch CSV at ${csvUrl}`);
-const lookupCsv = await response.text();
-
-
+    const response = await fetch(csvUrl);
+    if (!response.ok) throw new Error(`Failed to fetch CSV at ${csvUrl}`);
+    const lookupCsv = await response.text();
 
     const laLookup = parseCsv(lookupCsv);
 
@@ -61,7 +63,8 @@ const lookupCsv = await response.text();
       area_name: d.area_name,
       selected_area: result[+d.index],
       total_area: areaSizeLookup?.[d.index]?.["Pixel count"],
-      selected_area_as_a_proportion_of_total_area: (result[+d.index]/areaSizeLookup?.[d.index]?.["Pixel count"]),
+      selected_area_as_a_proportion_of_total_area:
+        result[+d.index] / areaSizeLookup?.[d.index]?.["Pixel count"],
     }));
 
     // Post results back — do NOT transfer buffers

@@ -26,10 +26,10 @@
     jsonToCsv,
     makeFileNameReadable,
     loadDensityTiff,
-    computeStats,
+    // computeStats,
     // countOccurrences,
     convertPixelsToHectares,
-    createGroupLayer,
+    // createGroupLayer,
     indicesToBinaryMask,
   } from "$lib/utils";
   import { computeDensityStats } from "$lib/densityStats";
@@ -37,7 +37,7 @@
   import FilterChipParent from "$lib/components/FilterChipParent.svelte";
   import Tabs from "$lib/components/Tabs.svelte";
   import Histogram from "$lib/components/Histogram.svelte";
-  import type { GridConfig, MapGroup } from "$lib/utils";
+  // import type { GridConfig, MapGroup } from "$lib/utils";
 
   const mobile = new MediaQuery("max-width: 600px");
   // let pageLayout = $state("grid-template-columns: 23% 40% 37%");
@@ -85,7 +85,7 @@
   let opacity: number = $state(0.8);
 
   let uniqueCounts = $state();
-  let uniqueIndices = $state();
+
   // $inspect(uniqueCounts, uniqueIndices);
 
   const NO_DATA_COLOR = 0x00000000; // Transparent
@@ -313,14 +313,12 @@
   // $inspect({ lensIndices });
 
   let blendedIndices = $state([]);
-  // let blendedArrayIndices = $state([]);
 
   let breakdownData = $state(null);
 
   let blendedArrayLength = $derived(blendedIndices?.length);
   let selected = $state([]);
-  $inspect({ selected });
-  // $inspect({ enrichedLayers });
+  // $inspect({ selected });
 
   let tableData = $derived(
     selected?.map((layer, i) => {
@@ -368,7 +366,7 @@
   let sortState = $state({ column: "unique", order: "descending" });
 
   let startingPosition: object[] = $state();
-  $inspect({ startingPosition });
+  // $inspect({ startingPosition });
 
   let categoryToColor = $derived(
     [...new Set(startingPosition?.map((d) => d.Tier))].reduce(
@@ -461,6 +459,10 @@
       : undefined,
   );
   // $inspect({ selectedRestrictionIndex });
+
+  let uniqueArrays = $state([]);
+  // $inspect(uniqueArrays);
+  let uniqueIndices = $derived(uniqueArrays[selectedRestrictionIndex]);
 
   let renderUnique = $derived(
     selected.map((d) => makeFileNameReadable(d)).includes(selectedRestriction)
@@ -812,6 +814,7 @@
             // console.log("done breaking down: ", breakdownData);
           },
         );
+
         mobile.current
           ? makeAndPaintCombinedCanvasMobile()
           : makeAndPaintCanvasFromIndices();
@@ -1061,10 +1064,7 @@
 
     return new Promise((resolve, reject) => {
       const uniqueIndicesWorker = new Worker(
-        new URL(
-          "../lib/workers/uniqueIndicesWorker.js?worker",
-          import.meta.url,
-        ),
+        new URL("../lib/workers/uniqueArraysWorker.js?worker", import.meta.url),
         { type: "module" },
       );
 
@@ -1076,7 +1076,9 @@
         }
 
         uniqueCounts = new Uint32Array(e.data.uniqueCounts);
-        uniqueIndices = new Uint32Array(e.data.uniqueIndices);
+        uniqueArrays = e.data.uniqueIndicesPerArray.map(
+          (buf) => new Uint32Array(buf),
+        );
 
         done = true;
 
@@ -1097,7 +1099,6 @@
       uniqueIndicesWorker.postMessage(
         {
           arrays: buffers,
-          selectedRestrictionIndex,
         },
         buffers,
       );
@@ -1301,6 +1302,22 @@
           // console.log(startingPosition, selected);
         }}
       />
+      <Button
+        buttonType="link"
+        textContent="Select all filters"
+        onClickFunction={() => {
+          startingPosition.forEach((d) =>
+            d.Level == 3
+              ? (d.initially_checked = "y")
+              : (d.initially_checked = false),
+          );
+
+          selected = startingPosition
+            .filter((d) => d.initially_checked === "y")
+            .map((d) => d.filename);
+          unpackSelectedLayers();
+        }}
+      />
     {/if}
     <div class="collapse-filters-div">
       <button
@@ -1502,8 +1519,7 @@
                 colourScale={"Off"}
                 bind:sortState
                 bind:selectedRestriction
-                {blendLayers}
-                sortedColumn={"unique"}
+                {makeAndPaintCanvasFromIndices}
               />
               <Button
                 buttonType="default"

@@ -1,9 +1,6 @@
 <script lang="ts">
   import Button from "./Button.svelte";
   import { InsetText } from "@communitiesuk/svelte-component-library";
-  // import { createEventDispatcher } from "svelte";
-
-  // const dispatch = createEventDispatcher();
 
   let {
     data = undefined,
@@ -12,7 +9,7 @@
     colourScale = undefined,
     sortState = $bindable({ column: "unique", order: "descending" }),
     selectedRestriction = $bindable(),
-    blendLayers,
+    makeAndPaintCanvasFromIndices,
   } = $props();
   //   $inspect(sortState);
   let localCopyOfData = $state([...data]);
@@ -184,8 +181,7 @@
               selectedRestriction === row.name
                 ? (selectedRestriction = undefined)
                 : (selectedRestriction = row.name);
-              // dispatch("restrictionChanged");
-              blendLayers();
+              makeAndPaintCanvasFromIndices();
             }}
             onkeydown={(e) => {
               //   console.log(e.code);
@@ -193,8 +189,7 @@
                 selectedRestriction === row.name
                   ? (selectedRestriction = undefined)
                   : (selectedRestriction = row.name);
-                // dispatch("restrictionChanged");
-                blendLayers();
+                makeAndPaintCanvasFromIndices();
               }
             }}
             tabindex="0"
