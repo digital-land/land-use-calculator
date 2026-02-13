@@ -561,7 +561,7 @@
     }
 
     const tiffData = await loadDensityTiff(
-      `${base}/range/hectare_counts_adjusted_nox.tif`,
+      `${base}/range/hectare_counts_trimmed.tif`,
     );
     densityArray = tiffData.densityArray;
   });
@@ -1131,18 +1131,17 @@
     // blendedArrayIndices = biggerBlendedArray
     //   .map((d, i) => (d === 1 ? i : 4294967295))
     //   .filter((d) => d !== 4294967295)
-    //   .map((d) => d + 1);
 
     densityGroup = {
       name: "Selected area",
-      paintedIndices: blendedIndices.map((d) => d + 1), //!
+      paintedIndices: blendedIndices, //!
       gridConfig: { width, height, colOffset: 0 }, // uploaded files need offset
       stats: {},
       histogram: {},
       layer: null,
     };
     // computeStats(densityGroup, densityArray);
-    // computeDensityStats(blendedIndices.map((d) => d + 1), densityArray, { width, height, colOffset: 0 });
+    // computeDensityStats(blendedIndices, densityArray, { width, height, colOffset: 0 });
 
     densityGroup.layer = createGroupLayer(densityGroup, opacity, densityArray);
     done = true;
@@ -1156,15 +1155,11 @@
   // );
 
   const densityStats = $derived(
-    computeDensityStats(
-      blendedIndices.map((d) => d + 1),
-      densityArray,
-      {
-        width,
-        height,
-        colOffset: 0,
-      },
-    ),
+    computeDensityStats(blendedIndices, densityArray, {
+      width,
+      height,
+      colOffset: 0,
+    }),
   );
 
   function showArea() {

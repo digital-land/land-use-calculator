@@ -237,7 +237,7 @@
 
   onMount(async () => {
     const tiffData = await loadDensityTiff(
-      `${base}/range/hectare_counts_adjusted_nox.tif`,
+      `${base}/range/hectare_counts_trimmed.tif`,
     );
     densityArray = tiffData.densityArray;
     width = tiffData.width;
@@ -449,11 +449,11 @@
     if (!file) return;
 
     const buffer = await file.arrayBuffer();
-    const indices = new Uint32Array(buffer).map((d) => d + 1); //Hard coded +1 to the index to match the underlying data - misaligned bounding boxes between the density tiff and the rest of the data is the cause
+    const indices = new Uint32Array(buffer);
 
     const group = {
       name: file.name,
-      paintedIndices: new Set(indices),
+      paintedIndices: indices,
       gridConfig: { width, height, colOffset: 0 }, // uploaded files need offset
       stats: {},
       histogram: {},

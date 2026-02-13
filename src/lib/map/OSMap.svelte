@@ -204,7 +204,7 @@
 
     group = {
       name: "Density layer",
-      paintedIndices: blendedIndices.map((d) => d + 1),
+      paintedIndices: blendedIndices,
       gridConfig: { width, height, colOffset: 0 }, // uploaded files need offset
       stats: {},
       histogram: {},
@@ -515,7 +515,7 @@
   $effect(() => {
     if (!group) return;
 
-    group.paintedIndices = blendedIndices.map((d) => d + 1);
+    group.paintedIndices = blendedIndices;
     densityLayer.setOpacity(opacity);
 
     // Force OpenLayers to re-render

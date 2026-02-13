@@ -238,7 +238,7 @@ export async function loadDensityTiff(url: string): Promise<{
   const tiff = await fromUrl(url);
   const image = await tiff.getImage();
   // console.log(image.getBoundingBox())
-  if (image.getBoundingBox() !== bbox) {
+  if (JSON.stringify(image.getBoundingBox()) !== JSON.stringify(bbox)) {
     console.error('Mismatch between density tiff and other data layers. Density tiff bbox: ', image.getBoundingBox(), "Other data layers bbox: ", bbox)
   }
   const rasters = await image.readRasters();
