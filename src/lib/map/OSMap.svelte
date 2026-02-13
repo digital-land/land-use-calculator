@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   let {
     dataURL,
     bbox,
@@ -11,7 +11,6 @@
     height,
     opacity = $bindable(),
     densityArray,
-    densityGroup,
     customArea = $bindable(),
     customAreaBBox = $bindable(),
     policyLens = $bindable(),
@@ -21,9 +20,6 @@
 
   import "/node_modules/ol/ol.css";
   import { onMount } from "svelte";
-  // import { onDestroy } from "svelte";
-  //import GeoTIFF from 'ol/source/GeoTIFF';
-  // import WebGLTileLayer from "ol/layer/WebGLTile";
   import { register } from "ol/proj/proj4";
   import { Map, View } from "ol";
   import TileLayer from "ol/layer/Tile.js";
@@ -43,13 +39,16 @@
   import Draw from "ol/interaction/Draw.js";
   import proj4 from "proj4";
   import { apply, applyStyle } from "ol-mapbox-style";
-  import { apiKey, serviceUrl } from "$lib/constants.ts";
+  import { apiKey, serviceUrl } from "$lib/constants";
   import { coordToIndex, createGroupLayer } from "$lib/utils";
 
-  let mapElement;
-  let map;
+  let mapElement: HTMLDivElement;
+  let map: Map;
   let tiffLayer, densityLayer;
-  let baseLayer, vectorTileLayer, aerialLayer, currentBaseMap;
+  let osmBaseLayer: TileLayer,
+    ordnanceSurveyBaseLayer: VectorTileLayer,
+    aerialBaseLayer: TileLayer,
+    currentBaseMap;
   let group = $state();
 
   const drawSource = new VectorSource({ wrapX: false });
@@ -58,12 +57,7 @@
     source: drawSource,
   });
 
-  let draw = $state();
-  // $effect(() => {
-  //   console.log(draw);
-  //   draw?.on("finishDrawing", () => console.log(drawLayer.features));
-  //   console.log(drawLayer);
-  // });
+  let draw: Draw = $state();
 
   let tiffLayerSource = $derived(
     new ImageStatic({
@@ -105,21 +99,21 @@
       tileSize,
     });
 
-    vectorTileLayer = new VectorTileLayer({ declutter: true });
+    ordnanceSurveyBaseLayer = new VectorTileLayer({ declutter: true });
 
-    await vectorTileLayer.setSource(
+    await ordnanceSurveyBaseLayer.setSource(
       new VectorTileSource({
         format: new MVT(),
         url: tiles,
         projection: "EPSG:27700",
         tileGrid,
         attributions:
-          "Contains OS data © Crown copyright and database rights 2025",
+          "Contains OS data © Crown copyright and database rights 2026",
       }),
     );
 
     await applyStyle(
-      vectorTileLayer,
+      ordnanceSurveyBaseLayer,
       `${serviceUrl}/${service.defaultStyles}?key=${apiKey}`,
       "",
       { resolutions },
@@ -184,14 +178,14 @@
       opacity,
     });
 
-    baseLayer = new TileLayer({
+    osmBaseLayer = new TileLayer({
       source: new XYZ({
         url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
         attributions: `Map data from <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>`,
       }),
     });
 
-    aerialLayer = new TileLayer({
+    aerialBaseLayer = new TileLayer({
       source: new XYZ({
         url: "https://tiledbasemaps.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
         attributions:
@@ -199,7 +193,7 @@
       }),
     });
 
-    currentBaseMap = vectorTileLayer;
+    currentBaseMap = ordnanceSurveyBaseLayer;
 
     group = {
       name: "Density layer",
@@ -461,30 +455,6 @@
     });
   });
 
-  // $effect(() => {
-  //   if (map) {
-  //     console.log("Removing the total tiff layer");
-  //     map.removeLayer(tiffLayer);
-  //   }
-
-  //   if (dataURL && bbox) {
-  //     tiffLayer = new ImageLayer({
-  //       source: new ImageStatic({
-  //         url: dataURL,
-  //         imageExtent: bbox,
-  //         projection: "EPSG:27700",
-  //         interpolate: false,
-  //       }),
-  //       opacity,
-  //     });
-
-  //     if (map) {
-  //       console.log("Adding the total tiff layer");
-  //       map.addLayer(tiffLayer);
-  //     }
-  //   }
-  // });
-
   $effect(() => {
     if (drawing) {
       map.addInteraction(draw);
@@ -500,30 +470,6 @@
       densityLayer?.setVisible(true);
     }
   });
-
-  // $effect(() => {
-  //   if (seeDensity && blendedIndices) {
-  //     if (map && dataURL) {
-  //       console.log("Updating the density layer");
-
-  //       map.removeLayer(densityLayer);
-
-  //       const group = {
-  //         name: "Density layer",
-  //         paintedIndices: blendedIndices,
-  //         gridConfig: { width, height, colOffset: 0 }, // uploaded files need offset
-  //         stats: {},
-  //         histogram: {},
-  //         layer: null,
-  //       };
-
-  //       group.layer = createGroupLayer(group, opacity, densityArray);
-  //       densityLayer = group.layer;
-  //       map.addLayer(densityLayer);
-  //     }
-  //     // seeDensity = false;
-  //   }
-  // });
 
   $effect(() => {
     if (!group) return;
@@ -542,9 +488,9 @@
   });
 
   let basemapLookup = $derived({
-    OS: vectorTileLayer,
-    osm: baseLayer,
-    aerial: aerialLayer,
+    OS: ordnanceSurveyBaseLayer,
+    osm: osmBaseLayer,
+    aerial: aerialBaseLayer,
   });
 
   function updateBaseMap(value) {

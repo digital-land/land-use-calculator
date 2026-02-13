@@ -76,8 +76,8 @@
   $inspect({ seeDensity });
   let seeArea = $state(true);
   $inspect({ seeArea });
-  let densityGroup: MapGroup = $state();
-  $inspect({ densityGroup });
+  // let densityGroup: MapGroup = $state();
+  // $inspect({ densityGroup });
 
   let customArea: Uint32Array = $state();
   let customAreaBBox = $state();
@@ -1126,33 +1126,22 @@
     await tick();
     seeDensity = true;
     seeArea = false;
-    // let biggerBlendedArray = new Uint32Array(blendedArray);
 
-    // blendedArrayIndices = biggerBlendedArray
-    //   .map((d, i) => (d === 1 ? i : 4294967295))
-    //   .filter((d) => d !== 4294967295)
-
-    densityGroup = {
-      name: "Selected area",
-      paintedIndices: blendedIndices, //!
-      gridConfig: { width, height, colOffset: 0 }, // uploaded files need offset
-      stats: {},
-      histogram: {},
-      layer: null,
-    };
-    // computeStats(densityGroup, densityArray);
+    // densityGroup = {
+    //   name: "Selected area",
+    //   paintedIndices: blendedIndices, //!
+    //   gridConfig: { width, height, colOffset: 0 }, // uploaded files need offset
+    //   stats: {},
+    //   histogram: {},
+    //   layer: null,
+    // };
+    // // computeStats(densityGroup, densityArray);
     // computeDensityStats(blendedIndices, densityArray, { width, height, colOffset: 0 });
 
-    densityGroup.layer = createGroupLayer(densityGroup, opacity, densityArray);
+    // densityGroup.layer = createGroupLayer(densityGroup, opacity, densityArray);
     done = true;
     console.timeEnd("show-density");
   }
-
-  // $inspect(
-  //   blendedIndices?.[1000000],
-  //   densityArray?.[blendedIndices[0]],
-  //   densityArray?.[blendedIndices[0] + 1],
-  // );
 
   const densityStats = $derived(
     computeDensityStats(blendedIndices, densityArray, {
@@ -1391,7 +1380,6 @@
             {height}
             bind:opacity
             {densityArray}
-            {densityGroup}
             bind:customArea
             bind:customAreaBBox
             bind:policyLens
@@ -1582,10 +1570,10 @@
           <p>Title density for the selected area.</p>
           {#if densityStats && done}
             <div class="font-semibold">
-              <b> {densityGroup?.name}</b>
+              <b>Selected area</b>
             </div>
             <div>
-              {densityGroup?.name} measures {densityStats.stats.count.toLocaleString()}
+              The selected area measures {densityStats.stats.count.toLocaleString()}
               hectares
             </div>
             <div>

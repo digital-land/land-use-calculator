@@ -1,4 +1,3 @@
-import { fromBlob } from "geotiff";
 import init, { binary_and } from "$lib/raster_ops/pkg/raster_ops.js";
 import { width, height, gridSize, sourceFolder } from "$lib/constants";
 
@@ -9,38 +8,6 @@ async function ensureWasm() {
     wasmReady = true;
   }
 }
-
-// function indicesToBinaryMask(bin) {
-//   const out = new Uint8Array(width * height).fill(0);
-//   console.log(bin.length);
-//   for (let i = 0; i < bin.length; i++) {
-//     out[bin[i]] = 1;
-//   }
-
-//   return { data: out, area: bin.length };
-// }
-
-// function rasterToBinaryMask(raster) {
-//   const out = new Uint8Array(raster.length);
-//   let count = 0;
-
-//   for (let i = 0; i < raster.length; i++) {
-//     if (raster[i]) {
-//       out[i] = 1;
-//       count++;
-//     }
-//   }
-
-//   return { data: out, area: count };
-// }
-
-// function countActive(mask) {
-//   let count = 0;
-//   for (let i = 0; i < mask.length; i++) {
-//     if (mask[i] === 1) count++;
-//   }
-//   return count;
-// }
 
 function intersectUint32(a, b) {
   if (a.length === 0 || b.length === 0) {
@@ -81,7 +48,6 @@ self.onmessage = async function (e) {
   try {
     await ensureWasm();
 
-    // let width, height, bbox;
     let lensLayer = null;
 
     async function loadLensMask() {
@@ -89,18 +55,8 @@ self.onmessage = async function (e) {
       const response = await fetch(url).then((r) => r.arrayBuffer());
       // if (!response.ok) throw new Error(`Failed to load ${url}`);
 
-      // const blob = await response.blob();
-      // const geotiff = await fromBlob(blob);
-      // const image = await geotiff.getImage();
-
-      // width = image.getWidth();
-      // height = image.getHeight();
-      // bbox = image.getBoundingBox();
-
-      // const rasters = await image.readRasters();
       const bin = new Uint32Array(response.slice(0));
 
-      // return rasterToBinaryMask(rasters[0]);
       return bin;
     }
 
@@ -116,30 +72,17 @@ self.onmessage = async function (e) {
         const response = await fetch(url).then((r) => r.arrayBuffer());
         // if (!response.ok) throw new Error(`Failed to load ${url}`);
 
-        // const blob = await response.blob();
-        // const geotiff = await fromBlob(blob);
-        // const image = await geotiff.getImage();
-
-        // width = image.getWidth();
-        // height = image.getHeight();
-        // bbox = image.getBoundingBox();
-
-        // const rasters = await image.readRasters();
         const bin = new Uint32Array(response.slice(0));
         // console.log(bin);
 
-        // 1️⃣ Threshold raster → binary mask
-        // const { data: result } = rasterToBinaryMask(rasters[0]);
         let result = bin;
-        // console.log(result.findIndex((e) => e == 1));
-        // 2️⃣ Apply policy lens using WASM (if needed)
+        
+        // Apply policy lens (if needed)
         if (lensLayer) {
           // binary_and(result, lensLayer.data);
           result = intersectUint32(result, lensLayer)
         }
-        // console.log(result);
-        // console.log(result.findIndex((e) => e == 1));
-        // 3️⃣ Count active pixels
+        
         let area = result.length
         // console.log(area);
         return {
@@ -153,9 +96,6 @@ self.onmessage = async function (e) {
     self.postMessage(
       {
         rasterLayers: enrichedRasterLayers,
-        // width,
-        // height,
-        // bbox,
         policyLensArea: lensLayer?.length ?? (13_046_002 * 10_000)/(gridSize*gridSize),
         lensIndices: lensLayer,
       },
