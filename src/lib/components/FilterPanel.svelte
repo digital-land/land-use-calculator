@@ -13,7 +13,7 @@
     DateInput,
   } from "@communitiesuk/svelte-component-library";
 
-  import CheckBox from "$lib/CheckBox.svelte";
+  import CheckBox from "$lib/components/CheckBox.svelte";
 
   interface FilterOption {
     value: string;

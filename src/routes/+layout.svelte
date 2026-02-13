@@ -1,6 +1,6 @@
 <script>
   import "../app.css";
-  import PhaseBanner from "$lib/PhaseBanner.svelte";
+  import PhaseBanner from "$lib/components/PhaseBanner.svelte";
   import { ServiceNavigation } from "@communitiesuk/svelte-component-library";
 
   let { children } = $props();

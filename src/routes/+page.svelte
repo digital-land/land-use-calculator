@@ -14,12 +14,12 @@
     // ServiceNavigation,
     // Tabs,
   } from "@communitiesuk/svelte-component-library";
-  import FilterPanel from "$lib/FilterPanel.svelte";
-  import Button from "$lib/Button.svelte";
-  import Details from "$lib/Details.svelte";
-  import OsMap from "$lib/map/OSMap.svelte";
-  import Spinner from "$lib/Spinner.svelte";
-  import Table from "$lib/Table.svelte";
+  import FilterPanel from "$lib/components/FilterPanel.svelte";
+  import Button from "$lib/components/Button.svelte";
+  import Details from "$lib/components/Details.svelte";
+  import OsMap from "$lib/components/OSMap.svelte";
+  import Spinner from "$lib/components/Spinner.svelte";
+  import Table from "$lib/components/Table.svelte";
   import JSZip from "jszip";
   import {
     parseCsv,
@@ -56,7 +56,7 @@
   });
 
   let done = $state(false);
-  $inspect({ done });
+  // $inspect({ done });
 
   let dataURL = $state();
 
@@ -73,9 +73,9 @@
 
   let densityArray = $state();
   let seeDensity = $state(false);
-  $inspect({ seeDensity });
+  // $inspect({ seeDensity });
   let seeArea = $state(true);
-  $inspect({ seeArea });
+  // $inspect({ seeArea });
   // let densityGroup: MapGroup = $state();
   // $inspect({ densityGroup });
 

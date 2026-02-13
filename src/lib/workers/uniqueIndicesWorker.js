@@ -17,8 +17,6 @@ self.onmessage = function (e) {
     const freq = new Uint8Array(maxIndex + 1);      // 0,1,2 (clamped)
     const owner = new Int32Array(maxIndex + 1);     // owning array index
 
-    console.time("counting");
-
     // 3. Count pass
     for (let i = 0; i < count; i++) {
       const arr = rebuiltArrays[i];
@@ -34,8 +32,6 @@ self.onmessage = function (e) {
         }
       }
     }
-
-    console.timeEnd("counting");
 
     // 4. Count uniques per array + selected uniques
     const uniqueCounts = new Uint32Array(count);
