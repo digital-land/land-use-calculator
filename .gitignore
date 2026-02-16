@@ -25,3 +25,9 @@ docs/data/10mBinFiles/
 .venv/
 
 scripts/
+
+
+#python stuff 
+.venv/
+scripts/
+static/data/
