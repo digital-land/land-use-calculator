@@ -354,3 +354,35 @@ export const originY = 5339;
 // export const originY = 657439;
 export const cellSize = 100; // meters per cell/hectare
 export const fillOpacity = 0.5;
+
+export async function joinTiles(base: string, tileCodes: object) {
+  return new Promise((resolve, reject) => {
+    console.time("tileWorker");
+
+    const tilerWorker = new Worker(
+      new URL("$lib/workers/tilerWorker.js", import.meta.url),
+      { type: "module" },
+    );
+
+    tilerWorker.onerror = (err) => {
+      console.error("Worker error:", err);
+      reject(err); // Reject the promise on worker error
+    };
+
+    tilerWorker.postMessage({
+      base,
+      tileCodes: tileCodes, // send urls and relative positions
+      width: 5000,
+    });
+
+    tilerWorker.onmessage = (e) => {
+      if (e.data.error) {
+        console.warn(e.data.error);
+        reject(e.data.error); // Reject the promise on error
+        return;
+      }
+      console.timeEnd("tileWorker");
+      resolve(e.data); // Resolve the promise with the worker's result
+    };
+  });
+}

@@ -66,11 +66,10 @@ self.onmessage = async (e) => {
     ]),
   );
 
-  const newSet = Object.values(newArrays).map(a => [...a]).flat().sort((a,b)=>a-b);
+  const result = new Uint32Array(Object.values(newArrays).flatMap(a => [...a]).sort((a,b)=>a-b));
 
   try {
-    //do something
-    self.postMessage({ array: newSet });
+    self.postMessage({ array: result.buffer });
   } catch (error) {
     self.postMessage({ error: error.message });
   }

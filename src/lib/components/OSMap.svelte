@@ -18,6 +18,8 @@
     unpackSelectedLayers,
   } = $props();
 
+console.log("dataURL",dataURL)
+
   import "/node_modules/ol/ol.css";
   import { onMount } from "svelte";
   import { register } from "ol/proj/proj4";

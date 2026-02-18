@@ -31,6 +31,7 @@
     convertPixelsToHectares,
     // createGroupLayer,
     indicesToBinaryMask,
+    joinTiles
   } from "$lib/utils";
   import { computeDensityStats } from "$lib/densityStats";
   import { colors, width, height, bbox, sourceFolder } from "$lib/constants";
@@ -38,6 +39,18 @@
   import Tabs from "$lib/components/Tabs.svelte";
   import Histogram from "$lib/components/Histogram.svelte";
   // import type { GridConfig, MapGroup } from "$lib/utils";
+
+
+  const tileCodes = {
+    //QUESTION IS - How do we want to identify the tiles we need? A single bounding box approach maybe?
+    //Where the ultimate metadata provides the bounds of each feature layer
+    //Or the user selects their own area which has bounds.
+    "9,10": `SUNE`,
+    "8,10": `SUNW`,
+    "8,11": `SUSW`,
+  };
+
+
 
   const mobile = new MediaQuery("max-width: 600px");
   // let pageLayout = $state("grid-template-columns: 23% 40% 37%");
@@ -54,6 +67,9 @@
       `${showFilters ? 0 : -100}%`,
     );
   });
+
+  let tenMetreTilesJoined = $state();
+  $inspect(tenMetreTilesJoined)
 
   let done = $state(false);
   // $inspect({ done });
@@ -544,6 +560,16 @@
     });
     console.log("✅ WASM initialized");
 
+    setTimeout(()=>
+    joinTiles(base,tileCodes).then(res=>{
+      tenMetreTilesJoined=new Uint32Array(res.array);
+      console.log("10mt",tenMetreTilesJoined);
+    }), 10000
+  )
+
+    // currentBitArrays = [blendedIndices]
+    // makeAndPaintCanvasFromIndices()
+
     try {
       const response = await fetch(csvLocation);
       if (!response.ok) throw new Error("Failed to fetch CSV");
@@ -777,7 +803,7 @@
     // Select the active layers
     const active = enrichedLayers.filter((l) => selected.includes(l.filename));
     currentBitArrays = active.map((l) => l.data);
-    // console.log(currentBitArrays);
+    //console.log("CBA---",currentBitArrays);
     // Ensure Uint32Arrays
     const duplicateBitLayers = active.map((l) => new Uint32Array(l.data));
 
@@ -1107,7 +1133,7 @@
 
   function downloadUint32Array() {
     const filename = "data.bin";
-    const blob = new Blob([blendedIndices.buffer], {
+    const blob = new Blob([tenMetreTilesJoined], { //<=This has changed
       type: "application/octet-stream",
     });
 
