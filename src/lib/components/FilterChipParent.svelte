@@ -116,7 +116,7 @@
 <div class="filters-and-legend-container">
   <div class="drop-zone" data-zone="zone2">
     {#each zones.zone2 as id}
-      {#if id !== "England" && id !== policyLens}
+      {#if id !== "England"}
         <FilterChip
           {...chipData[id]}
           currentZone="zone2"

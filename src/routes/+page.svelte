@@ -6,7 +6,7 @@
   import { enhance } from "$app/forms";
   import { MediaQuery } from "svelte/reactivity";
   import { base } from "$app/paths";
-  // import { browser } from "$app/environment";
+  import { browser } from "$app/environment";
   import {
     // CheckBox,
     Select,
@@ -31,13 +31,14 @@
     convertPixelsToHectares,
     // createGroupLayer,
     indicesToBinaryMask,
+    createDensityCanvas,
   } from "$lib/utils";
   import { computeDensityStats } from "$lib/densityStats";
   import { colors, width, height, bbox, sourceFolder } from "$lib/constants";
   import FilterChipParent from "$lib/components/FilterChipParent.svelte";
   import Tabs from "$lib/components/Tabs.svelte";
   import Histogram from "$lib/components/Histogram.svelte";
-  // import type { GridConfig, MapGroup } from "$lib/utils";
+  import type { TableMetadata } from "$lib/utils";
 
   const mobile = new MediaQuery("max-width: 600px");
   // let pageLayout = $state("grid-template-columns: 23% 40% 37%");
@@ -81,6 +82,7 @@
 
   let customArea: Uint32Array = $state();
   let customAreaBBox = $state();
+  let drawnFeature = $state();
   let drawing = $state(false);
   let opacity: number = $state(0.8);
 
@@ -115,6 +117,32 @@
   // Lens + blended + area
   COLOR_LUT[0b1110] = SELECTED_AREA_COLOR;
   COLOR_LUT[0b1111] = UNIQUE_AREA_COLOR;
+
+  const DENSITY_LUT = $derived.by(() => {
+    const LUT = new Uint32Array(65536);
+    for (let i = 0; i < 65536; i++) {
+      // const normalized = normalizeDensity(i);
+      let normalized;
+
+      if (i <= 1) normalized = [253, 231, 37];
+      else if (i <= 5) normalized = [189, 223, 38];
+      else if (i <= 10) normalized = [122, 209, 81];
+      else if (i <= 20) normalized = [47, 180, 124];
+      else if (i <= 50) normalized = [30, 156, 137];
+      else if (i <= 100) normalized = [37, 132, 142];
+      else if (i <= 200) normalized = [47, 108, 142];
+      else if (i <= 500) normalized = [65, 68, 135];
+      else normalized = [68, 1, 84];
+      const [r, g, b] = normalized;
+      // console.log(interpolateViridis(1 - normalized));
+
+      const a = Math.floor(opacity * 255);
+
+      LUT[i] = (a << 24) | (b << 16) | (g << 8) | r;
+    }
+    return LUT;
+  });
+  // $inspect(DENSITY_LUT);
 
   let policyLensItems = [
     {
@@ -314,6 +342,10 @@
 
   let blendedIndices = $state([]);
 
+  let densityCanvas = $state();
+  let densityDataURL = $state();
+  // $inspect(densityDataURL);
+
   let breakdownData = $state(null);
 
   let blendedArrayLength = $derived(blendedIndices?.length);
@@ -328,17 +360,17 @@
           ? convertPixelsToHectares(
               enrichedLayers?.find((d) => d.filename == layer)?.area,
             )
-          : "-",
+          : 0,
         unique:
           uniqueCounts && uniqueCounts[i]
             ? convertPixelsToHectares(uniqueCounts[i])
-            : "",
+            : 0,
         subLayers: selectedSubLayers[layer],
       };
     }),
   );
 
-  let tableMetadata = {
+  let tableMetadata: TableMetadata = {
     name: {
       explainer: "Sort by restriction name",
       label: "Name",
@@ -536,6 +568,8 @@
   // $inspect(metadataCsv);
 
   onMount(async () => {
+    densityCanvas = document.createElement("canvas");
+
     await init({
       module_or_path: new URL(
         "$lib/raster_ops/pkg/raster_ops_bg.wasm",
@@ -1140,6 +1174,13 @@
     // computeDensityStats(blendedIndices, densityArray, { width, height, colOffset: 0 });
 
     // densityGroup.layer = createGroupLayer(densityGroup, opacity, densityArray);
+
+    densityDataURL = await createDensityCanvas(
+      densityCanvas,
+      blendedIndices,
+      densityArray,
+      DENSITY_LUT,
+    );
     done = true;
     console.timeEnd("show-density");
   }
@@ -1159,7 +1200,7 @@
   }
 
   let tableSectionHeight = $state();
-  $inspect(tableSectionHeight);
+  // $inspect(tableSectionHeight);
 </script>
 
 <svelte:head>
@@ -1316,6 +1357,7 @@
             .filter((d) => d.initially_checked === "y")
             .map((d) => d.filename);
           unpackSelectedLayers();
+          showFilters = false;
         }}
       />
     {/if}
@@ -1388,6 +1430,7 @@
         <div id="map" class={["os-map-container", { done }]}>
           <OsMap
             {dataURL}
+            {densityDataURL}
             {bbox}
             {breakdownData}
             {blendedIndices}
@@ -1399,6 +1442,7 @@
             {densityArray}
             bind:customArea
             bind:customAreaBBox
+            bind:drawnFeature
             bind:policyLens
             bind:drawing
             {unpackSelectedLayers}

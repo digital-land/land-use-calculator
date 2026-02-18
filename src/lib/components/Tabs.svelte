@@ -48,7 +48,7 @@
   let tabletMql: MediaQueryList | null = null;
 
   // Handle tab selection - integrate focus and hash logic directly
-  function selectTab(tabId: string, shouldFocus = false): void {
+  async function selectTab(tabId: string, shouldFocus = false): void {
     // Skip if component isn't ready, or tab is already selected
     if (!isSupported || !isInitialized || selectedTabId === tabId) return;
 

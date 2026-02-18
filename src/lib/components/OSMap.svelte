@@ -1,6 +1,7 @@
 <script lang="ts">
   let {
     dataURL,
+    densityDataURL,
     bbox,
     selectedAreaName = $bindable(),
     breakdownData,
@@ -13,6 +14,7 @@
     densityArray,
     customArea = $bindable(),
     customAreaBBox = $bindable(),
+    drawnFeature = $bindable(),
     policyLens = $bindable(),
     drawing = $bindable(),
     unpackSelectedLayers,
@@ -40,7 +42,7 @@
   import proj4 from "proj4";
   import { apply, applyStyle } from "ol-mapbox-style";
   import { apiKey, serviceUrl } from "$lib/constants";
-  import { coordToIndex, createGroupLayer } from "$lib/utils";
+  import { coordToIndex, createGroupLayer, type MapGroup } from "$lib/utils";
 
   let mapElement: HTMLDivElement;
   let map: Map;
@@ -49,7 +51,7 @@
     ordnanceSurveyBaseLayer: VectorTileLayer,
     aerialBaseLayer: TileLayer,
     currentBaseMap;
-  let group = $state();
+  // let group: MapGroup = $state();
 
   const drawSource = new VectorSource({ wrapX: false });
 
@@ -59,9 +61,40 @@
 
   let draw: Draw = $state();
 
+  const drawStyle = new Style({
+    fill: new Fill({
+      color: "rgba(255, 0, 0, 0.05)", // red with transparency (polygon fill)
+    }),
+    stroke: new Stroke({
+      color: "red", // line color
+      width: 2,
+    }),
+    image: new CircleStyle({
+      radius: 6,
+      fill: new Fill({
+        color: "red", // point color
+      }),
+      stroke: new Stroke({
+        color: "#fff",
+        width: 1,
+      }),
+    }),
+  });
+
+  drawLayer.setStyle(drawStyle);
+
   let tiffLayerSource = $derived(
     new ImageStatic({
       url: dataURL,
+      imageExtent: bbox,
+      projection: "EPSG:27700",
+      interpolate: false,
+    }),
+  );
+
+  let densityLayerSource = $derived(
+    new ImageStatic({
+      url: densityDataURL,
       imageExtent: bbox,
       projection: "EPSG:27700",
       interpolate: false,
@@ -178,6 +211,11 @@
       opacity,
     });
 
+    densityLayer = new ImageLayer({
+      source: densityLayerSource,
+      opacity,
+    });
+
     osmBaseLayer = new TileLayer({
       source: new XYZ({
         url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
@@ -195,28 +233,33 @@
 
     currentBaseMap = ordnanceSurveyBaseLayer;
 
-    group = {
-      name: "Density layer",
-      paintedIndices: blendedIndices,
-      gridConfig: { width, height, colOffset: 0 }, // uploaded files need offset
-      stats: {},
-      histogram: {},
-      layer: null,
-    };
+    // group = {
+    //   name: "Density layer",
+    //   paintedIndices: blendedIndices,
+    //   gridConfig: { width, height, colOffset: 0 }, // uploaded files need offset
+    //   stats: {},
+    //   histogram: {},
+    //   layer: null,
+    // };
 
-    group.layer = createGroupLayer(group, opacity, densityArray);
-    densityLayer = group.layer;
+    // group.layer = createGroupLayer(group, opacity, densityArray, DENSITY_LUT);
+    // densityLayer = group.layer;
+
+    if (drawnFeature) {
+      drawSource.addFeature(drawnFeature);
+    }
+
     // if (densityLayer) {
     map = new Map({
       controls: defaultControls().extend([new FullScreen()]),
       target: mapElement,
       layers: [
         currentBaseMap,
+        drawLayer,
         geoJsonVectorLayer,
         scotlandAndWalesVectorLayer,
         tiffLayer,
         densityLayer,
-        drawLayer,
       ],
       view: new View({
         projection: "EPSG:27700",
@@ -235,38 +278,17 @@
     }
     // }
 
-    const drawStyle = new Style({
-      fill: new Fill({
-        color: "rgba(255, 0, 0, 0.2)", // red with transparency (polygon fill)
-      }),
-      stroke: new Stroke({
-        color: "red", // line color
-        width: 2,
-      }),
-      image: new CircleStyle({
-        radius: 6,
-        fill: new Fill({
-          color: "red", // point color
-        }),
-        stroke: new Stroke({
-          color: "#fff",
-          width: 1,
-        }),
-      }),
-    });
-
     draw = new Draw({
       source: drawSource,
       type: "Polygon",
       style: drawStyle,
     });
 
-    drawLayer.setStyle(drawStyle);
-
     // map.addInteraction(draw);
 
     draw.on("drawend", function (event) {
       const feature = event.feature;
+      drawnFeature = feature;
       const geometry = feature.getGeometry();
 
       // For a Polygon, this is an array of rings
@@ -274,7 +296,7 @@
       const extent = geometry.getExtent();
       customAreaBBox = extent;
 
-      console.log(coordinates, extent);
+      // console.log(coordinates, extent);
 
       const cellWidth = (bbox[2] - bbox[0]) / width;
       const cellHeight = (bbox[3] - bbox[1]) / height;
@@ -435,8 +457,10 @@
         info.style.visibility = "visible";
 
         info.innerHTML =
-          "Number of titles at this location: <br>" +
-          densityArray[coordToIndex(...evt.coordinate)];
+          densityArray[coordToIndex(...evt.coordinate)] +
+          (densityArray[coordToIndex(...evt.coordinate)] === 1
+            ? " title at this location"
+            : " titles at this location");
       } else {
         info.style.visibility = "hidden";
       }
@@ -471,20 +495,26 @@
     }
   });
 
-  $effect(() => {
-    if (!group) return;
+  // $effect(() => {
+  //   if (!group) return;
 
-    group.paintedIndices = blendedIndices;
-    densityLayer.setOpacity(opacity);
+  //   group.paintedIndices = blendedIndices;
+  //   densityLayer.setOpacity(opacity);
 
-    // Force OpenLayers to re-render
-    densityLayer.getSource()?.changed();
-  });
+  //   // Force OpenLayers to re-render
+  //   densityLayer.getSource()?.changed();
+  // });
 
   $effect(() => {
     console.log("UPDATING tiff source");
     const newSource = tiffLayerSource; // Need this line so that Svelte has a dependedncy to track
     tiffLayer?.setSource(newSource);
+  });
+
+  $effect(() => {
+    console.log("UPDATING density source");
+    const newSource = densityLayerSource; // Need this line so that Svelte has a dependedncy to track
+    densityLayer?.setSource(newSource);
   });
 
   let basemapLookup = $derived({

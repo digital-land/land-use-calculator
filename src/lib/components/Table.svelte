@@ -1,6 +1,7 @@
 <script lang="ts">
   import Button from "./Button.svelte";
   import { InsetText } from "@communitiesuk/svelte-component-library";
+  import type { TableMetadata } from "$lib/utils";
 
   let {
     data = undefined,
@@ -10,7 +11,7 @@
     sortState = $bindable({ column: "unique", order: "descending" }),
     selectedRestriction = $bindable(),
     makeAndPaintCanvasFromIndices,
-  } = $props();
+  } = $props<{ metaData: TableMetadata }>();
   //   $inspect(sortState);
   let localCopyOfData = $state([...data]);
   let openInsets = $state(data.map((d) => false));
@@ -25,6 +26,7 @@
     }
     return true; // All values are unique
   }
+  // $inspect(sortState);
 
   let columns = [];
 
@@ -207,7 +209,9 @@
                   >
                 {:else}
                   <td class="govuk-table__cell govuk-table__cell--numeric"
-                    >{row[column.key]?.toLocaleString()}</td
+                    >{row[column.key] !== 0
+                      ? row[column.key]?.toLocaleString()
+                      : "-"}</td
                   >
                 {/if}
               {:else}
