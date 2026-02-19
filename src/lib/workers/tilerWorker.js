@@ -1,3 +1,6 @@
+import {tiles} from '$lib/constants.ts'
+console.log("tiles", tiles)
+
 async function loadIndexedArray(url) {
 
 
