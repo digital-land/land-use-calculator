@@ -1,9 +1,7 @@
-import {tiles} from '$lib/constants.ts'
-console.log("tiles", tiles)
+import { tiles } from "$lib/constants.ts";
+console.log("tiles", tiles);
 
 async function loadIndexedArray(url) {
-
-
   const response = await fetch(url);
 
   if (!response.ok) {
@@ -14,18 +12,15 @@ async function loadIndexedArray(url) {
   return new Uint32Array(buffer);
 }
 
-
 self.onmessage = async (e) => {
-
-
   const { tileCodes, width, base } = e.data;
 
   const entries = await Promise.all(
-    Object.entries(tileCodes).map(async ([key, code]) => {
-	const url=`${base}/data/ten_metre/${code}_10_imaginaryNewTown_B_idx_32_2601.bin`
+    Object.entries(tileCodes).map(async ([key, tile]) => {
+      const url = `${base}/data/ten_metre/${tile}_10_imaginaryNewTown_B_idx_32_2601.bin`;
       const data = await loadIndexedArray(url);
       return [key, data];
-    })
+    }),
   );
 
   console.log("resolved entries", entries);
@@ -52,7 +47,6 @@ self.onmessage = async (e) => {
   const cols = usedCols.length;
   const rows = usedRows.length;
 
-
   function transform(index, tile) {
     const x = index % width;
     const y = Math.floor(index / width);
@@ -69,12 +63,15 @@ self.onmessage = async (e) => {
     ]),
   );
 
-  const result = new Uint32Array(Object.values(newArrays).flatMap(a => [...a]).sort((a,b)=>a-b));
+  const result = new Uint32Array(
+    Object.values(newArrays)
+      .flatMap((a) => [...a])
+      .sort((a, b) => a - b),
+  );
 
   try {
     self.postMessage({ array: result.buffer });
   } catch (error) {
     self.postMessage({ error: error.message });
   }
-
 };

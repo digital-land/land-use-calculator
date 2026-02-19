@@ -31,7 +31,7 @@
     convertPixelsToHectares,
     // createGroupLayer,
     indicesToBinaryMask,
-    joinTiles
+    joinTiles,
   } from "$lib/utils";
   import { computeDensityStats } from "$lib/densityStats";
   import { colors, width, height, bbox, sourceFolder } from "$lib/constants";
@@ -39,7 +39,6 @@
   import Tabs from "$lib/components/Tabs.svelte";
   import Histogram from "$lib/components/Histogram.svelte";
   // import type { GridConfig, MapGroup } from "$lib/utils";
-
 
   const tileCodes = {
     //QUESTION IS - How do we want to identify the tiles we need? A single bounding box approach maybe?
@@ -49,8 +48,6 @@
     "8,10": `SUNW`,
     "8,11": `SUSW`,
   };
-
-
 
   const mobile = new MediaQuery("max-width: 600px");
   // let pageLayout = $state("grid-template-columns: 23% 40% 37%");
@@ -69,7 +66,7 @@
   });
 
   let tenMetreTilesJoined = $state();
-  $inspect(tenMetreTilesJoined)
+  $inspect(tenMetreTilesJoined);
 
   let done = $state(false);
   // $inspect({ done });
@@ -307,6 +304,11 @@
       value: "within_KM_of_BUA.bin",
       text: "Only land within 1km of built up areas",
       sentenceText: "the land within 1km of built up areas",
+    },
+    {
+      value: "imaginaryNewTown",
+      text: "imaginaryNewTown",
+      sentenceText: "imaginaryNewTown",
     },
     {
       value: "customArea",
@@ -560,12 +562,14 @@
     });
     console.log("✅ WASM initialized");
 
-    setTimeout(()=>
-    joinTiles(base,tileCodes).then(res=>{
-      tenMetreTilesJoined=new Uint32Array(res.array);
-      console.log("10mt",tenMetreTilesJoined);
-    }), 10000
-  )
+    setTimeout(
+      () =>
+        joinTiles(base, tileCodes).then((res) => {
+          tenMetreTilesJoined = new Uint32Array(res.array);
+          console.log("10mt", tenMetreTilesJoined);
+        }),
+      10000,
+    );
 
     // currentBitArrays = [blendedIndices]
     // makeAndPaintCanvasFromIndices()
@@ -1133,7 +1137,8 @@
 
   function downloadUint32Array() {
     const filename = "data.bin";
-    const blob = new Blob([tenMetreTilesJoined], { //<=This has changed
+    const blob = new Blob([tenMetreTilesJoined], {
+      //<=This has changed
       type: "application/octet-stream",
     });
 

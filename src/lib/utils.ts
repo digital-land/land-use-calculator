@@ -384,5 +384,6 @@ export async function joinTiles(base: string, tileCodes: object) {
       console.timeEnd("tileWorker");
       resolve(e.data); // Resolve the promise with the worker's result
     };
+    tilerWorker.terminate()
   });
 }
