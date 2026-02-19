@@ -401,7 +401,7 @@ export function createDensityCanvas(
 
     for (let i = 0; i < blendedIndices.length; i++) {
       const index = blendedIndices[i];
-      const value = densityArray[index];
+      const value = densityArray?.[index];
       pixels[index] = DENSITY_LUT[value];
     }
 
@@ -414,6 +414,345 @@ export function createDensityCanvas(
       resolve(canvasURL);
     });
   });
+}
+
+// export async function createDensityCanvasMobile(
+//   blendedIndices: Uint32Array,
+//   densityArray: Uint16Array,
+//   DENSITY_LUT: Uint32Array
+// ) {
+//   console.time("density-mobile");
+
+//   const MAX_TILE_PIXELS = 10_000_000;
+//   const MAX_FINAL_PIXELS = 16_000_000;
+
+//   const tileSize = Math.floor(Math.sqrt(MAX_TILE_PIXELS));
+//   const cols = Math.ceil(width / tileSize);
+//   const rows = Math.ceil(height / tileSize);
+
+//   let scale = 1;
+//   const totalPixels = width * height;
+//   if (totalPixels > MAX_FINAL_PIXELS) {
+//     scale = Math.sqrt(MAX_FINAL_PIXELS / totalPixels);
+//   }
+
+//   const tileBlobs = [];
+
+//   // ----------------------------------
+//   // Render each tile
+//   // ----------------------------------
+
+//   for (let row = 0; row < rows; row++) {
+//     for (let col = 0; col < cols; col++) {
+
+//       const x0 = col * tileSize;
+//       const y0 = row * tileSize;
+//       const w = Math.min(tileSize, width - x0);
+//       const h = Math.min(tileSize, height - y0);
+
+//       const canvas = document.createElement("canvas");
+//       canvas.width = w;
+//       canvas.height = h;
+
+//       const ctx = canvas.getContext("2d")!;
+//       const imageData = ctx.createImageData(w, h);
+//       const pixels = new Uint32Array(imageData.data.buffer);
+
+//       // Sparse write only indices inside this tile
+//       for (let i = 0; i < blendedIndices.length; i++) {
+//         const globalIndex = blendedIndices[i];
+
+//         const x = globalIndex % width;
+//         const y = Math.floor(globalIndex / width);
+
+//         if (
+//           x >= x0 && x < x0 + w &&
+//           y >= y0 && y < y0 + h
+//         ) {
+//           const localX = x - x0;
+//           const localY = y - y0;
+//           const localIndex = localY * w + localX;
+
+//           pixels[localIndex] =
+//             DENSITY_LUT[densityArray[globalIndex]];
+//         }
+//       }
+
+//       ctx.putImageData(imageData, 0, 0);
+
+//       const blob = await new Promise<Blob>((r) =>
+//         canvas.toBlob(r, "image/png")
+//       );
+
+//       tileBlobs.push({ row, col, blob, w, h });
+//     }
+//   }
+
+//   // ----------------------------------
+//   // Merge tiles
+//   // ----------------------------------
+
+//   const finalW = Math.floor(width * scale);
+//   const finalH = Math.floor(height * scale);
+
+//   const finalCanvas = document.createElement("canvas");
+//   finalCanvas.width = finalW;
+//   finalCanvas.height = finalH;
+
+//   const finalCtx = finalCanvas.getContext("2d")!;
+//   finalCtx.imageSmoothingEnabled = false;
+//   // finalCtx.imageSmoothingQuality = "high";
+
+//   await Promise.all(
+//     tileBlobs.map(async ({ row, col, blob, w, h }) => {
+//       const img = await createImageBitmap(blob);
+
+//       const dx = Math.round(col * tileSize * scale);
+// const dy = Math.round(row * tileSize * scale);
+// const dw = Math.round(w * scale);
+// const dh = Math.round(h * scale);
+
+// finalCtx.drawImage(img, dx, dy, dw, dh);
+
+//     })
+//   );
+
+//   const finalBlob = await new Promise<Blob>((r) =>
+//     finalCanvas.toBlob(r, "image/png")
+//   );
+
+//   const dataURL = URL.createObjectURL(finalBlob);
+
+//   console.timeEnd("density-mobile");
+
+//   return { dataURL, scale };
+// }
+
+// export async function createDensityCanvasMobile(
+//   blendedIndices: Uint32Array,
+//   densityArray: Uint16Array,
+//   DENSITY_LUT: Uint32Array
+// ) {
+//   console.time("density-mobile");
+
+//   const MAX_TILE_PIXELS = 10_000_000;
+//   const MAX_FINAL_PIXELS = 16_000_000;
+
+//   const totalPixels = width * height;
+
+//   let scale = 1;
+//   if (totalPixels > MAX_FINAL_PIXELS) {
+//     scale = Math.sqrt(MAX_FINAL_PIXELS / totalPixels);
+//   }
+
+//   const scaledWidth = Math.floor(width * scale);
+//   const scaledHeight = Math.floor(height * scale);
+
+//   const tileSize = Math.floor(Math.sqrt(MAX_TILE_PIXELS));
+//   const cols = Math.ceil(scaledWidth / tileSize);
+//   const rows = Math.ceil(scaledHeight / tileSize);
+
+//   const tileBlobs: {
+//     row: number;
+//     col: number;
+//     blob: Blob;
+//     w: number;
+//     h: number;
+//   }[] = [];
+
+//   // ----------------------------------
+//   // Render each tile already scaled
+//   // ----------------------------------
+
+//   for (let row = 0; row < rows; row++) {
+//     for (let col = 0; col < cols; col++) {
+
+//       const sx0 = col * tileSize;
+//       const sy0 = row * tileSize;
+
+//       const sw = Math.min(tileSize, scaledWidth - sx0);
+//       const sh = Math.min(tileSize, scaledHeight - sy0);
+
+//       const canvas = document.createElement("canvas");
+//       canvas.width = sw;
+//       canvas.height = sh;
+
+//       const ctx = canvas.getContext("2d")!;
+//       const imageData = ctx.createImageData(sw, sh);
+//       const pixels = new Uint32Array(imageData.data.buffer);
+
+//       // For each sparse index
+//       for (let i = 0; i < blendedIndices.length; i++) {
+//         const globalIndex = blendedIndices[i];
+
+//         const gx = globalIndex % width;
+//         const gy = Math.floor(globalIndex / width);
+
+//         // Convert to scaled coordinate
+//         const sx = Math.floor(gx * scale);
+//         const sy = Math.floor(gy * scale);
+
+//         // Check if pixel falls inside this scaled tile
+//         if (
+//           sx >= sx0 && sx < sx0 + sw &&
+//           sy >= sy0 && sy < sy0 + sh
+//         ) {
+//           const localX = sx - sx0;
+//           const localY = sy - sy0;
+//           const localIndex = localY * sw + localX;
+
+//           pixels[localIndex] =
+//             DENSITY_LUT[densityArray[globalIndex]];
+//         }
+//       }
+
+//       ctx.putImageData(imageData, 0, 0);
+
+//       const blob = await new Promise<Blob>((r) =>
+//         canvas.toBlob(r, "image/png")
+//       );
+
+//       tileBlobs.push({ row, col, blob, w: sw, h: sh });
+//     }
+//   }
+
+//   // ----------------------------------
+//   // Merge (NO SCALING)
+//   // ----------------------------------
+
+//   const finalCanvas = document.createElement("canvas");
+//   finalCanvas.width = scaledWidth;
+//   finalCanvas.height = scaledHeight;
+
+//   const finalCtx = finalCanvas.getContext("2d")!;
+//   finalCtx.imageSmoothingEnabled = false;
+
+//   await Promise.all(
+//     tileBlobs.map(async ({ row, col, blob, w, h }) => {
+//       const img = await createImageBitmap(blob);
+
+//       finalCtx.drawImage(
+//         img,
+//         col * tileSize,
+//         row * tileSize
+//       );
+//     })
+//   );
+
+//   const finalBlob = await new Promise<Blob>((r) =>
+//     finalCanvas.toBlob(r, "image/png")
+//   );
+
+//   const dataURL = URL.createObjectURL(finalBlob);
+
+//   console.timeEnd("density-mobile");
+
+//   return { dataURL, scale };
+// }
+
+// import ImageLayer from "ol/layer/Image";
+import ImageStatic from "ol/source/ImageStatic";
+import LayerGroup from "ol/layer/Group";
+
+export async function createDensityLayerMobile(
+  blendedIndices: Uint32Array,
+  densityArray: Uint16Array,
+  DENSITY_LUT: Uint32Array,
+  bbox: [number, number, number, number],
+  opacity: number
+) {
+  console.time("density-mobile-tiles");
+
+  const MAX_TILE_PIXELS = 10_000_000;
+
+  const tileSize = Math.floor(Math.sqrt(MAX_TILE_PIXELS));
+  const cols = Math.ceil(width / tileSize);
+  const rows = Math.ceil(height / tileSize);
+
+  const [minX, minY, maxX, maxY] = bbox;
+
+  const pixelWidth = (maxX - minX) / width;
+  const pixelHeight = (maxY - minY) / height;
+
+  const layers: ImageLayer<ImageStatic>[] = [];
+
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+
+      const x0 = col * tileSize;
+      const y0 = row * tileSize;
+
+      const w = Math.min(tileSize, width - x0);
+      const h = Math.min(tileSize, height - y0);
+
+      // --- Create tile canvas (FULL resolution, no scaling) ---
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+
+      const ctx = canvas.getContext("2d")!;
+      const imageData = ctx.createImageData(w, h);
+      const pixels = new Uint32Array(imageData.data.buffer);
+
+      // Sparse write only indices inside this tile
+      for (let i = 0; i < blendedIndices.length; i++) {
+        const globalIndex = blendedIndices[i];
+
+        const gx = globalIndex % width;
+        const gy = Math.floor(globalIndex / width);
+
+        if (
+          gx >= x0 && gx < x0 + w &&
+          gy >= y0 && gy < y0 + h
+        ) {
+          const localX = gx - x0;
+          const localY = gy - y0;
+          const localIndex = localY * w + localX;
+
+          pixels[localIndex] =
+            DENSITY_LUT[densityArray[globalIndex]];
+        }
+      }
+
+      ctx.putImageData(imageData, 0, 0);
+
+      const blob = await new Promise<Blob>((r) =>
+        canvas.toBlob(r, "image/png")
+      );
+
+      const tileURL = URL.createObjectURL(blob);
+
+      // --- Compute precise spatial extent for this tile ---
+      const tileMinX = minX + x0 * pixelWidth;
+      const tileMaxX = minX + (x0 + w) * pixelWidth;
+
+      const tileMaxY = maxY - y0 * pixelHeight;
+      const tileMinY = maxY - (y0 + h) * pixelHeight;
+
+      const tileExtent: [number, number, number, number] = [
+        tileMinX,
+        tileMinY,
+        tileMaxX,
+        tileMaxY,
+      ];
+
+      const layer = new ImageLayer({
+        source: new ImageStatic({
+          url: tileURL,
+          imageExtent: tileExtent,
+          projection: "EPSG:27700",
+          interpolate: false,
+        }),
+        opacity,
+      });
+
+      layers.push(layer);
+    }
+  }
+
+  console.timeEnd("density-mobile-tiles");
+
+  return new LayerGroup({ layers });
 }
 
 

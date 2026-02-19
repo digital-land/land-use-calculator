@@ -32,6 +32,7 @@
     // createGroupLayer,
     indicesToBinaryMask,
     createDensityCanvas,
+    createDensityLayerMobile,
   } from "$lib/utils";
   import { computeDensityStats } from "$lib/densityStats";
   import { colors, width, height, bbox, sourceFolder } from "$lib/constants";
@@ -513,6 +514,7 @@
   // $inspect(layersToUnpack);
 
   async function handleFileUpload(event) {
+    URL.revokeObjectURL(dataURL);
     dataURL = null;
     selected = null;
 
@@ -609,6 +611,7 @@
   }
 
   function unpackSelectedLayers() {
+    URL.revokeObjectURL(dataURL);
     dataURL = null;
     prepareToUnpack();
 
@@ -652,7 +655,7 @@
 
   function unpackZippedLayers() {
     prepareToUnpack();
-
+    URL.revokeObjectURL(dataURL);
     dataURL = null;
 
     const simpleZipWorker = new Worker(
@@ -977,6 +980,7 @@
     ctx.putImageData(imageData, 0, 0);
 
     canvas.toBlob((blob) => {
+      URL.revokeObjectURL(dataURL);
       dataURL = URL.createObjectURL(blob);
     });
 
@@ -984,35 +988,165 @@
     console.timeEnd("canvas-indices");
   }
 
-  //iOS-safe version of the canvas but has some issues at the edges that need to worked out...
+  // //iOS-safe version of the canvas
+  // async function makeAndPaintCombinedCanvasMobile() {
+  //   console.time("canvas-combined");
+  //   done = false;
+
+  //   // --- CONFIG ---
+  //   const MAX_TILE_PIXELS = 10_000_000;
+  //   const MAX_FINAL_PIXELS = 16_000_000;
+  //   // ---------------
+
+  //   const tileSize = Math.floor(Math.sqrt(MAX_TILE_PIXELS));
+  //   const cols = Math.ceil(width / tileSize);
+  //   const rows = Math.ceil(height / tileSize);
+
+  //   let scale = 1;
+  //   const totalPixels = width * height;
+  //   if (totalPixels > MAX_FINAL_PIXELS) {
+  //     scale = Math.sqrt(MAX_FINAL_PIXELS / totalPixels);
+  //   }
+
+  //   const tileBlobs = [];
+
+  //   const hasSelection = selectedRestrictionIndex >= 0 && renderUnique;
+  //   const blendedArr = blendedIndices;
+  //   const lensArr = policyLensLayer;
+  //   const areaArr = hasSelection
+  //     ? currentBitArrays[selectedRestrictionIndex]
+  //     : null;
+  //   const uniqueArr = hasSelection ? uniqueArray : null;
+
+  //   for (let row = 0; row < rows; row++) {
+  //     for (let col = 0; col < cols; col++) {
+  //       const x0 = col * tileSize;
+  //       const y0 = row * tileSize;
+  //       const w = Math.min(tileSize, width - x0);
+  //       const h = Math.min(tileSize, height - y0);
+
+  //       const canvas = document.createElement("canvas");
+  //       canvas.width = w;
+  //       canvas.height = h;
+  //       const ctx = canvas.getContext("2d");
+
+  //       const imageData = ctx.createImageData(w, h);
+  //       const pixels = new Uint32Array(imageData.data.buffer);
+
+  //       for (let y = 0; y < h; y++) {
+  //         let base = (y0 + y) * width + x0;
+  //         let rowOffset = y * w;
+
+  //         for (let x = 0; x < w; x++) {
+  //           const i = base + x;
+
+  //           const key =
+  //             (blendedArr[i] << 3) |
+  //             ((lensArr ? lensArr[i] : 0) << 2) |
+  //             ((areaArr ? areaArr[i] : 0) << 1) |
+  //             (uniqueArr && uniqueArr[i] === 1 ? 1 : 0);
+
+  //           pixels[rowOffset + x] = COLOR_LUT[key];
+  //         }
+  //       }
+
+  //       ctx.putImageData(imageData, 0, 0);
+
+  //       const blob = await new Promise((r) => canvas.toBlob(r, "image/png"));
+
+  //       tileBlobs.push({ row, col, blob, w, h });
+  //     }
+  //   }
+
+  //   // --- Merge tiles ---
+  //   const finalW = Math.floor(width * scale);
+  //   const finalH = Math.floor(height * scale);
+  //   const finalCanvas = document.createElement("canvas");
+  //   finalCanvas.width = finalW;
+  //   finalCanvas.height = finalH;
+  //   const finalCtx = finalCanvas.getContext("2d");
+
+  //   finalCtx.imageSmoothingEnabled = scale !== 1;
+  //   finalCtx.imageSmoothingQuality = "high";
+
+  //   await Promise.all(
+  //     tileBlobs.map(async ({ row, col, blob, w, h }) => {
+  //       const img = await createImageBitmap(blob);
+  //       finalCtx.drawImage(
+  //         img,
+  //         col * tileSize * scale,
+  //         row * tileSize * scale,
+  //         w * scale,
+  //         h * scale,
+  //       );
+  //     }),
+  //   );
+
+  //   const finalBlob = await new Promise((r) =>
+  //     finalCanvas.toBlob(r, "image/png"),
+  //   );
+
+  //   dataURL = URL.createObjectURL(finalBlob);
+  //   done = true;
+  //   console.timeEnd("canvas-combined");
+
+  //   return { dataURL, scale };
+  // }
+
   async function makeAndPaintCombinedCanvasMobile() {
     console.time("canvas-combined");
     done = false;
 
-    // --- CONFIG ---
     const MAX_TILE_PIXELS = 10_000_000;
     const MAX_FINAL_PIXELS = 16_000_000;
-    // ---------------
 
     const tileSize = Math.floor(Math.sqrt(MAX_TILE_PIXELS));
     const cols = Math.ceil(width / tileSize);
     const rows = Math.ceil(height / tileSize);
 
+    // Optional downscale for iOS memory safety
     let scale = 1;
     const totalPixels = width * height;
     if (totalPixels > MAX_FINAL_PIXELS) {
       scale = Math.sqrt(MAX_FINAL_PIXELS / totalPixels);
     }
 
-    const tileBlobs = [];
+    // ------------------------------------
+    // STEP 1: Build full-grid mask once
+    // ------------------------------------
 
-    const hasSelection = selectedRestrictionIndex >= 0 && renderUnique;
-    const blendedArr = blendedIndices;
-    const lensArr = policyLensLayer;
-    const areaArr = hasSelection
-      ? currentBitArrays[selectedRestrictionIndex]
-      : null;
-    const uniqueArr = hasSelection ? uniqueArray : null;
+    const pixelCount = width * height;
+    const mask = new Uint8Array(pixelCount);
+
+    const areaIndices = currentBitArrays[selectedRestrictionIndex];
+
+    for (let i = 0; i < blendedIndices.length; i++) {
+      mask[blendedIndices[i]] |= 1 << 3;
+    }
+
+    if (lensIndices) {
+      for (let i = 0; i < lensIndices.length; i++) {
+        mask[lensIndices[i]] |= 1 << 2;
+      }
+    }
+
+    if (areaIndices) {
+      for (let i = 0; i < areaIndices.length; i++) {
+        mask[areaIndices[i]] |= 1 << 1;
+      }
+    }
+
+    if (uniqueIndices) {
+      for (let i = 0; i < uniqueIndices.length; i++) {
+        mask[uniqueIndices[i]] |= 1;
+      }
+    }
+
+    // ------------------------------------
+    // STEP 2: Render tiles from mask
+    // ------------------------------------
+
+    const tileBlobs = [];
 
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
@@ -1024,50 +1158,50 @@
         const canvas = document.createElement("canvas");
         canvas.width = w;
         canvas.height = h;
-        const ctx = canvas.getContext("2d");
 
+        const ctx = canvas.getContext("2d")!;
         const imageData = ctx.createImageData(w, h);
         const pixels = new Uint32Array(imageData.data.buffer);
 
         for (let y = 0; y < h; y++) {
-          let base = (y0 + y) * width + x0;
-          let rowOffset = y * w;
+          const globalRow = (y0 + y) * width;
+          const localRow = y * w;
 
           for (let x = 0; x < w; x++) {
-            const i = base + x;
-
-            const key =
-              (blendedArr[i] << 3) |
-              ((lensArr ? lensArr[i] : 0) << 2) |
-              ((areaArr ? areaArr[i] : 0) << 1) |
-              (uniqueArr && uniqueArr[i] === 1 ? 1 : 0);
-
-            pixels[rowOffset + x] = COLOR_LUT[key];
+            const globalIndex = globalRow + (x0 + x);
+            pixels[localRow + x] = COLOR_LUT[mask[globalIndex]];
           }
         }
 
         ctx.putImageData(imageData, 0, 0);
 
-        const blob = await new Promise((r) => canvas.toBlob(r, "image/png"));
+        const blob = await new Promise<Blob>((r) =>
+          canvas.toBlob(r, "image/png"),
+        );
 
         tileBlobs.push({ row, col, blob, w, h });
       }
     }
 
-    // --- Merge tiles ---
+    // ------------------------------------
+    // STEP 3: Merge tiles safely
+    // ------------------------------------
+
     const finalW = Math.floor(width * scale);
     const finalH = Math.floor(height * scale);
+
     const finalCanvas = document.createElement("canvas");
     finalCanvas.width = finalW;
     finalCanvas.height = finalH;
-    const finalCtx = finalCanvas.getContext("2d");
 
-    finalCtx.imageSmoothingEnabled = scale !== 1;
-    finalCtx.imageSmoothingQuality = "high";
+    const finalCtx = finalCanvas.getContext("2d")!;
+    finalCtx.imageSmoothingEnabled = false;
+    // finalCtx.imageSmoothingQuality = "high";
 
     await Promise.all(
       tileBlobs.map(async ({ row, col, blob, w, h }) => {
         const img = await createImageBitmap(blob);
+
         finalCtx.drawImage(
           img,
           col * tileSize * scale,
@@ -1078,11 +1212,12 @@
       }),
     );
 
-    const finalBlob = await new Promise((r) =>
+    const finalBlob = await new Promise<Blob>((r) =>
       finalCanvas.toBlob(r, "image/png"),
     );
-
+    URL.revokeObjectURL(dataURL);
     dataURL = URL.createObjectURL(finalBlob);
+
     done = true;
     console.timeEnd("canvas-combined");
 
@@ -1162,25 +1297,29 @@
     seeDensity = true;
     seeArea = false;
 
-    // densityGroup = {
-    //   name: "Selected area",
-    //   paintedIndices: blendedIndices, //!
-    //   gridConfig: { width, height, colOffset: 0 }, // uploaded files need offset
-    //   stats: {},
-    //   histogram: {},
-    //   layer: null,
-    // };
-    // // computeStats(densityGroup, densityArray);
-    // computeDensityStats(blendedIndices, densityArray, { width, height, colOffset: 0 });
-
-    // densityGroup.layer = createGroupLayer(densityGroup, opacity, densityArray);
-
-    densityDataURL = await createDensityCanvas(
-      densityCanvas,
-      blendedIndices,
-      densityArray,
-      DENSITY_LUT,
-    );
+    URL.revokeObjectURL(densityDataURL);
+    densityDataURL = !mobile.current
+      ? await createDensityCanvas(
+          densityCanvas,
+          blendedIndices,
+          densityArray,
+          DENSITY_LUT,
+        )
+      : // : (
+        //     await createDensityCanvasMobile(
+        //       blendedIndices,
+        //       densityArray,
+        //       DENSITY_LUT,
+        //     )
+        //   ).dataURL;
+        await createDensityLayerMobile(
+          blendedIndices,
+          densityArray,
+          DENSITY_LUT,
+          bbox,
+          opacity,
+        );
+    console.log(typeof densityDataURL, typeof dataURL);
     done = true;
     console.timeEnd("show-density");
   }
@@ -1337,7 +1476,12 @@
         textContent="Clear all filters"
         onClickFunction={() => {
           selected = [];
+          // dataURL = null;
+          // if (oldDataURL) {
+          URL.revokeObjectURL(dataURL);
+          // }
           dataURL = null;
+
           startingPosition.forEach((d) => (d.initially_checked = false));
           // bbox = null;
           // console.log(startingPosition, selected);
@@ -1357,7 +1501,10 @@
             .filter((d) => d.initially_checked === "y")
             .map((d) => d.filename);
           unpackSelectedLayers();
-          showFilters = false;
+          document.getElementById("map").scrollIntoView({
+            behavior: "smooth",
+          });
+          showFilters = !showFilters;
         }}
       />
     {/if}
@@ -1446,6 +1593,7 @@
             bind:policyLens
             bind:drawing
             {unpackSelectedLayers}
+            {mobile}
           />
         </div>
       {:else if bbox}

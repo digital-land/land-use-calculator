@@ -18,6 +18,7 @@
     policyLens = $bindable(),
     drawing = $bindable(),
     unpackSelectedLayers,
+    mobile,
   } = $props();
 
   import "/node_modules/ol/ol.css";
@@ -202,19 +203,16 @@
     });
 
     tiffLayer = new ImageLayer({
-      source: new ImageStatic({
-        url: dataURL,
-        imageExtent: bbox,
-        projection: "EPSG:27700",
-        interpolate: false,
-      }),
+      source: tiffLayerSource,
       opacity,
     });
 
-    densityLayer = new ImageLayer({
-      source: densityLayerSource,
-      opacity,
-    });
+    densityLayer = mobile.current
+      ? densityDataURL
+      : new ImageLayer({
+          source: densityLayerSource,
+          opacity,
+        });
 
     osmBaseLayer = new TileLayer({
       source: new XYZ({
@@ -514,7 +512,14 @@
   $effect(() => {
     console.log("UPDATING density source");
     const newSource = densityLayerSource; // Need this line so that Svelte has a dependedncy to track
-    densityLayer?.setSource(newSource);
+    if (!mobile.current) {
+      densityLayer?.setSource(newSource);
+    } else {
+      const oldDensityLayer = densityLayer;
+      map?.removeLayer(oldDensityLayer);
+      densityLayer = densityDataURL;
+      map?.addLayer(densityLayer);
+    }
   });
 
   let basemapLookup = $derived({
