@@ -1,6 +1,7 @@
 <script lang="ts">
   import Button from "./Button.svelte";
   import { InsetText } from "@communitiesuk/svelte-component-library";
+  import type { TableMetadata } from "$lib/utils";
 
   let {
     data = undefined,
@@ -10,7 +11,10 @@
     sortState = $bindable({ column: "unique", order: "descending" }),
     selectedRestriction = $bindable(),
     makeAndPaintCanvasFromIndices,
-  } = $props();
+    makeAndPaintCanvasFromIndicesMobile,
+    dataURL = $bindable(),
+    mobile,
+  } = $props<{ metaData: TableMetadata }>();
   //   $inspect(sortState);
   let localCopyOfData = $state([...data]);
   let openInsets = $state(data.map((d) => false));
@@ -25,6 +29,7 @@
     }
     return true; // All values are unique
   }
+  // $inspect(sortState);
 
   let columns = [];
 
@@ -121,6 +126,12 @@
   }
 
   const colorKey = Object.entries({ Good: 1, Ok: 0.5, Bad: 0 });
+
+  async function updateCanvas() {
+    mobile.current
+      ? (dataURL = await makeAndPaintCanvasFromIndicesMobile())
+      : makeAndPaintCanvasFromIndices();
+  }
 </script>
 
 <div class="p-4">
@@ -181,7 +192,7 @@
               selectedRestriction === row.name
                 ? (selectedRestriction = undefined)
                 : (selectedRestriction = row.name);
-              makeAndPaintCanvasFromIndices();
+              updateCanvas();
             }}
             onkeydown={(e) => {
               //   console.log(e.code);
@@ -189,7 +200,7 @@
                 selectedRestriction === row.name
                   ? (selectedRestriction = undefined)
                   : (selectedRestriction = row.name);
-                makeAndPaintCanvasFromIndices();
+                updateCanvas();
               }
             }}
             tabindex="0"
@@ -207,7 +218,9 @@
                   >
                 {:else}
                   <td class="govuk-table__cell govuk-table__cell--numeric"
-                    >{row[column.key]?.toLocaleString()}</td
+                    >{row[column.key] !== 0
+                      ? row[column.key]?.toLocaleString()
+                      : "-"}</td
                   >
                 {/if}
               {:else}

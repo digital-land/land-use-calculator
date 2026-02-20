@@ -3,8 +3,14 @@
 import { fromUrl } from "geotiff";
 import { interpolateViridis } from "d3-scale-chromatic";
 import ImageLayer from "ol/layer/Image.js";
+import ImageStatic from "ol/source/ImageStatic";
+import LayerGroup from "ol/layer/Group";
 import ImageCanvasSource from "ol/source/ImageCanvas.js";
 import { width, height, gridSize, bbox } from "./constants";
+
+type TableMetadataEntry = Record<"explainer" | "label" | "shortLabel", string>;
+
+export type TableMetadata = Record<string, TableMetadataEntry>;
 
 export interface GridConfig {
   width: number;
@@ -206,7 +212,11 @@ export function uploadedIndexToFullIndex(
   return row * grid.width + col;
 }
 
-export function coordToIndex(x: number, y: number, grid: GridConfig = {width, height}): number {
+export function coordToIndex(
+  x: number,
+  y: number,
+  grid: GridConfig = { width, height },
+): number {
   const cols = grid.width - (grid.colOffset || 0);
   const row = grid.height - 1 - Math.floor((y - originY) / cellSize);
   // const row = Math.floor((y - originY)/(-cellSize))
@@ -239,7 +249,12 @@ export async function loadDensityTiff(url: string): Promise<{
   const image = await tiff.getImage();
   // console.log(image.getBoundingBox())
   if (JSON.stringify(image.getBoundingBox()) !== JSON.stringify(bbox)) {
-    console.error('Mismatch between density tiff and other data layers. Density tiff bbox: ', image.getBoundingBox(), "Other data layers bbox: ", bbox)
+    console.error(
+      "Mismatch between density tiff and other data layers. Density tiff bbox: ",
+      image.getBoundingBox(),
+      "Other data layers bbox: ",
+      bbox,
+    );
   }
   const rasters = await image.readRasters();
   return {
@@ -304,6 +319,7 @@ export function createGroupLayer(
   group: MapGroup,
   opacity: number,
   densityArray: Uint16Array,
+  DENSITY_LUT: Uint32Array,
 ): ImageLayer<ImageCanvasSource> {
   return new ImageLayer({
     source: new ImageCanvasSource({
@@ -316,6 +332,19 @@ export function createGroupLayer(
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         drawGroupRaster(ctx, canvas, extent, group, densityArray);
+        // const imageData = ctx.createImageData(width, height);
+        // const pixels = new Uint32Array(imageData.data.buffer);
+
+        // // pixels are already zero (transparent) by default
+
+        // for (let i = 0; i < group.paintedIndices.length; i++) {
+        //   const index = group.paintedIndices[i];
+        //   const value = densityArray[index];
+        //   pixels[index] = DENSITY_LUT[value];
+        // }
+        // console.log(imageData)
+        // ctx.putImageData(imageData, 0, 0);
+
         return canvas;
       },
     }),
@@ -323,18 +352,155 @@ export function createGroupLayer(
   });
 }
 
+export function createDensityCanvas(
+  densityCanvas,
+  blendedIndices,
+  densityArray,
+  DENSITY_LUT
+) {
+  return new Promise((resolve, reject) => {
+    const canvas = densityCanvas;
+
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return reject("No 2D context");
+
+    const imageData = ctx.createImageData(width, height);
+    const pixels = new Uint32Array(imageData.data.buffer);
+
+    for (let i = 0; i < blendedIndices.length; i++) {
+      const index = blendedIndices[i];
+      const value = densityArray?.[index];
+      pixels[index] = DENSITY_LUT[value];
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+
+    canvas.toBlob((blob) => {
+      if (!blob) return reject("Blob creation failed");
+
+      const canvasURL = URL.createObjectURL(blob);
+      resolve(canvasURL);
+    });
+  });
+}
+
+export async function createDensityLayerMobile(
+  blendedIndices: Uint32Array,
+  densityArray: Uint16Array,
+  DENSITY_LUT: Uint32Array,
+  bbox: [number, number, number, number],
+  opacity: number
+) {
+  console.time("density-mobile-tiles");
+
+  const MAX_TILE_PIXELS = 10_000_000;
+
+  const tileSize = Math.floor(Math.sqrt(MAX_TILE_PIXELS));
+  const cols = Math.ceil(width / tileSize);
+  const rows = Math.ceil(height / tileSize);
+
+  const [minX, minY, maxX, maxY] = bbox;
+
+  const pixelWidth = (maxX - minX) / width;
+  const pixelHeight = (maxY - minY) / height;
+
+  const layers: ImageLayer<ImageStatic>[] = [];
+
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+
+      const x0 = col * tileSize;
+      const y0 = row * tileSize;
+
+      const w = Math.min(tileSize, width - x0);
+      const h = Math.min(tileSize, height - y0);
+
+      // --- Create tile canvas (FULL resolution, no scaling) ---
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+
+      const ctx = canvas.getContext("2d")!;
+      const imageData = ctx.createImageData(w, h);
+      const pixels = new Uint32Array(imageData.data.buffer);
+
+      // Sparse write only indices inside this tile
+      for (let i = 0; i < blendedIndices.length; i++) {
+        const globalIndex = blendedIndices[i];
+
+        const gx = globalIndex % width;
+        const gy = Math.floor(globalIndex / width);
+
+        if (
+          gx >= x0 && gx < x0 + w &&
+          gy >= y0 && gy < y0 + h
+        ) {
+          const localX = gx - x0;
+          const localY = gy - y0;
+          const localIndex = localY * w + localX;
+
+          pixels[localIndex] =
+            DENSITY_LUT[densityArray[globalIndex]];
+        }
+      }
+
+      ctx.putImageData(imageData, 0, 0);
+
+      const blob = await new Promise<Blob>((r) =>
+        canvas.toBlob(r, "image/png")
+      );
+
+      const tileURL = URL.createObjectURL(blob);
+
+      // --- Compute precise spatial extent for this tile ---
+      const tileMinX = minX + x0 * pixelWidth;
+      const tileMaxX = minX + (x0 + w) * pixelWidth;
+
+      const tileMaxY = maxY - y0 * pixelHeight;
+      const tileMinY = maxY - (y0 + h) * pixelHeight;
+
+      const tileExtent: [number, number, number, number] = [
+        tileMinX,
+        tileMinY,
+        tileMaxX,
+        tileMaxY,
+      ];
+
+      const layer = new ImageLayer({
+        source: new ImageStatic({
+          url: tileURL,
+          imageExtent: tileExtent,
+          projection: "EPSG:27700",
+          interpolate: false,
+        }),
+        opacity,
+      });
+
+      layers.push(layer);
+    }
+  }
+
+  console.timeEnd("density-mobile-tiles");
+
+  return new LayerGroup({ layers });
+}
+
+
 export function convertPixelsToHectares(value: number): number {
-  return Math.round(value * gridSize * gridSize / 10_000)
+  return Math.round((value * gridSize * gridSize) / 10_000);
 }
 
 export function indicesToBinaryMask(bin) {
-    const out = new Uint8Array(width * height).fill(0);
-    console.log(bin.length);
-    for (let i = 0; i < bin.length; i++) {
-      out[bin[i]] = 1;
-    }
-    return out;
+  const out = new Uint8Array(width * height).fill(0);
+  console.log(bin.length);
+  for (let i = 0; i < bin.length; i++) {
+    out[bin[i]] = 1;
   }
+  return out;
+}
 // export function countOccurrences(uint8Array: Uint8Array): object {
 //   const counts = {};
 //   for (let i = 0; i < uint8Array.length; i++) {

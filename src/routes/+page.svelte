@@ -6,7 +6,10 @@
   import { enhance } from "$app/forms";
   import { MediaQuery } from "svelte/reactivity";
   import { base } from "$app/paths";
-  // import { browser } from "$app/environment";
+  import { browser } from "$app/environment";
+  import ImageLayer from "ol/layer/Image";
+  import ImageStatic from "ol/source/ImageStatic";
+  import LayerGroup from "ol/layer/Group";
   import {
     // CheckBox,
     Select,
@@ -32,13 +35,15 @@
     // createGroupLayer,
     indicesToBinaryMask,
     joinTiles,
+    createDensityCanvas,
+    createDensityLayerMobile,
   } from "$lib/utils";
   import { computeDensityStats } from "$lib/densityStats";
   import { colors, width, height, bbox, sourceFolder } from "$lib/constants";
   import FilterChipParent from "$lib/components/FilterChipParent.svelte";
   import Tabs from "$lib/components/Tabs.svelte";
   import Histogram from "$lib/components/Histogram.svelte";
-  // import type { GridConfig, MapGroup } from "$lib/utils";
+  import type { TableMetadata } from "$lib/utils";
 
   const tileCodes = {
     //QUESTION IS - How do we want to identify the tiles we need? A single bounding box approach maybe?
@@ -94,6 +99,7 @@
 
   let customArea: Uint32Array = $state();
   let customAreaBBox = $state();
+  let drawnFeature = $state();
   let drawing = $state(false);
   let opacity: number = $state(0.8);
 
@@ -128,6 +134,32 @@
   // Lens + blended + area
   COLOR_LUT[0b1110] = SELECTED_AREA_COLOR;
   COLOR_LUT[0b1111] = UNIQUE_AREA_COLOR;
+
+  const DENSITY_LUT = $derived.by(() => {
+    const LUT = new Uint32Array(65536);
+    for (let i = 0; i < 65536; i++) {
+      // const normalized = normalizeDensity(i);
+      let normalized;
+
+      if (i <= 1) normalized = [253, 231, 37];
+      else if (i <= 5) normalized = [189, 223, 38];
+      else if (i <= 10) normalized = [122, 209, 81];
+      else if (i <= 20) normalized = [47, 180, 124];
+      else if (i <= 50) normalized = [30, 156, 137];
+      else if (i <= 100) normalized = [37, 132, 142];
+      else if (i <= 200) normalized = [47, 108, 142];
+      else if (i <= 500) normalized = [65, 68, 135];
+      else normalized = [68, 1, 84];
+      const [r, g, b] = normalized;
+      // console.log(interpolateViridis(1 - normalized));
+
+      const a = Math.floor(opacity * 255);
+
+      LUT[i] = (a << 24) | (b << 16) | (g << 8) | r;
+    }
+    return LUT;
+  });
+  // $inspect(DENSITY_LUT);
 
   let policyLensItems = [
     {
@@ -332,6 +364,10 @@
 
   let blendedIndices = $state([]);
 
+  let densityCanvas = $state();
+  let densityDataURL = $state();
+  // $inspect(densityDataURL);
+
   let breakdownData = $state(null);
 
   let blendedArrayLength = $derived(blendedIndices?.length);
@@ -346,17 +382,17 @@
           ? convertPixelsToHectares(
               enrichedLayers?.find((d) => d.filename == layer)?.area,
             )
-          : "-",
+          : 0,
         unique:
           uniqueCounts && uniqueCounts[i]
             ? convertPixelsToHectares(uniqueCounts[i])
-            : "",
+            : 0,
         subLayers: selectedSubLayers[layer],
       };
     }),
   );
 
-  let tableMetadata = {
+  let tableMetadata: TableMetadata = {
     name: {
       explainer: "Sort by restriction name",
       label: "Name",
@@ -499,6 +535,7 @@
   // $inspect(layersToUnpack);
 
   async function handleFileUpload(event) {
+    URL.revokeObjectURL(dataURL);
     dataURL = null;
     selected = null;
 
@@ -554,6 +591,8 @@
   // $inspect(metadataCsv);
 
   onMount(async () => {
+    densityCanvas = document.createElement("canvas");
+
     await init({
       module_or_path: new URL(
         "$lib/raster_ops/pkg/raster_ops_bg.wasm",
@@ -605,6 +644,7 @@
   }
 
   function unpackSelectedLayers() {
+    URL.revokeObjectURL(dataURL);
     dataURL = null;
     prepareToUnpack();
 
@@ -648,7 +688,7 @@
 
   function unpackZippedLayers() {
     prepareToUnpack();
-
+    URL.revokeObjectURL(dataURL);
     dataURL = null;
 
     const simpleZipWorker = new Worker(
@@ -846,8 +886,29 @@
         );
 
         mobile.current
-          ? makeAndPaintCombinedCanvasMobile()
+          ? (dataURL = await makeAndPaintCanvasFromIndicesMobile())
           : makeAndPaintCanvasFromIndices();
+        densityDataURL = !mobile.current
+          ? await createDensityCanvas(
+              densityCanvas,
+              blendedIndices,
+              densityArray,
+              DENSITY_LUT,
+            )
+          : // : (
+            //     await createDensityCanvasMobile(
+            //       blendedIndices,
+            //       densityArray,
+            //       DENSITY_LUT,
+            //     )
+            //   ).dataURL;
+            await createDensityLayerMobile(
+              blendedIndices,
+              densityArray,
+              DENSITY_LUT,
+              bbox,
+              opacity,
+            );
       } else if (e.data.error) {
         console.error("Blend worker error:", e.data.error);
         blendedIndices = [];
@@ -855,53 +916,32 @@
         done = false;
         showDensity();
         mobile.current
-          ? makeAndPaintCombinedCanvasMobile()
+          ? (dataURL = await makeAndPaintCanvasFromIndicesMobile())
           : makeAndPaintCanvasFromIndices();
+        densityDataURL = !mobile.current
+          ? await createDensityCanvas(
+              densityCanvas,
+              blendedIndices,
+              densityArray,
+              DENSITY_LUT,
+            )
+          : // : (
+            //     await createDensityCanvasMobile(
+            //       blendedIndices,
+            //       densityArray,
+            //       DENSITY_LUT,
+            //     )
+            //   ).dataURL;
+            await createDensityLayerMobile(
+              blendedIndices,
+              densityArray,
+              DENSITY_LUT,
+              bbox,
+              opacity,
+            );
       }
     };
   }
-
-  // function makeAndPaintCombinedCanvas() {
-  //   console.time("canvas-combined");
-  //   done = false;
-
-  //   const canvas = document.createElement("canvas");
-  //   canvas.width = width;
-  //   canvas.height = height;
-
-  //   const ctx = canvas.getContext("2d");
-
-  //   // Reuse ImageData if you want to go further later
-  //   const imageData = ctx.createImageData(width, height);
-  //   const pixels = new Uint32Array(imageData.data.buffer);
-
-  //   const hasSelection = selectedRestrictionIndex >= 0 && renderUnique;
-  //   const blendedArr = blendedArray;
-  //   const lensArr = policyLensLayer;
-  //   const areaArr = hasSelection
-  //     ? currentBitArrays[selectedRestrictionIndex]
-  //     : null;
-  //   const uniqueArr = hasSelection ? uniqueArray : null;
-
-  //   for (let i = 0; i < blendedArr.length; i++) {
-  //     const key =
-  //       (blendedArr[i] << 3) |
-  //       ((lensArr ? lensArr[i] : 0) << 2) |
-  //       ((areaArr ? areaArr[i] : 0) << 1) |
-  //       (uniqueArr && uniqueArr[i] === 1 ? 1 : 0);
-
-  //     pixels[i] = COLOR_LUT[key];
-  //   }
-
-  //   ctx.putImageData(imageData, 0, 0);
-
-  //   canvas.toBlob((blob) => {
-  //     dataURL = URL.createObjectURL(blob);
-  //   });
-
-  //   done = true;
-  //   console.timeEnd("canvas-combined");
-  // }
 
   function makeAndPaintCanvasFromIndices() {
     console.time("canvas-indices");
@@ -950,29 +990,10 @@
       pixels[i] = COLOR_LUT[mask[i]];
     }
 
-    // const pixels = new Uint32Array(imageData.data.buffer);
-
-    // const hasSelection = selectedRestrictionIndex >= 0 && renderUnique;
-    // const blendedArr = blendedArray;
-    // const lensArr = policyLensLayer;
-    // const areaArr = hasSelection
-    //   ? currentBitArrays[selectedRestrictionIndex]
-    //   : null;
-    // const uniqueArr = hasSelection ? uniqueArray : null;
-
-    // for (let i = 0; i < blendedArr.length; i++) {
-    //   const key =
-    //     (blendedArr[i] << 3) |
-    //     ((lensArr ? lensArr[i] : 0) << 2) |
-    //     ((areaArr ? areaArr[i] : 0) << 1) |
-    //     (uniqueArr && uniqueArr[i] === 1 ? 1 : 0);
-
-    //   pixels[i] = COLOR_LUT[key];
-    // }
-
     ctx.putImageData(imageData, 0, 0);
 
     canvas.toBlob((blob) => {
+      URL.revokeObjectURL(dataURL);
       dataURL = URL.createObjectURL(blob);
     });
 
@@ -980,109 +1001,119 @@
     console.timeEnd("canvas-indices");
   }
 
-  //iOS-safe version of the canvas but has some issues at the edges that need to worked out...
-  async function makeAndPaintCombinedCanvasMobile() {
-    console.time("canvas-combined");
-    done = false;
+  async function makeAndPaintCanvasFromIndicesMobile() {
+    console.time("canvas-indices-mobile-tiles");
 
-    // --- CONFIG ---
     const MAX_TILE_PIXELS = 10_000_000;
-    const MAX_FINAL_PIXELS = 16_000_000;
-    // ---------------
-
     const tileSize = Math.floor(Math.sqrt(MAX_TILE_PIXELS));
+
     const cols = Math.ceil(width / tileSize);
     const rows = Math.ceil(height / tileSize);
 
-    let scale = 1;
-    const totalPixels = width * height;
-    if (totalPixels > MAX_FINAL_PIXELS) {
-      scale = Math.sqrt(MAX_FINAL_PIXELS / totalPixels);
+    const pixelCount = width * height;
+
+    // --- Build FULL mask once (critical for performance) ---
+    const mask = new Uint8Array(pixelCount);
+
+    const areaIndices = currentBitArrays[selectedRestrictionIndex];
+
+    for (let i = 0; i < blendedIndices.length; i++) {
+      mask[blendedIndices[i]] |= 1 << 3;
     }
 
-    const tileBlobs = [];
+    if (lensIndices) {
+      for (let i = 0; i < lensIndices.length; i++) {
+        mask[lensIndices[i]] |= 1 << 2;
+      }
+    }
 
-    const hasSelection = selectedRestrictionIndex >= 0 && renderUnique;
-    const blendedArr = blendedIndices;
-    const lensArr = policyLensLayer;
-    const areaArr = hasSelection
-      ? currentBitArrays[selectedRestrictionIndex]
-      : null;
-    const uniqueArr = hasSelection ? uniqueArray : null;
+    if (areaIndices) {
+      for (let i = 0; i < areaIndices.length; i++) {
+        mask[areaIndices[i]] |= 1 << 1;
+      }
+    }
 
+    if (uniqueIndices) {
+      for (let i = 0; i < uniqueIndices.length; i++) {
+        mask[uniqueIndices[i]] |= 1;
+      }
+    }
+
+    const [minX, minY, maxX, maxY] = bbox;
+    const pixelWidth = (maxX - minX) / width;
+    const pixelHeight = (maxY - minY) / height;
+
+    const layers: ImageLayer<ImageStatic>[] = [];
+
+    // --- Tile rendering ---
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
         const x0 = col * tileSize;
         const y0 = row * tileSize;
+
         const w = Math.min(tileSize, width - x0);
         const h = Math.min(tileSize, height - y0);
 
         const canvas = document.createElement("canvas");
         canvas.width = w;
         canvas.height = h;
-        const ctx = canvas.getContext("2d");
 
+        const ctx = canvas.getContext("2d")!;
         const imageData = ctx.createImageData(w, h);
         const pixels = new Uint32Array(imageData.data.buffer);
 
-        for (let y = 0; y < h; y++) {
-          let base = (y0 + y) * width + x0;
-          let rowOffset = y * w;
+        // Copy subsection from full mask
+        for (let ty = 0; ty < h; ty++) {
+          const globalRow = (y0 + ty) * width;
+          const localRow = ty * w;
 
-          for (let x = 0; x < w; x++) {
-            const i = base + x;
+          for (let tx = 0; tx < w; tx++) {
+            const globalIndex = globalRow + (x0 + tx);
+            const localIndex = localRow + tx;
 
-            const key =
-              (blendedArr[i] << 3) |
-              ((lensArr ? lensArr[i] : 0) << 2) |
-              ((areaArr ? areaArr[i] : 0) << 1) |
-              (uniqueArr && uniqueArr[i] === 1 ? 1 : 0);
-
-            pixels[rowOffset + x] = COLOR_LUT[key];
+            pixels[localIndex] = COLOR_LUT[mask[globalIndex]];
           }
         }
 
         ctx.putImageData(imageData, 0, 0);
 
-        const blob = await new Promise((r) => canvas.toBlob(r, "image/png"));
+        const blob = await new Promise<Blob>((r) =>
+          canvas.toBlob(r, "image/png"),
+        );
 
-        tileBlobs.push({ row, col, blob, w, h });
+        const tileURL = URL.createObjectURL(blob);
+
+        // --- Spatial extent ---
+        const tileMinX = minX + x0 * pixelWidth;
+        const tileMaxX = minX + (x0 + w) * pixelWidth;
+
+        const tileMaxY = maxY - y0 * pixelHeight;
+        const tileMinY = maxY - (y0 + h) * pixelHeight;
+
+        const tileExtent: [number, number, number, number] = [
+          tileMinX,
+          tileMinY,
+          tileMaxX,
+          tileMaxY,
+        ];
+
+        const layer = new ImageLayer({
+          source: new ImageStatic({
+            url: tileURL,
+            imageExtent: tileExtent,
+            projection: "EPSG:27700",
+            interpolate: false,
+          }),
+          opacity,
+        });
+
+        layers.push(layer);
       }
     }
 
-    // --- Merge tiles ---
-    const finalW = Math.floor(width * scale);
-    const finalH = Math.floor(height * scale);
-    const finalCanvas = document.createElement("canvas");
-    finalCanvas.width = finalW;
-    finalCanvas.height = finalH;
-    const finalCtx = finalCanvas.getContext("2d");
+    console.timeEnd("canvas-indices-mobile-tiles");
 
-    finalCtx.imageSmoothingEnabled = scale !== 1;
-    finalCtx.imageSmoothingQuality = "high";
-
-    await Promise.all(
-      tileBlobs.map(async ({ row, col, blob, w, h }) => {
-        const img = await createImageBitmap(blob);
-        finalCtx.drawImage(
-          img,
-          col * tileSize * scale,
-          row * tileSize * scale,
-          w * scale,
-          h * scale,
-        );
-      }),
-    );
-
-    const finalBlob = await new Promise((r) =>
-      finalCanvas.toBlob(r, "image/png"),
-    );
-
-    dataURL = URL.createObjectURL(finalBlob);
-    done = true;
-    console.timeEnd("canvas-combined");
-
-    return { dataURL, scale };
+    return new LayerGroup({ layers });
   }
 
   function findTheOnes(indexArrays) {
@@ -1159,18 +1190,22 @@
     seeDensity = true;
     seeArea = false;
 
-    // densityGroup = {
-    //   name: "Selected area",
-    //   paintedIndices: blendedIndices, //!
-    //   gridConfig: { width, height, colOffset: 0 }, // uploaded files need offset
-    //   stats: {},
-    //   histogram: {},
-    //   layer: null,
-    // };
-    // // computeStats(densityGroup, densityArray);
-    // computeDensityStats(blendedIndices, densityArray, { width, height, colOffset: 0 });
-
-    // densityGroup.layer = createGroupLayer(densityGroup, opacity, densityArray);
+    URL.revokeObjectURL(densityDataURL);
+    densityDataURL = !mobile.current
+      ? await createDensityCanvas(
+          densityCanvas,
+          blendedIndices,
+          densityArray,
+          DENSITY_LUT,
+        )
+      : await createDensityLayerMobile(
+          blendedIndices,
+          densityArray,
+          DENSITY_LUT,
+          bbox,
+          opacity,
+        );
+    // console.log(typeof densityDataURL, typeof dataURL);
     done = true;
     console.timeEnd("show-density");
   }
@@ -1190,7 +1225,15 @@
   }
 
   let tableSectionHeight = $state();
-  $inspect(tableSectionHeight);
+  // $inspect(tableSectionHeight);
+
+  async function closePanelAndScrollToMap() {
+    await tick();
+    document.getElementById("map").scrollIntoView({
+      behavior: "smooth",
+    });
+    showFilters = !showFilters;
+  }
 </script>
 
 <svelte:head>
@@ -1302,10 +1345,7 @@
             : unpackSelectedLayers();
           // selected = formData.getAll("categories[]");
 
-          document.getElementById("map").scrollIntoView({
-            behavior: "smooth",
-          });
-          showFilters = !showFilters;
+          closePanelAndScrollToMap();
           // Cancel server submission and process client-side
           cancel();
 
@@ -1327,7 +1367,12 @@
         textContent="Clear all filters"
         onClickFunction={() => {
           selected = [];
+          // dataURL = null;
+          // if (oldDataURL) {
+          URL.revokeObjectURL(dataURL);
+          // }
           dataURL = null;
+
           startingPosition.forEach((d) => (d.initially_checked = false));
           // bbox = null;
           // console.log(startingPosition, selected);
@@ -1347,6 +1392,8 @@
             .filter((d) => d.initially_checked === "y")
             .map((d) => d.filename);
           unpackSelectedLayers();
+
+          closePanelAndScrollToMap();
         }}
       />
     {/if}
@@ -1414,26 +1461,31 @@
 
     <div class="map">
       {#if dataURL}
-        <!-- {console.log("Rendering the map!")} -->
+        {console.log("Rendering the map!")}
 
         <div id="map" class={["os-map-container", { done }]}>
-          <OsMap
-            {dataURL}
-            {bbox}
-            {breakdownData}
-            {blendedIndices}
-            bind:seeDensity
-            bind:seeArea
-            {width}
-            {height}
-            bind:opacity
-            {densityArray}
-            bind:customArea
-            bind:customAreaBBox
-            bind:policyLens
-            bind:drawing
-            {unpackSelectedLayers}
-          />
+          {#key mobile.current}
+            <OsMap
+              {dataURL}
+              {densityDataURL}
+              {bbox}
+              {breakdownData}
+              {blendedIndices}
+              bind:seeDensity
+              bind:seeArea
+              {width}
+              {height}
+              bind:opacity
+              {densityArray}
+              bind:customArea
+              bind:customAreaBBox
+              bind:drawnFeature
+              bind:policyLens
+              bind:drawing
+              {unpackSelectedLayers}
+              {mobile}
+            />
+          {/key}
         </div>
       {:else if bbox}
         <div id="map" style="height: calc(100vh - 150px);">
@@ -1551,6 +1603,9 @@
                 bind:sortState
                 bind:selectedRestriction
                 {makeAndPaintCanvasFromIndices}
+                {makeAndPaintCanvasFromIndicesMobile}
+                bind:dataURL
+                {mobile}
               />
               <Button
                 buttonType="default"
