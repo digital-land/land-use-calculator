@@ -52,7 +52,6 @@
     ordnanceSurveyBaseLayer: VectorTileLayer,
     aerialBaseLayer: TileLayer,
     currentBaseMap;
-  // let group: MapGroup = $state();
 
   const drawSource = new VectorSource({ wrapX: false });
 
@@ -84,6 +83,7 @@
 
   drawLayer.setStyle(drawStyle);
 
+  //Makes sense on desktop but nonsense on mobile - when dataURL is a LayerGroup
   let tiffLayerSource = $derived(
     new ImageStatic({
       url: dataURL,
@@ -93,6 +93,7 @@
     }),
   );
 
+  //Makes sense on desktop but nonsense on mobile as above
   let densityLayerSource = $derived(
     new ImageStatic({
       url: densityDataURL,
@@ -202,10 +203,12 @@
       },
     });
 
-    tiffLayer = new ImageLayer({
-      source: tiffLayerSource,
-      opacity,
-    });
+    tiffLayer = mobile.current
+      ? dataURL
+      : new ImageLayer({
+          source: tiffLayerSource,
+          opacity,
+        });
 
     densityLayer = mobile.current
       ? densityDataURL
@@ -230,18 +233,6 @@
     });
 
     currentBaseMap = ordnanceSurveyBaseLayer;
-
-    // group = {
-    //   name: "Density layer",
-    //   paintedIndices: blendedIndices,
-    //   gridConfig: { width, height, colOffset: 0 }, // uploaded files need offset
-    //   stats: {},
-    //   histogram: {},
-    //   layer: null,
-    // };
-
-    // group.layer = createGroupLayer(group, opacity, densityArray, DENSITY_LUT);
-    // densityLayer = group.layer;
 
     if (drawnFeature) {
       drawSource.addFeature(drawnFeature);
@@ -493,26 +484,25 @@
     }
   });
 
-  // $effect(() => {
-  //   if (!group) return;
-
-  //   group.paintedIndices = blendedIndices;
-  //   densityLayer.setOpacity(opacity);
-
-  //   // Force OpenLayers to re-render
-  //   densityLayer.getSource()?.changed();
-  // });
-
   $effect(() => {
     console.log("UPDATING tiff source");
-    const newSource = tiffLayerSource; // Need this line so that Svelte has a dependedncy to track
-    tiffLayer?.setSource(newSource);
+
+    if (!mobile.current) {
+      const newSource = tiffLayerSource; // Need this line so that Svelte has a dependedncy to track
+      tiffLayer?.setSource(newSource);
+    } else {
+      const oldTiffLayer = tiffLayer;
+      map?.removeLayer(oldTiffLayer);
+      tiffLayer = dataURL;
+      map?.addLayer(tiffLayer);
+    }
   });
 
   $effect(() => {
     console.log("UPDATING density source");
-    const newSource = densityLayerSource; // Need this line so that Svelte has a dependedncy to track
+
     if (!mobile.current) {
+      const newSource = densityLayerSource; // Need this line so that Svelte has a dependedncy to track
       densityLayer?.setSource(newSource);
     } else {
       const oldDensityLayer = densityLayer;
