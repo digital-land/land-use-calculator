@@ -5,7 +5,8 @@ import { parseCsv } from "$lib/utils";
 // import { base } from "$app/paths";
 const base = import.meta.env.BASE_URL || "/";
 import areaSizeLookup from "$lib/data/areas_las_pixels.json";
-import { width, height } from "$lib/constants";
+import { hectareSettings } from "$lib/constants";
+const { width, height } = hectareSettings;
 
 let wasmReady = false;
 

@@ -21,7 +21,7 @@
     mobile,
   } = $props();
 
-console.log("dataURL",dataURL)
+  console.log("dataURL", dataURL);
 
   import "/node_modules/ol/ol.css";
   import { onMount } from "svelte";
@@ -414,14 +414,14 @@ console.log("dataURL",dataURL)
             "<br>" +
             "Area covered by the current selections: " +
             Number(
-              breakdownData.find((d) => d.area_code === feature.get("LAD25CD"))
+              breakdownData?.find((d) => d.area_code === feature.get("LAD25CD"))
                 ?.selected_area,
             ).toLocaleString() +
             "ha" +
             "<br> (" +
             (
               Number(
-                breakdownData.find(
+                breakdownData?.find(
                   (d) => d.area_code === feature.get("LAD25CD"),
                 )?.selected_area_as_a_proportion_of_total_area,
               ) * 100
@@ -442,14 +442,19 @@ console.log("dataURL",dataURL)
       }
       if (seeArea) {
         displayFeatureInfo(evt.pixel, evt.originalEvent.target);
-      } else if (blendedIndices.includes(coordToIndex(...evt.coordinate))) {
+      } else if (
+        blendedIndices.includes(
+          coordToIndex(...evt.coordinate, { width, height }),
+        )
+      ) {
         info.style.left = evt.pixel[0] + 15 + "px";
         info.style.top = evt.pixel[1] + 15 + "px";
         info.style.visibility = "visible";
 
         info.innerHTML =
-          densityArray[coordToIndex(...evt.coordinate)] +
-          (densityArray[coordToIndex(...evt.coordinate)] === 1
+          densityArray[coordToIndex(...evt.coordinate, { width, height })] +
+          (densityArray[coordToIndex(...evt.coordinate, { width, height })] ===
+          1
             ? " title at this location"
             : " titles at this location");
       } else {

@@ -6,7 +6,7 @@ import ImageLayer from "ol/layer/Image.js";
 import ImageStatic from "ol/source/ImageStatic";
 import LayerGroup from "ol/layer/Group";
 import ImageCanvasSource from "ol/source/ImageCanvas.js";
-import { width, height, gridSize, bbox } from "./constants";
+// import { width, height, gridSize, bbox } from "./constants";
 
 type TableMetadataEntry = Record<"explainer" | "label" | "shortLabel", string>;
 
@@ -45,6 +45,42 @@ export function parseCsv(csvText: string): object[] {
     // console.log(row);
     return row;
   });
+}
+
+export function parseCSVToObject(csvText) {
+  const lines = csvText.trim().split("\n");
+  const headers = lines[0].split(",");
+
+  const FIXED_COLUMNS = 6; // var, date, grid_size, data_type, datum, data_structure
+  const result = {};
+
+  for (let i = 1; i < lines.length; i++) {
+    const values = lines[i].split(",");
+    const row = {};
+
+    // Extract fixed columns
+    const varValue = values[0];
+    row.date = values[1];
+    row.grid_size = values[2];
+    row.data_type = values[3];
+    row.datum = values[4];
+    row.data_structure = values[5];
+
+    // Extract tile codes where value === "1"
+    const tile_codes = [];
+
+    for (let j = FIXED_COLUMNS; j < headers.length; j++) {
+      if (values[j] === "1") {
+        tile_codes.push(headers[j]);
+      }
+    }
+
+    row.tile_codes = tile_codes;
+
+    result[varValue] = row;
+  }
+
+  return result;
 }
 
 export function jsonToCsv(
@@ -240,7 +276,10 @@ export function indexToCoord(
 }
 
 // --- Load GeoTIFF ---
-export async function loadDensityTiff(url: string): Promise<{
+export async function loadDensityTiff(
+  url: string,
+  bbox: number[],
+): Promise<{
   densityArray: number | Uint16Array;
   width: number;
   height: number;
@@ -356,7 +395,9 @@ export function createDensityCanvas(
   densityCanvas,
   blendedIndices,
   densityArray,
-  DENSITY_LUT
+  DENSITY_LUT,
+  height,
+  width,
 ) {
   return new Promise((resolve, reject) => {
     const canvas = densityCanvas;
@@ -392,7 +433,9 @@ export async function createDensityLayerMobile(
   densityArray: Uint16Array,
   DENSITY_LUT: Uint32Array,
   bbox: [number, number, number, number],
-  opacity: number
+  opacity: number,
+  height: number,
+  width: number,
 ) {
   console.time("density-mobile-tiles");
 
@@ -411,7 +454,6 @@ export async function createDensityLayerMobile(
 
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < cols; col++) {
-
       const x0 = col * tileSize;
       const y0 = row * tileSize;
 
@@ -434,23 +476,19 @@ export async function createDensityLayerMobile(
         const gx = globalIndex % width;
         const gy = Math.floor(globalIndex / width);
 
-        if (
-          gx >= x0 && gx < x0 + w &&
-          gy >= y0 && gy < y0 + h
-        ) {
+        if (gx >= x0 && gx < x0 + w && gy >= y0 && gy < y0 + h) {
           const localX = gx - x0;
           const localY = gy - y0;
           const localIndex = localY * w + localX;
 
-          pixels[localIndex] =
-            DENSITY_LUT[densityArray[globalIndex]];
+          pixels[localIndex] = DENSITY_LUT[densityArray[globalIndex]];
         }
       }
 
       ctx.putImageData(imageData, 0, 0);
 
       const blob = await new Promise<Blob>((r) =>
-        canvas.toBlob(r, "image/png")
+        canvas.toBlob(r, "image/png"),
       );
 
       const tileURL = URL.createObjectURL(blob);
@@ -488,12 +526,14 @@ export async function createDensityLayerMobile(
   return new LayerGroup({ layers });
 }
 
-
-export function convertPixelsToHectares(value: number): number {
+export function convertPixelsToHectares(
+  value: number,
+  gridSize: number,
+): number {
   return Math.round((value * gridSize * gridSize) / 10_000);
 }
 
-export function indicesToBinaryMask(bin) {
+export function indicesToBinaryMask(bin, width, height) {
   const out = new Uint8Array(width * height).fill(0);
   console.log(bin.length);
   for (let i = 0; i < bin.length; i++) {
@@ -521,7 +561,15 @@ export const originY = 5339;
 export const cellSize = 100; // meters per cell/hectare
 export const fillOpacity = 0.5;
 
-export async function joinTiles(base: string, tileCodes: object) {
+export async function joinTiles(
+  base: string,
+  width: number,
+  gridSize: number,
+  sourceFolder: string,
+  tileCodes: object,
+  grid10mVariables: object,
+) {
+  // console.log(base, width, gridSize, sourceFolder, tileCodes, grid10mVariables);
   return new Promise((resolve, reject) => {
     console.time("tileWorker");
 
@@ -532,24 +580,29 @@ export async function joinTiles(base: string, tileCodes: object) {
 
     tilerWorker.onerror = (err) => {
       console.error("Worker error:", err);
+      tilerWorker.terminate();
       reject(err); // Reject the promise on worker error
     };
 
     tilerWorker.postMessage({
       base,
-      tileCodes: tileCodes, // send urls and relative positions
-      width: 5000,
+      grid10mVariables, // send urls and relative positions
+      tileCodes,
+      width,
+      gridSize,
+      sourceFolder,
     });
 
     tilerWorker.onmessage = (e) => {
       if (e.data.error) {
         console.warn(e.data.error);
+        tilerWorker.terminate();
         reject(e.data.error); // Reject the promise on error
         return;
       }
       console.timeEnd("tileWorker");
+      tilerWorker.terminate();
       resolve(e.data); // Resolve the promise with the worker's result
     };
-    tilerWorker.terminate()
   });
 }

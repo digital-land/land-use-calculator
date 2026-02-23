@@ -41,6 +41,20 @@
       base,
       tileCodes: tileCodes, // send urls and relative positions
       width: 5000,
+      sourceFolder: 'ten_metre',
+      grid10mVariables: {
+    "imaginaryNewTown": {
+        "grid_size": "10",
+        "data_type": "B",
+        "datum": "idx",
+        "data_structure": "32",
+        "tile_codes": [
+            "SUSW",
+            "SUNW",
+            "SUNE"
+        ]
+    }
+}
     });
 
     tilerWorker.onmessage = (e) => {

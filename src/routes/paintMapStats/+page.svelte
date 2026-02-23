@@ -12,7 +12,7 @@
   import DragPan from "ol/interaction/DragPan.js";
   import LALookup from "$lib/LALookup";
   import Histogram from "$lib/components/Histogram.svelte";
-  import { apiKey, serviceUrl } from "$lib/constants";
+  import { apiKey, serviceUrl, hectareSettings } from "$lib/constants";
   import {
     downloadJSON,
     downloadCSV,
@@ -238,6 +238,7 @@
   onMount(async () => {
     const tiffData = await loadDensityTiff(
       `${base}/range/hectare_counts_trimmed.tif`,
+      hectareSettings.bbox,
     );
     densityArray = tiffData.densityArray;
     width = tiffData.width;

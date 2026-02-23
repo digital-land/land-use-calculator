@@ -1,5 +1,8 @@
-import { tiles } from "$lib/constants.ts";
-console.log("tiles", tiles);
+import { tiles as tileMetadata } from "$lib/constants.ts";
+
+/* -------------------------------------------------- */
+/* Helpers */
+/* -------------------------------------------------- */
 
 async function loadIndexedArray(url) {
   const response = await fetch(url);
@@ -12,65 +15,175 @@ async function loadIndexedArray(url) {
   return new Uint32Array(buffer);
 }
 
+function buildTileFilename(tileCode, varName, meta) {
+  const { grid_size, data_type, datum, data_structure, date } = meta;
+
+  return `${tileCode}_${grid_size}_${varName}_${data_type}_${datum}_${data_structure}_${date}.bin`;
+}
+
+/* -------------------------------------------------- */
+/* Precompute fast lookup for tile metadata */
+/* -------------------------------------------------- */
+
+const tileIndex = Object.fromEntries(tileMetadata.map((t) => [t.code, t]));
+// console.log(tileIndex);
+/* -------------------------------------------------- */
+/* Worker */
+/* -------------------------------------------------- */
+
 self.onmessage = async (e) => {
-  const { tileCodes, width, base } = e.data;
-
-  const entries = await Promise.all(
-    Object.entries(tileCodes).map(async ([key, tile]) => {
-      const url = `${base}/data/ten_metre/${tile}_10_imaginaryNewTown_B_idx_32_2601.bin`;
-      const data = await loadIndexedArray(url);
-      return [key, data];
-    }),
-  );
-
-  console.log("resolved entries", entries);
-  const tiles = Object.fromEntries(entries);
-  const grid = Array.from({ length: width }, (_, i) => i);
-
-  // Parse active tiles
-  const activeTiles = Object.keys(tiles).map((k) => {
-    const [col, row] = k.split(",").map(Number);
-    return { key: k, col, row };
-  });
-
-  // Determine used columns/rows
-  const usedCols = [...new Set(activeTiles.map((t) => t.col))].sort(
-    (a, b) => a - b,
-  );
-  const usedRows = [...new Set(activeTiles.map((t) => t.row))].sort(
-    (a, b) => a - b,
-  );
-
-  // Compact remapping
-  const colMap = Object.fromEntries(usedCols.map((c, i) => [c, i]));
-  const rowMap = Object.fromEntries(usedRows.map((r, i) => [r, i]));
-  const cols = usedCols.length;
-  const rows = usedRows.length;
-
-  function transform(index, tile) {
-    const x = index % width;
-    const y = Math.floor(index / width);
-    const globalX = colMap[tile.col] * width + x;
-    const globalY = rowMap[tile.row] * width + y;
-
-    return globalY * (cols * width) + globalX;
-  }
-
-  const newArrays = Object.fromEntries(
-    activeTiles.map((tile) => [
-      tile.key,
-      tiles[tile.key].map((v) => transform(v, tile)),
-    ]),
-  );
-
-  const result = new Uint32Array(
-    Object.values(newArrays)
-      .flatMap((a) => [...a])
-      .sort((a, b) => a - b),
-  );
-
+  const { grid10mVariables, gridSize, sourceFolder, base } = e.data;
+  const width = 5000; //Hardcoded! because reading from constants wasn't working
   try {
-    self.postMessage({ array: result.buffer });
+    /* -------------------------------------------- */
+    /* 1️⃣ Build active tile list from variables   */
+    /* -------------------------------------------- */
+
+    const activeTileMeta = Object.entries(grid10mVariables).flatMap(
+      ([varName, meta]) =>
+        meta.tile_codes.map((code) => {
+          const tileMeta = tileIndex[code];
+
+          if (!tileMeta) {
+            throw new Error(`Tile metadata not found for ${code}`);
+          }
+
+          return {
+            key: tileMeta.pos_rel, // "9,10"
+            col: tileMeta.grid_x,
+            row: tileMeta.grid_y,
+            code,
+            varName,
+            meta,
+          };
+        }),
+    );
+
+    /* -------------------------------------------- */
+    /* 2️⃣ Load all binary files                    */
+    /* -------------------------------------------- */
+
+    const entries = await Promise.all(
+      activeTileMeta.map(async (tile) => {
+        const filename = buildTileFilename(tile.code, tile.varName, tile.meta);
+
+        const url = `${base}/data/${sourceFolder}/${filename}`;
+        const data = await loadIndexedArray(url);
+
+        return [tile.key, { ...tile, data }];
+      }),
+    );
+
+    const loadedTiles = Object.fromEntries(entries);
+    // console.log(loadedTiles);
+    /* -------------------------------------------- */
+    /* 3️⃣ Determine used rows/cols                 */
+    /* -------------------------------------------- */
+
+    const activeTiles = Object.values(loadedTiles);
+
+    const TILE_SIZE = width * gridSize;
+    const minEast = Math.min(...activeTiles.map((t) => tileIndex[t.code].east));
+    const minNorth = Math.min(
+      ...activeTiles.map((t) => tileIndex[t.code].north),
+    );
+    const maxEast =
+      Math.max(...activeTiles.map((t) => tileIndex[t.code].east)) + TILE_SIZE;
+    const maxNorth =
+      Math.max(...activeTiles.map((t) => tileIndex[t.code].north)) + TILE_SIZE;
+
+    const boundingBox = [minEast, minNorth, maxEast, maxNorth];
+    const canvasWidth = (maxEast - minEast) / gridSize;
+    const canvasHeight = (maxNorth - minNorth) / gridSize;
+
+    const usedCols = [...new Set(activeTiles.map((t) => t.col))].sort(
+      (a, b) => a - b,
+    );
+
+    const usedRows = [...new Set(activeTiles.map((t) => t.row))].sort(
+      (a, b) => a - b,
+    );
+
+    const colMap = Object.fromEntries(usedCols.map((c, i) => [c, i]));
+
+    const rowMap = Object.fromEntries(usedRows.map((r, i) => [r, i]));
+
+    const cols = usedCols.length;
+
+    /* -------------------------------------------- */
+    /* 4️⃣ Transform tile indices into global grid  */
+    /* -------------------------------------------- */
+
+    function transform(index, tile) {
+      const x = index % width;
+      const y = Math.floor(index / width);
+
+      const globalX = colMap[tile.col] * width + x;
+      const globalY = rowMap[tile.row] * width + y;
+
+      return globalY * (cols * width) + globalX;
+    }
+    // console.log(activeTiles);
+    // const merged = activeTiles
+    //   .flatMap((tile) => tile.data.map((v) => transform(v, tile)))
+    //   .sort((a, b) => a - b);
+    // console.log(merged);
+
+    // const merged = [];
+
+    // for (const tile of activeTiles) {
+    //   for (let i = 0; i < tile.data.length; i++) {
+    //     merged.push(transform(tile.data[i], tile));
+    //   }
+    // }
+
+    // merged.sort((a, b) => a - b);
+
+    /* -------------------------------------------- */
+    /* 4️⃣ Merge per variable                       */
+    /* -------------------------------------------- */
+
+    const results = [];
+
+    const variables = Object.keys(grid10mVariables);
+
+    for (const varName of variables) {
+      const variableTiles = activeTiles.filter((t) => t.varName === varName);
+
+      const merged = [];
+
+      for (const tile of variableTiles) {
+        for (let i = 0; i < tile.data.length; i++) {
+          merged.push(transform(tile.data[i], tile));
+        }
+      }
+
+      merged.sort((a, b) => a - b);
+
+      const resultArray = new Uint32Array(merged);
+
+      results.push({
+        filename: `${varName}.bin`,
+        area: resultArray.length,
+        data: resultArray,
+      });
+    }
+
+    // const result = new Uint32Array(merged);
+    // console.log(result);
+    /* -------------------------------------------- */
+    /* 5️⃣ Send back efficiently (transfer buffer)  */
+    /* -------------------------------------------- */
+    console.log(boundingBox);
+    self.postMessage(
+      {
+        datasets: results,
+        bbox: boundingBox,
+        canvasWidth,
+        canvasHeight,
+      },
+      results.map((r) => r.data.buffer),
+    );
   } catch (error) {
     self.postMessage({ error: error.message });
   }

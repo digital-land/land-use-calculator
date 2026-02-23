@@ -1,5 +1,5 @@
 import init, { binary_and } from "$lib/raster_ops/pkg/raster_ops.js";
-import { width, height, gridSize, sourceFolder } from "$lib/constants";
+// import { width, height, gridSize, sourceFolder } from "$lib/constants";
 
 let wasmReady = false;
 async function ensureWasm() {
@@ -41,7 +41,8 @@ function intersectUint32(a, b) {
 
 
 self.onmessage = async function (e) {
-  const { layersToUnpack, base, policyLens, customArea } = e.data;
+  const { layersToUnpack, base, policyLens, customArea, settingsObject } = e.data;
+  const { width, height, gridSize, sourceFolder } = settingsObject;
   const processedCustomArea = new Uint32Array(customArea)
   console.log("starting to unpack", { policyLens });
   console.time("unpack");

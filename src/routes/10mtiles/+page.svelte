@@ -39,12 +39,17 @@
     createDensityLayerMobile,
   } from "$lib/utils";
   import { computeDensityStats } from "$lib/densityStats";
-  import { colors, hectareSettings } from "$lib/constants";
+  import { colors, tenMetreSettings } from "$lib/constants";
   import FilterChipParent from "$lib/components/FilterChipParent.svelte";
   import Tabs from "$lib/components/Tabs.svelte";
   import Histogram from "$lib/components/Histogram.svelte";
   import type { TableMetadata } from "$lib/utils";
-  const { width, height, bbox, gridSize, sourceFolder } = hectareSettings;
+  import type { PageProps } from "/$types";
+  const { width, height, gridSize, sourceFolder } = tenMetreSettings;
+
+  let { data }: PageProps = $props();
+  $inspect(data.grid10mVariables);
+  let grid10mVariables = data.grid10mVariables;
 
   const tileCodes = {
     //QUESTION IS - How do we want to identify the tiles we need? A single bounding box approach maybe?
@@ -71,13 +76,16 @@
     );
   });
 
-  // let tenMetreTilesJoined = $state();
-  // $inspect(tenMetreTilesJoined);
+  let tenMetreTilesJoined = $state();
+  $inspect(tenMetreTilesJoined);
 
   let done = $state(false);
   // $inspect({ done });
 
   let dataURL = $state();
+  let canvasWidth: number = $state();
+  let canvasHeight: number = $state();
+  let bbox: number[] = $state();
 
   let containerLayout = $derived(
     mobile.current ? "" : `grid-template-columns: 100%;`,
@@ -352,14 +360,14 @@
 
   let policyLens = $state("England");
 
-  let policyLensArea = $state();
-  // $inspect(policyLensArea);
+  let policyLensArea = $state((13_046_002 * 10_000) / (gridSize * gridSize));
+  $inspect(policyLensArea);
 
   let currentBitArrays = $state();
   // $inspect({ currentBitArrays });
 
   let enrichedLayers = $state([]);
-  // $inspect(enrichedLayers);
+  $inspect(enrichedLayers);
   let lensIndices = $state();
   // $inspect({ lensIndices });
 
@@ -605,12 +613,30 @@
 
     // setTimeout(
     //   () =>
-    //     joinTiles(base, tileCodes).then((res) => {
-    //       tenMetreTilesJoined = new Uint32Array(res.array);
-    //       console.log("10mt", tenMetreTilesJoined);
-    //     }),
-    //   10000,
-    // );
+    joinTiles(
+      base,
+      width,
+      gridSize,
+      sourceFolder,
+      tileCodes,
+      grid10mVariables,
+    ).then(
+      (res) => {
+        // console.log(res.datasets)
+        enrichedLayers = res.datasets;
+        canvasWidth = res.canvasWidth;
+        canvasHeight = res.canvasHeight;
+        // console.log(enrichedLayers)
+        blendLayers();
+        tenMetreTilesJoined = new Uint32Array(res.datasets[0].data);
+
+        bbox = res.bbox;
+        // blendedIndices = tenMetreTilesJoined;
+        // console.log("10mt", tenMetreTilesJoined);
+      },
+      // ),
+      //   100,
+    );
 
     // currentBitArrays = [blendedIndices]
     // makeAndPaintCanvasFromIndices()
@@ -686,7 +712,7 @@
       base,
       policyLens,
       customArea: new Uint32Array(customArea).buffer,
-      settingsObject: hectareSettings,
+      settingsObject: tenMetreSettings,
     });
   }
 
@@ -780,20 +806,15 @@
       { type: "module" },
     );
 
-    const processChunk = (cChunk, aChunk) => {
-      // console.log(cChunk, aChunk)
-      return new Promise((resolve, reject) => {
+    const processChunk = (cChunk, aChunk) =>
+      new Promise((resolve, reject) => {
         breakdownWorker.onmessage = (e) => {
           const { json, error } = e.data;
           if (error) reject(new Error(error));
           else if (json) resolve(json);
           else console.log("Worker sent ignored message:", e.data);
         };
-        // breakdownWorker.onerror = (err) => reject(err);
-        breakdownWorker.onerror = (err) => {
-          console.error("Worker error:", err);
-          reject(new Error("Worker crashed"));
-        };
+        breakdownWorker.onerror = (err) => reject(err);
         // main thread
         const csvUrl = `${base}/data/LAs/lad_may_2025_lookup.csv`;
 
@@ -803,7 +824,6 @@
           csvUrl,
         });
       });
-    };
 
     for (const url of urls) {
       // console.log("Fetching chunk:", url);
@@ -888,17 +908,13 @@
 
         blendWorker.terminate();
 
-        getLABreakdown(
-          chunkUrls,
-          indicesToBinaryMask(blendedIndices, width, height),
-        )
-          .then((result) => {
-            breakdownData = result.json;
-            // console.log("done breaking down: ", breakdownData);
-          })
-          .catch((err) => {
-            console.error("Breakdown failed:", err);
-          });
+        // getLABreakdown(
+        //   chunkUrls,
+        //   indicesToBinaryMask(blendedIndices, width, height),
+        // ).then((result) => {
+        //   breakdownData = result.json;
+        //   // console.log("done breaking down: ", breakdownData);
+        // });
 
         mobile.current
           ? (dataURL = await makeAndPaintCanvasFromIndicesMobile())
@@ -971,12 +987,12 @@
     done = false;
 
     const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
 
     const ctx = canvas.getContext("2d");
-
-    const imageData = ctx.createImageData(width, height);
+    console.log(canvasWidth, canvasHeight);
+    const imageData = ctx.createImageData(canvasWidth, canvasHeight);
 
     const pixelCount = imageData.data.length / 4;
     const mask = new Uint8Array(pixelCount);
@@ -1030,10 +1046,10 @@
     const MAX_TILE_PIXELS = 10_000_000;
     const tileSize = Math.floor(Math.sqrt(MAX_TILE_PIXELS));
 
-    const cols = Math.ceil(width / tileSize);
-    const rows = Math.ceil(height / tileSize);
+    const cols = Math.ceil(canvasWidth / tileSize);
+    const rows = Math.ceil(canvasHeight / tileSize);
 
-    const pixelCount = width * height;
+    const pixelCount = canvasWidth * canvasHeight;
 
     // --- Build FULL mask once (critical for performance) ---
     const mask = new Uint8Array(pixelCount);
@@ -1063,8 +1079,8 @@
     }
 
     const [minX, minY, maxX, maxY] = bbox;
-    const pixelWidth = (maxX - minX) / width;
-    const pixelHeight = (maxY - minY) / height;
+    const pixelWidth = (maxX - minX) / canvasWidth;
+    const pixelHeight = (maxY - minY) / canvasHeight;
 
     const layers: ImageLayer<ImageStatic>[] = [];
 
@@ -1074,8 +1090,8 @@
         const x0 = col * tileSize;
         const y0 = row * tileSize;
 
-        const w = Math.min(tileSize, width - x0);
-        const h = Math.min(tileSize, height - y0);
+        const w = Math.min(tileSize, canvasWidth - x0);
+        const h = Math.min(tileSize, canvasHeight - y0);
 
         const canvas = document.createElement("canvas");
         canvas.width = w;
@@ -1087,7 +1103,7 @@
 
         // Copy subsection from full mask
         for (let ty = 0; ty < h; ty++) {
-          const globalRow = (y0 + ty) * width;
+          const globalRow = (y0 + ty) * canvasWidth;
           const localRow = ty * w;
 
           for (let tx = 0; tx < w; tx++) {
@@ -1500,8 +1516,8 @@
               {blendedIndices}
               bind:seeDensity
               bind:seeArea
-              {width}
-              {height}
+              width={canvasWidth}
+              height={canvasHeight}
               bind:opacity
               {densityArray}
               bind:customArea
@@ -1533,11 +1549,11 @@
             label: "Results",
             content: tableSnippet,
           },
-          {
-            id: "density",
-            label: "Density",
-            content: densitySnippet,
-          },
+          // {
+          //   id: "density",
+          //   label: "Density",
+          //   content: densitySnippet,
+          // },
         ]}
         {showDensity}
         {showArea}
@@ -1699,7 +1715,7 @@
           <p></p>
         {/if} -->
       {/snippet}
-      {#snippet densitySnippet()}
+      <!-- {#snippet densitySnippet()}
         {#if blendedIndices.length > 0}
           <p>Title density for the selected area.</p>
           {#if densityStats && done}
@@ -1737,7 +1753,7 @@
             <Spinner />
           {/if}
         {/if}
-      {/snippet}
+      {/snippet} -->
     </div>
   </div>
 </div>

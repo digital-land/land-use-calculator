@@ -12,6 +12,7 @@
   navigationItems={[
     { href: "./about", label: "About and user guide" },
     { href: "./paintMapStats", label: "Experimental painting app" },
+    { href: "./10mtiles", label: "10m" },
   ]}
 />
 <PhaseBanner
