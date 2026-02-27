@@ -88,7 +88,7 @@
   let filterTooltip = $derived(document.getElementById("filter-tooltip"));
 
   let tooltipContent = $derived(
-    subLayers.length > 0
+    subLayers?.length > 0
       ? "Made up of:" + "<ul><li>" + subLayers.join("</li><li>") + "</li></ul>"
       : "",
   );

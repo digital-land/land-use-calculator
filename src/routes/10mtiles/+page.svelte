@@ -51,14 +51,14 @@
   $inspect(data.grid10mVariables);
   let grid10mVariables = data.grid10mVariables;
 
-  const tileCodes = {
-    //QUESTION IS - How do we want to identify the tiles we need? A single bounding box approach maybe?
-    //Where the ultimate metadata provides the bounds of each feature layer
-    //Or the user selects their own area which has bounds.
-    "9,10": `SUNE`,
-    "8,10": `SUNW`,
-    "8,11": `SUSW`,
-  };
+  // const tileCodes = {
+  //   //QUESTION IS - How do we want to identify the tiles we need? A single bounding box approach maybe?
+  //   //Where the ultimate metadata provides the bounds of each feature layer
+  //   //Or the user selects their own area which has bounds.
+  //   "9,10": `SUNE`,
+  //   "8,10": `SUNW`,
+  //   "8,11": `SUSW`,
+  // };
 
   const mobile = new MediaQuery("max-width: 600px");
   // let pageLayout = $state("grid-template-columns: 23% 40% 37%");
@@ -489,7 +489,7 @@
       };
     }),
   );
-  // $inspect({ filterSections });
+  $inspect({ filterSections });
 
   let selectedSubLayers = $derived.by(() => {
     const subLayersToInclude =
@@ -511,7 +511,7 @@
   });
   // $inspect(selectedSubLayers);
 
-  let uniqueArray = $state([]);
+  // let uniqueArray = $state([]);
 
   let selectedRestriction: string = $state();
   // $inspect({ selectedRestriction });
@@ -528,13 +528,13 @@
   // $inspect(uniqueArrays);
   let uniqueIndices = $derived(uniqueArrays[selectedRestrictionIndex]);
 
-  let renderUnique = $derived(
-    selected.map((d) => makeFileNameReadable(d)).includes(selectedRestriction)
-      ? selectedRestrictionIndex >= 0
-        ? true
-        : false
-      : false,
-  );
+  // let renderUnique = $derived(
+  //   selected.map((d) => makeFileNameReadable(d)).includes(selectedRestriction)
+  //     ? selectedRestrictionIndex >= 0
+  //       ? true
+  //       : false
+  //     : false,
+  // );
   // $inspect({ renderUnique });
 
   let csvFile = $state();
@@ -542,7 +542,7 @@
   let tiffArrayBuffersFromZip = $state({});
 
   let layersToUnpack = $state();
-  // $inspect(layersToUnpack);
+  $inspect({ layersToUnpack });
 
   async function handleFileUpload(event) {
     URL.revokeObjectURL(dataURL);
@@ -613,30 +613,31 @@
 
     // setTimeout(
     //   () =>
-    joinTiles(
-      base,
-      width,
-      gridSize,
-      sourceFolder,
-      tileCodes,
-      grid10mVariables,
-    ).then(
-      (res) => {
-        // console.log(res.datasets)
-        enrichedLayers = res.datasets;
-        canvasWidth = res.canvasWidth;
-        canvasHeight = res.canvasHeight;
-        // console.log(enrichedLayers)
-        blendLayers();
-        tenMetreTilesJoined = new Uint32Array(res.datasets[0].data);
+    // joinTiles(
+    //   base,
+    //   width,
+    //   gridSize,
+    //   sourceFolder,
+    //   // tileCodes,
+    //   grid10mVariables,
+    // ).then(
+    //   (res) => {
+    //     // console.log(res.datasets)
+    //     enrichedLayers = res.datasets;
+    //     canvasWidth = res.canvasWidth;
+    //     canvasHeight = res.canvasHeight;
+    //     // console.log(enrichedLayers)
+    //             bbox = res.bbox;
+    //     console.log(bbox)
+    //     blendLayers();
+    //     tenMetreTilesJoined = new Uint32Array(res.datasets[0].data);
 
-        bbox = res.bbox;
-        // blendedIndices = tenMetreTilesJoined;
-        // console.log("10mt", tenMetreTilesJoined);
-      },
-      // ),
-      //   100,
-    );
+    //     // blendedIndices = tenMetreTilesJoined;
+    //     // console.log("10mt", tenMetreTilesJoined);
+    //   },
+    // ),
+    //   100,
+    // );
 
     // currentBitArrays = [blendedIndices]
     // makeAndPaintCanvasFromIndices()
@@ -659,17 +660,18 @@
       unpackSelectedLayers();
     }
 
-    const tiffData = await loadDensityTiff(
-      `${base}/range/hectare_counts_trimmed.tif`,
-      bbox,
-    );
-    densityArray = tiffData.densityArray;
+    // const tiffData = await loadDensityTiff(
+    //   `${base}/range/hectare_counts_trimmed.tif`,
+    //   bbox,
+    // );
+    // densityArray = tiffData.densityArray;
   });
 
   function prepareToUnpack() {
-    layersToUnpack = selected.map((d) =>
+    layersToUnpack = selected?.map((d) =>
       parseCsv(metadataCsv).find((layer) => layer.filename === d),
     );
+    console.log({ selected, layersToUnpack });
   }
 
   function unpackSelectedLayers() {
@@ -678,7 +680,7 @@
     prepareToUnpack();
 
     const simpleWorker = new Worker(
-      new URL("$lib/workers/wasmSimpleUnpackWorker.js", import.meta.url),
+      new URL("$lib/workers/loadFilesWorker.js", import.meta.url),
       { type: "module" },
     );
 
@@ -692,6 +694,10 @@
       enrichedLayers = e.data.rasterLayers;
       policyLensArea = e.data.policyLensArea;
       lensIndices = e.data.lensIndices;
+      bbox = e.data.bbox;
+      console.log(bbox);
+      canvasWidth = e.data.canvasWidth;
+      canvasHeight = e.data.canvasHeight;
 
       // console.log(enrichedLayers);
 
@@ -713,6 +719,8 @@
       policyLens,
       customArea: new Uint32Array(customArea).buffer,
       settingsObject: tenMetreSettings,
+      grid10mVariables,
+      transformToGlobal: true,
     });
   }
 
@@ -919,65 +927,51 @@
         mobile.current
           ? (dataURL = await makeAndPaintCanvasFromIndicesMobile())
           : makeAndPaintCanvasFromIndices();
-        densityDataURL = !mobile.current
-          ? await createDensityCanvas(
-              densityCanvas,
-              blendedIndices,
-              densityArray,
-              DENSITY_LUT,
-              height,
-              width,
-            )
-          : // : (
-            //     await createDensityCanvasMobile(
-            //       blendedIndices,
-            //       densityArray,
-            //       DENSITY_LUT,
-            //     )
-            //   ).dataURL;
-            await createDensityLayerMobile(
-              blendedIndices,
-              densityArray,
-              DENSITY_LUT,
-              bbox,
-              opacity,
-              height,
-              width,
-            );
+        // densityDataURL = !mobile.current
+        //   ? await createDensityCanvas(
+        //       densityCanvas,
+        //       blendedIndices,
+        //       densityArray,
+        //       DENSITY_LUT,
+        //       height,
+        //       width,
+        //     )
+        //   : await createDensityLayerMobile(
+        //       blendedIndices,
+        //       densityArray,
+        //       DENSITY_LUT,
+        //       bbox,
+        //       opacity,
+        //       height,
+        //       width,
+        //     );
       } else if (e.data.error) {
         console.error("Blend worker error:", e.data.error);
         blendedIndices = [];
         // blendedArrayIndices = [];
         done = false;
-        showDensity();
+        // showDensity();
         mobile.current
           ? (dataURL = await makeAndPaintCanvasFromIndicesMobile())
           : makeAndPaintCanvasFromIndices();
-        densityDataURL = !mobile.current
-          ? await createDensityCanvas(
-              densityCanvas,
-              blendedIndices,
-              densityArray,
-              DENSITY_LUT,
-              height,
-              width,
-            )
-          : // : (
-            //     await createDensityCanvasMobile(
-            //       blendedIndices,
-            //       densityArray,
-            //       DENSITY_LUT,
-            //     )
-            //   ).dataURL;
-            await createDensityLayerMobile(
-              blendedIndices,
-              densityArray,
-              DENSITY_LUT,
-              bbox,
-              opacity,
-              height,
-              width,
-            );
+        // densityDataURL = !mobile.current
+        //   ? await createDensityCanvas(
+        //       densityCanvas,
+        //       blendedIndices,
+        //       densityArray,
+        //       DENSITY_LUT,
+        //       height,
+        //       width,
+        //     )
+        //   : await createDensityLayerMobile(
+        //       blendedIndices,
+        //       densityArray,
+        //       DENSITY_LUT,
+        //       bbox,
+        //       opacity,
+        //       height,
+        //       width,
+        //     );
       }
     };
   }
@@ -1253,13 +1247,13 @@
     console.timeEnd("show-density");
   }
 
-  const densityStats = $derived(
-    computeDensityStats(blendedIndices, densityArray, {
-      width,
-      height,
-      colOffset: 0,
-    }),
-  );
+  // const densityStats = $derived(
+  //   computeDensityStats(blendedIndices, densityArray, {
+  //     width,
+  //     height,
+  //     colOffset: 0,
+  //   }),
+  // );
 
   function showArea() {
     seeDensity = false;
@@ -1383,6 +1377,7 @@
         use:enhance={({ formData, cancel }) => {
           selected = [];
           formData.forEach((d) => selected.push(d));
+          console.log(selected);
           Object.keys(tiffArrayBuffersFromZip).length > 0
             ? unpackZippedLayers()
             : unpackSelectedLayers();

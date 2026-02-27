@@ -652,7 +652,7 @@
     prepareToUnpack();
 
     const simpleWorker = new Worker(
-      new URL("$lib/workers/wasmSimpleUnpackWorker.js", import.meta.url),
+      new URL("$lib/workers/loadFilesWorker.js", import.meta.url),
       { type: "module" },
     );
 
@@ -662,7 +662,7 @@
         return;
       }
 
-      // console.log("Processed data:", e.data);
+      console.log("Processed data:", e.data);
       enrichedLayers = e.data.rasterLayers;
       policyLensArea = e.data.policyLensArea;
       lensIndices = e.data.lensIndices;

@@ -1,4 +1,5 @@
 import { tiles as tileMetadata } from "$lib/constants.ts";
+import { buildTileFilename } from "$lib/utils";
 
 /* -------------------------------------------------- */
 /* Helpers */
@@ -13,12 +14,6 @@ async function loadIndexedArray(url) {
 
   const buffer = await response.arrayBuffer();
   return new Uint32Array(buffer);
-}
-
-function buildTileFilename(tileCode, varName, meta) {
-  const { grid_size, data_type, datum, data_structure, date } = meta;
-
-  return `${tileCode}_${grid_size}_${varName}_${data_type}_${datum}_${data_structure}_${date}.bin`;
 }
 
 /* -------------------------------------------------- */
@@ -81,6 +76,7 @@ self.onmessage = async (e) => {
     /* -------------------------------------------- */
 
     const activeTiles = Object.values(loadedTiles);
+    console.log(activeTiles);
 
     const TILE_SIZE = width * gridSize;
     const minEast = Math.min(...activeTiles.map((t) => tileIndex[t.code].east));
@@ -95,31 +91,54 @@ self.onmessage = async (e) => {
     const boundingBox = [minEast, minNorth, maxEast, maxNorth];
     const canvasWidth = (maxEast - minEast) / gridSize;
     const canvasHeight = (maxNorth - minNorth) / gridSize;
+    console.log(canvasWidth, canvasHeight);
 
-    const usedCols = [...new Set(activeTiles.map((t) => t.col))].sort(
-      (a, b) => a - b,
-    );
+    // const usedCols = [...new Set(activeTiles.map((t) => t.col))].sort(
+    //   (a, b) => a - b,
+    // );
 
-    const usedRows = [...new Set(activeTiles.map((t) => t.row))].sort(
-      (a, b) => a - b,
-    );
+    // const usedRows = [...new Set(activeTiles.map((t) => t.row))].sort(
+    //   (a, b) => a - b,
+    // );
 
-    const colMap = Object.fromEntries(usedCols.map((c, i) => [c, i]));
+    // const colMap = Object.fromEntries(usedCols.map((c, i) => [c, i]));
 
-    const rowMap = Object.fromEntries(usedRows.map((r, i) => [r, i]));
+    // const rowMap = Object.fromEntries(usedRows.map((r, i) => [r, i]));
 
-    const cols = usedCols.length;
+    // const cols = usedCols.length;
+
+    /* -------------------------------------------- */
+    /* 3️⃣ Bounding box (NO compaction)            */
+    /* -------------------------------------------- */
+
+    const minCol = Math.min(...activeTiles.map((t) => t.col));
+    const maxCol = Math.max(...activeTiles.map((t) => t.col));
+    const minRow = Math.min(...activeTiles.map((t) => t.row));
+    const maxRow = Math.max(...activeTiles.map((t) => t.row));
+
+    const cols = maxCol - minCol + 1;
+    const rows = maxRow - minRow + 1;
 
     /* -------------------------------------------- */
     /* 4️⃣ Transform tile indices into global grid  */
     /* -------------------------------------------- */
 
+    // function transform(index, tile) {
+    //   const x = index % width;
+    //   const y = Math.floor(index / width);
+
+    //   const globalX = colMap[tile.col] * width + x;
+    //   const globalY = rowMap[tile.row] * width + y;
+
+    //   return globalY * (cols * width) + globalX;
+    // }
+
     function transform(index, tile) {
       const x = index % width;
       const y = Math.floor(index / width);
 
-      const globalX = colMap[tile.col] * width + x;
-      const globalY = rowMap[tile.row] * width + y;
+      const globalX = (tile.col - minCol) * width + x;
+      const globalY = (tile.row - minRow) * width + y;
 
       return globalY * (cols * width) + globalX;
     }

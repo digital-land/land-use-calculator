@@ -115,6 +115,10 @@ export function makeFileNameReadable(filename: string): string {
   return filename.replace(".bin", "").replaceAll("_", " ");
 }
 
+export function makeFileNameDatasetKey(filename: string): string {
+  return filename.replace(".bin", "");
+}
+
 export function downloadJSON(data: any) {
   const blob = new Blob([JSON.stringify(data, null, 2)], {
     type: "application/json",
@@ -566,7 +570,7 @@ export async function joinTiles(
   width: number,
   gridSize: number,
   sourceFolder: string,
-  tileCodes: object,
+  // tileCodes: object,
   grid10mVariables: object,
 ) {
   // console.log(base, width, gridSize, sourceFolder, tileCodes, grid10mVariables);
@@ -587,7 +591,7 @@ export async function joinTiles(
     tilerWorker.postMessage({
       base,
       grid10mVariables, // send urls and relative positions
-      tileCodes,
+      // tileCodes,
       width,
       gridSize,
       sourceFolder,
@@ -601,8 +605,14 @@ export async function joinTiles(
         return;
       }
       console.timeEnd("tileWorker");
-      tilerWorker.terminate();
+      // tilerWorker.terminate();
       resolve(e.data); // Resolve the promise with the worker's result
     };
   });
+}
+
+export function buildTileFilename(tileCode, varName, meta) {
+  const { grid_size, data_type, datum, data_structure, date } = meta;
+
+  return `${tileCode}_${grid_size}_${varName}_${data_type}_${datum}_${data_structure}_${date}.bin`;
 }
