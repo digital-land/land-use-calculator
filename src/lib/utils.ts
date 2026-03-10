@@ -112,11 +112,11 @@ export function jsonToCsv(
 }
 
 export function makeFileNameReadable(filename: string): string {
-  return filename.replace(".bin", "").replaceAll("_", " ");
+  return filename.replace(".bin", "").replace(".tif", "").replaceAll("_", " ");
 }
 
 export function makeFileNameDatasetKey(filename: string): string {
-  return filename.replace(".bin", "");
+  return filename.replace(".bin", "").replace(".tif", "");
 }
 
 export function downloadJSON(data: any) {

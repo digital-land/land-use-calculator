@@ -20,6 +20,7 @@
 		"@communitiesuk/svelte-component-library": "^0.1.19-beta.11",
 		"@sveltejs/adapter-node": "^5.2.12",
 		"@sveltejs/adapter-static": "^3.0.8",
+		"@turf/turf": "^7.3.4",
 		"d3-dsv": "^3.0.1",
 		"d3-scale": "^4.0.2",
 		"d3-scale-chromatic": "^3.1.0",

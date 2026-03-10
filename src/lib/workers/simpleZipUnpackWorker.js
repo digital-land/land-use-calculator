@@ -1,31 +1,46 @@
 import { fromArrayBuffer } from "geotiff";
+import { indicesToBinaryMask } from "$lib/utils";
 
-//   function parseMetadataCsv(csvText) {
-//     const lines = csvText.trim().split("\n");
-//     const headers = lines[0].trim().split(",");
+function indicesOfOnes(src) {
+  // First pass: count
+  let count = 0;
+  for (let i = 0; i < src.length; i++) {
+    if (src[i] === 1) count++;
+  }
 
-//     return lines.slice(1).map((line) => {
-//       // console.log(line);
-//       const values = line.split(",");
-//       const row = {};
-//       headers.forEach((h, i) => (row[h] = values[i].replace("\r", "")));
-//       // console.log(row);
-//       return row;
-//     });
-//   }
+  // Allocate result
+  const result = new Uint32Array(count);
+
+  // Second pass: fill indices
+  let j = 0;
+  for (let i = 0; i < src.length; i++) {
+    if (src[i] === 1) {
+      result[j++] = i;
+    }
+  }
+
+  return result;
+}
 
 self.onmessage = async function (e) {
-  const { layersToUnpack, policyLensLayerToUnpack } = e.data;
-  console.log("starting to unpack");
+  const { layersToUnpack, policyLensLayerToUnpack, customArea, width, height } =
+    e.data;
+  console.log("starting to unpack", e.data);
+  const processedCustomArea = customArea ? new Uint32Array(customArea) : null;
   try {
     const rasterLayers = layersToUnpack;
     // console.log(rasterLayers, policyLensLayerToUnpack);
     // const bitLayers = [];
 
     let layerIndex = 0;
-    let width, height, bbox;
+    // let width, height, bbox;
 
     async function loadMask() {
+      if (policyLensLayerToUnpack === "customArea")
+        return {
+          area: processedCustomArea.length,
+          data: indicesToBinaryMask(processedCustomArea, width, height),
+        };
       // const url = `${base}/data/PUBLIC_LAYERS/${policyLensLayerToUnpack.filename}`;
       // const response = await fetch(url);
       // if (!response.ok) throw new Error(`Failed to load ${url}`);
@@ -33,12 +48,12 @@ self.onmessage = async function (e) {
       // const blob = await response.blob();
       // const geotiff = await fromBlob(blob);
       const geotiff = await fromArrayBuffer(
-        policyLensLayerToUnpack.arrayBuffer
+        policyLensLayerToUnpack.arrayBuffer,
       );
       const image = await geotiff.getImage();
-      const width = image.getWidth();
-      const height = image.getHeight();
-      const bbox = image.getBoundingBox();
+      // const width = image.getWidth();
+      // const height = image.getHeight();
+      // const bbox = image.getBoundingBox();
       const rasters = await image.readRasters();
 
       const result = new Uint8Array(width * height);
@@ -64,8 +79,10 @@ self.onmessage = async function (e) {
     if (policyLensLayerToUnpack !== "England") {
       lensLayer = await loadMask();
       console.log(lensLayer);
+    } else if (policyLensLayerToUnpack === "customArea") {
+      lensLayer = await loadMask();
     } else {
-      console.log("England")
+      console.log("Policy lens is England");
     }
 
     const enrichedRasterLayers = await Promise.all(
@@ -77,9 +94,9 @@ self.onmessage = async function (e) {
         // const blob = await response.blob();
         const geotiff = await fromArrayBuffer(layer.arrayBuffer);
         const image = await geotiff.getImage();
-        width = image.getWidth();
-        height = image.getHeight();
-        bbox = image.getBoundingBox();
+        // width = image.getWidth();
+        // height = image.getHeight();
+        // bbox = image.getBoundingBox();
         const rasters = await image.readRasters();
 
         const result = new Uint8Array(width * height);
@@ -101,29 +118,31 @@ self.onmessage = async function (e) {
           }
         }
 
+        const indices = indicesOfOnes(result);
+
         // bitLayers.push(result);
 
         const enriched = {
           ...layer,
           area: count,
-          data: result,
+          data: indices,
         };
 
         layerIndex++;
         return enriched;
-      })
+      }),
     );
 
     self.postMessage(
       {
         rasterLayers: enrichedRasterLayers,
-        width,
-        height,
-        bbox,
+        // width,
+        // height,
+        // bbox,
         policyLensArea: lensLayer?.area ?? 13046002,
-        policyLensLayer: lensLayer?.data
+        lensIndices: lensLayer?.data,
       },
-      enrichedRasterLayers.map((layer) => layer.data.buffer)
+      enrichedRasterLayers.map((layer) => layer.data.buffer),
     );
   } catch (error) {
     self.postMessage({ error: error.message });

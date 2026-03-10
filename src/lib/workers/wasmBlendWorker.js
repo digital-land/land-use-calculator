@@ -22,38 +22,6 @@ self.onmessage = async function (e) {
       throw new Error("No input arrays");
     }
 
-    // // Clone first array as accumulator
-    // const result = indexArrays[0].slice();
-
-    // // OR-reduce using WASM
-    // for (let i = 1; i < indexArrays.length; i++) {
-    //   binary_or(result, indexArrays[i]);
-    // }
-
-    // // Count active bits
-    // let activeCount = 0;
-    // for (let i = 0; i < result.length; i++) {
-    //   if (result[i] === 1) activeCount++;
-    // }
-
-//     function unionUint32Arrays(arrays) {
-//   let totalLength = 0;
-
-//   for (const arr of arrays) {
-//     totalLength += arr.length;
-//   }
-
-//   const result = new Uint32Array(totalLength);
-//   let offset = 0;
-
-//   for (const arr of arrays) {
-//     result.set(arr, offset);
-//     offset += arr.length;
-//   }
-
-//   return result;
-// }
-
 function uniqueUnionBySort(arrays) {
   // console.log(arrays)
   let total = 0;

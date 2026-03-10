@@ -37,6 +37,8 @@
     joinTiles,
     createDensityCanvas,
     createDensityLayerMobile,
+    // originX,
+    // originY,
   } from "$lib/utils";
   import { computeDensityStats } from "$lib/densityStats";
   import { colors, tenMetreSettings } from "$lib/constants";
@@ -44,6 +46,7 @@
   import Tabs from "$lib/components/Tabs.svelte";
   import Histogram from "$lib/components/Histogram.svelte";
   import type { TableMetadata } from "$lib/utils";
+  import { indicesToGeoJSON } from "$lib/downloadGeoJSON";
   import type { PageProps } from "/$types";
   const { width, height, gridSize, sourceFolder } = tenMetreSettings;
 
@@ -542,7 +545,7 @@
   let tiffArrayBuffersFromZip = $state({});
 
   let layersToUnpack = $state();
-  $inspect({ layersToUnpack });
+  // $inspect({ layersToUnpack });
 
   async function handleFileUpload(event) {
     URL.revokeObjectURL(dataURL);
@@ -611,37 +614,6 @@
     });
     console.log("✅ WASM initialized");
 
-    // setTimeout(
-    //   () =>
-    // joinTiles(
-    //   base,
-    //   width,
-    //   gridSize,
-    //   sourceFolder,
-    //   // tileCodes,
-    //   grid10mVariables,
-    // ).then(
-    //   (res) => {
-    //     // console.log(res.datasets)
-    //     enrichedLayers = res.datasets;
-    //     canvasWidth = res.canvasWidth;
-    //     canvasHeight = res.canvasHeight;
-    //     // console.log(enrichedLayers)
-    //             bbox = res.bbox;
-    //     console.log(bbox)
-    //     blendLayers();
-    //     tenMetreTilesJoined = new Uint32Array(res.datasets[0].data);
-
-    //     // blendedIndices = tenMetreTilesJoined;
-    //     // console.log("10mt", tenMetreTilesJoined);
-    //   },
-    // ),
-    //   100,
-    // );
-
-    // currentBitArrays = [blendedIndices]
-    // makeAndPaintCanvasFromIndices()
-
     try {
       const response = await fetch(csvLocation);
       if (!response.ok) throw new Error("Failed to fetch CSV");
@@ -671,7 +643,6 @@
     layersToUnpack = selected?.map((d) =>
       parseCsv(metadataCsv).find((layer) => layer.filename === d),
     );
-    console.log({ selected, layersToUnpack });
   }
 
   function unpackSelectedLayers() {
@@ -814,15 +785,19 @@
       { type: "module" },
     );
 
-    const processChunk = (cChunk, aChunk) =>
-      new Promise((resolve, reject) => {
+    const processChunk = (cChunk, aChunk) => {
+      return new Promise((resolve, reject) => {
         breakdownWorker.onmessage = (e) => {
           const { json, error } = e.data;
           if (error) reject(new Error(error));
           else if (json) resolve(json);
           else console.log("Worker sent ignored message:", e.data);
         };
-        breakdownWorker.onerror = (err) => reject(err);
+        // breakdownWorker.onerror = (err) => reject(err);
+        breakdownWorker.onerror = (err) => {
+          console.error("Worker error:", err);
+          reject(new Error("Worker crashed"));
+        };
         // main thread
         const csvUrl = `${base}/data/LAs/lad_may_2025_lookup.csv`;
 
@@ -832,6 +807,7 @@
           csvUrl,
         });
       });
+    };
 
     for (const url of urls) {
       // console.log("Fetching chunk:", url);
@@ -1201,12 +1177,41 @@
 
   function downloadUint32Array() {
     const filename = "data.bin";
-    const blob = new Blob([tenMetreTilesJoined], {
-      //<=This has changed
+    const blob = new Blob([blendedIndices.buffer], {
       type: "application/octet-stream",
     });
 
     const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadGeoJSON() {
+    const filename = "data.geojson";
+
+    const geojson = new Blob(
+      [
+        JSON.stringify(
+          indicesToGeoJSON(
+            blendedIndices,
+            canvasWidth,
+            canvasHeight,
+            [bbox[0], bbox[1] + gridSize * canvasHeight],
+            [gridSize, -gridSize],
+          ),
+        ),
+      ],
+      {
+        type: "application/json",
+      },
+    );
+
+    const url = URL.createObjectURL(geojson);
 
     const a = document.createElement("a");
     a.href = url;
@@ -1306,7 +1311,7 @@
             drawing = true;
           }}
         />
-        <Details
+        <!-- <Details
           summaryText={"Use a local file (optional)"}
           detailedText={detailsContent}
         >
@@ -1320,7 +1325,7 @@
               onchange={handleFileUpload}
             />
           {/snippet}
-        </Details>
+        </Details> -->
       </div>
     </div>
   </div>
@@ -1377,7 +1382,6 @@
         use:enhance={({ formData, cancel }) => {
           selected = [];
           formData.forEach((d) => selected.push(d));
-          console.log(selected);
           Object.keys(tiffArrayBuffersFromZip).length > 0
             ? unpackZippedLayers()
             : unpackSelectedLayers();
@@ -1670,7 +1674,7 @@
                   URL.revokeObjectURL(link.href);
                 }}
               ></Button>
-              <Button
+              <!-- <Button
                 buttonType="default"
                 textContent="Download Local Authority breakdown of data (.csv)"
                 onClickFunction={function () {
@@ -1691,11 +1695,16 @@
                   document.body.removeChild(link);
                   URL.revokeObjectURL(link.href);
                 }}
-              ></Button>
+              ></Button> -->
               <Button
                 buttonType="secondary"
                 textContent="Download the selected area shape (.bin)"
                 onClickFunction={downloadUint32Array}
+              />
+              <Button
+                buttonType="secondary"
+                textContent="Download the selected area shape (.geojson)"
+                onClickFunction={downloadGeoJSON}
               />
             {:else}
               <Spinner />

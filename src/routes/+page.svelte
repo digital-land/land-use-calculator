@@ -37,6 +37,8 @@
     joinTiles,
     createDensityCanvas,
     createDensityLayerMobile,
+    // originX,
+    // originY,
   } from "$lib/utils";
   import { computeDensityStats } from "$lib/densityStats";
   import { colors, hectareSettings } from "$lib/constants";
@@ -44,16 +46,17 @@
   import Tabs from "$lib/components/Tabs.svelte";
   import Histogram from "$lib/components/Histogram.svelte";
   import type { TableMetadata } from "$lib/utils";
+  import { indicesToGeoJSON } from "$lib/downloadGeoJSON";
   const { width, height, bbox, gridSize, sourceFolder } = hectareSettings;
 
-  const tileCodes = {
-    //QUESTION IS - How do we want to identify the tiles we need? A single bounding box approach maybe?
-    //Where the ultimate metadata provides the bounds of each feature layer
-    //Or the user selects their own area which has bounds.
-    "9,10": `SUNE`,
-    "8,10": `SUNW`,
-    "8,11": `SUSW`,
-  };
+  // const tileCodes = {
+  //   //QUESTION IS - How do we want to identify the tiles we need? A single bounding box approach maybe?
+  //   //Where the ultimate metadata provides the bounds of each feature layer
+  //   //Or the user selects their own area which has bounds.
+  //   "9,10": `SUNE`,
+  //   "8,10": `SUNW`,
+  //   "8,11": `SUSW`,
+  // };
 
   const mobile = new MediaQuery("max-width: 600px");
   // let pageLayout = $state("grid-template-columns: 23% 40% 37%");
@@ -106,7 +109,8 @@
 
   let uniqueCounts = $state();
 
-  // $inspect(uniqueCounts, uniqueIndices);
+  let usingGeoTiff = $state(false);
+  // $inspect({ uniqueCounts });
 
   const NO_DATA_COLOR = 0x00000000; // Transparent
   const LENS_HIGHLIGHT_COLOR = 0x44ff00ff; // Pale pink
@@ -503,7 +507,7 @@
   });
   // $inspect(selectedSubLayers);
 
-  let uniqueArray = $state([]);
+  // let uniqueArray = $state([]);
 
   let selectedRestriction: string = $state();
   // $inspect({ selectedRestriction });
@@ -520,26 +524,27 @@
   // $inspect(uniqueArrays);
   let uniqueIndices = $derived(uniqueArrays[selectedRestrictionIndex]);
 
-  let renderUnique = $derived(
-    selected.map((d) => makeFileNameReadable(d)).includes(selectedRestriction)
-      ? selectedRestrictionIndex >= 0
-        ? true
-        : false
-      : false,
-  );
+  // let renderUnique = $derived(
+  //   selected.map((d) => makeFileNameReadable(d)).includes(selectedRestriction)
+  //     ? selectedRestrictionIndex >= 0
+  //       ? true
+  //       : false
+  //     : false,
+  // );
   // $inspect({ renderUnique });
 
-  let csvFile = $state();
+  // let csvFile = $state();
   let zipFile = $state();
   let tiffArrayBuffersFromZip = $state({});
 
   let layersToUnpack = $state();
-  // $inspect(layersToUnpack);
+  // $inspect({ layersToUnpack });
 
   async function handleFileUpload(event) {
     URL.revokeObjectURL(dataURL);
     dataURL = null;
     selected = null;
+    usingGeoTiff = true;
 
     const file = event.target.files[0];
     if (!file) return;
@@ -584,9 +589,7 @@
   }
 
   let csvLocation = $derived(
-    csvFile?.length > 0
-      ? csvFile[0]
-      : `${base}/data/${sourceFolder}/ultimate_land_metadata.csv`,
+    `${base}/data/${sourceFolder}/ultimate_land_metadata.csv`,
   );
 
   let metadataCsv: string = $state();
@@ -602,18 +605,6 @@
       ),
     });
     console.log("✅ WASM initialized");
-
-    // setTimeout(
-    //   () =>
-    //     joinTiles(base, tileCodes).then((res) => {
-    //       tenMetreTilesJoined = new Uint32Array(res.array);
-    //       console.log("10mt", tenMetreTilesJoined);
-    //     }),
-    //   10000,
-    // );
-
-    // currentBitArrays = [blendedIndices]
-    // makeAndPaintCanvasFromIndices()
 
     try {
       const response = await fetch(csvLocation);
@@ -641,9 +632,14 @@
   });
 
   function prepareToUnpack() {
-    layersToUnpack = selected.map((d) =>
-      parseCsv(metadataCsv).find((layer) => layer.filename === d),
+    layersToUnpack = selected?.map((d) =>
+      parseCsv(metadataCsv).find(
+        (layer) =>
+          layer?.filename === d ||
+          layer?.filename.replace(".bin", ".tif") === d,
+      ),
     );
+    // console.log("selected: ", selected, "layers to unpack: ", layersToUnpack);
   }
 
   function unpackSelectedLayers() {
@@ -716,18 +712,31 @@
       simpleZipWorker.terminate();
     };
 
-    layersToUnpack.forEach(
-      (layer) => (layer.arrayBuffer = tiffArrayBuffersFromZip[layer.filename]),
-    );
+    const layersWithBuffers = layersToUnpack
+      .map((layer) => {
+        const buffer = tiffArrayBuffersFromZip[layer.filename];
+
+        if (!buffer) {
+          console.warn("Missing buffer for:", layer.filename);
+          return null;
+        }
+
+        return {
+          filename: layer.filename,
+          arrayBuffer: buffer,
+        };
+      })
+      .filter(Boolean);
 
     let policyLensLayerToUnpack = parseCsv(metadataCsv).find(
-      (layer) => layer.filename === policyLens,
+      (layer) => layer.filename === policyLens.replace(".bin", ".tif"),
     );
 
     let clonedPolicyLensLayerToUnpack;
 
     if (policyLensLayerToUnpack) {
-      policyLensLayerToUnpack.arrayBuffer = tiffArrayBuffersFromZip[policyLens];
+      policyLensLayerToUnpack.arrayBuffer =
+        tiffArrayBuffersFromZip[policyLens.replace(".bin", ".tif")];
       clonedPolicyLensLayerToUnpack = structuredClone(policyLensLayerToUnpack);
       // console.log(policyLensLayerToUnpack, clonedPolicyLensLayerToUnpack);
     }
@@ -736,25 +745,24 @@
       console.error("Worker error:", e);
     };
 
-    const clonedLayersToUnpack = layersToUnpack.map((layer) => {
-      const clonedBuffer = layer.arrayBuffer.slice(0); // Makes a real copy
-      return {
-        filename: layer.filename,
-        arrayBuffer: clonedBuffer,
-      };
-    });
+    const transferables = layersWithBuffers.map((l) => l.arrayBuffer);
 
-    const transferables = clonedLayersToUnpack.map(
-      (layer) => layer.arrayBuffer,
-    );
+    if (clonedPolicyLensLayerToUnpack?.arrayBuffer) {
+      transferables.push(clonedPolicyLensLayerToUnpack.arrayBuffer);
+    }
 
     simpleZipWorker.postMessage(
       {
-        layersToUnpack: clonedLayersToUnpack,
-        policyLensLayerToUnpack: clonedPolicyLensLayerToUnpack ?? "England",
+        layersToUnpack: layersWithBuffers,
+        policyLensLayerToUnpack:
+          policyLens == "customArea"
+            ? "customArea"
+            : (clonedPolicyLensLayerToUnpack ?? "England"),
+        customArea: new Uint32Array(customArea).buffer,
+        width,
+        height,
       },
-      transferables,
-      clonedPolicyLensLayerToUnpack?.arrayBuffer ?? "",
+      // transferables,
     );
   }
 
@@ -781,7 +789,6 @@
     );
 
     const processChunk = (cChunk, aChunk) => {
-      // console.log(cChunk, aChunk)
       return new Promise((resolve, reject) => {
         breakdownWorker.onmessage = (e) => {
           const { json, error } = e.data;
@@ -1191,12 +1198,41 @@
 
   function downloadUint32Array() {
     const filename = "data.bin";
-    const blob = new Blob([tenMetreTilesJoined], {
-      //<=This has changed
+    const blob = new Blob([blendedIndices.buffer], {
       type: "application/octet-stream",
     });
 
     const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadGeoJSON() {
+    const filename = "data.geojson";
+
+    const geojson = new Blob(
+      [
+        JSON.stringify(
+          indicesToGeoJSON(
+            blendedIndices,
+            width,
+            height,
+            [bbox[0], bbox[1] + gridSize * height],
+            [gridSize, -gridSize],
+          ),
+        ),
+      ],
+      {
+        type: "application/json",
+      },
+    );
+
+    const url = URL.createObjectURL(geojson);
 
     const a = document.createElement("a");
     a.href = url;
@@ -1284,6 +1320,7 @@
           onchange={() => {
             customAreaBBox = null;
             customArea = null;
+            drawnFeature = null;
             Object.keys(tiffArrayBuffersFromZip).length > 0
               ? unpackZippedLayers()
               : unpackSelectedLayers();
@@ -1366,7 +1403,9 @@
         method="POST"
         use:enhance={({ formData, cancel }) => {
           selected = [];
-          formData.forEach((d) => selected.push(d));
+          formData.forEach((d) =>
+            selected.push(usingGeoTiff ? d.replace(".bin", ".tif") : d),
+          );
           Object.keys(tiffArrayBuffersFromZip).length > 0
             ? unpackZippedLayers()
             : unpackSelectedLayers();
@@ -1418,7 +1457,9 @@
           selected = startingPosition
             .filter((d) => d.initially_checked === "y")
             .map((d) => d.filename);
-          unpackSelectedLayers();
+          Object.keys(tiffArrayBuffersFromZip).length > 0
+            ? unpackZippedLayers()
+            : unpackSelectedLayers();
 
           closePanelAndScrollToMap();
         }}
@@ -1510,6 +1551,8 @@
               bind:policyLens
               bind:drawing
               {unpackSelectedLayers}
+              {unpackZippedLayers}
+              {usingGeoTiff}
               {mobile}
             />
           {/key}
@@ -1685,6 +1728,11 @@
                 buttonType="secondary"
                 textContent="Download the selected area shape (.bin)"
                 onClickFunction={downloadUint32Array}
+              />
+              <Button
+                buttonType="secondary"
+                textContent="Download the selected area shape (.geojson)"
+                onClickFunction={downloadGeoJSON}
               />
             {:else}
               <Spinner />

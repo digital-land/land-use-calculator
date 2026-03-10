@@ -18,6 +18,8 @@
     policyLens = $bindable(),
     drawing = $bindable(),
     unpackSelectedLayers,
+    unpackZippedLayers,
+    usingGeoTiff,
     mobile,
   } = $props();
 
@@ -239,19 +241,28 @@
     if (drawnFeature) {
       drawSource.addFeature(drawnFeature);
     }
+    let initialLayers = densityLayer
+      ? [
+          currentBaseMap,
+          drawLayer,
+          geoJsonVectorLayer,
+          scotlandAndWalesVectorLayer,
+          tiffLayer,
+          densityLayer,
+        ]
+      : [
+          currentBaseMap,
+          drawLayer,
+          geoJsonVectorLayer,
+          scotlandAndWalesVectorLayer,
+          tiffLayer,
+        ];
 
     // if (densityLayer) {
     map = new Map({
       controls: defaultControls().extend([new FullScreen()]),
       target: mapElement,
-      layers: [
-        currentBaseMap,
-        drawLayer,
-        geoJsonVectorLayer,
-        scotlandAndWalesVectorLayer,
-        tiffLayer,
-        densityLayer,
-      ],
+      layers: initialLayers,
       view: new View({
         projection: "EPSG:27700",
         extent: [-238375.0, 0.0, 900000.0, 1376256.0],
@@ -342,7 +353,12 @@
       customArea = hits;
       // console.log(customArea);
       policyLens = "customArea";
-      unpackSelectedLayers();
+      if (usingGeoTiff) {
+        unpackZippedLayers();
+      } else {
+        unpackSelectedLayers();
+      }
+
       drawing = false;
     });
 
