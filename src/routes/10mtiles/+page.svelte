@@ -1290,7 +1290,7 @@
   <div>
     <div class="header-left">
       <div class="firstSelections">
-        <Select
+        <!-- <Select
           id="policyLensInput"
           name="policyLensInput"
           items={policyLensItems}
@@ -1299,11 +1299,12 @@
           onchange={() => {
             customAreaBBox = null;
             customArea = null;
+            drawnFeature = null;
             Object.keys(tiffArrayBuffersFromZip).length > 0
               ? unpackZippedLayers()
               : unpackSelectedLayers();
           }}
-        />
+        /> -->
         <Button
           buttonType="secondary"
           textContent="Draw an area to explore"
