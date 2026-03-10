@@ -658,7 +658,7 @@
         return;
       }
 
-      console.log("Processed data:", e.data);
+      // console.log("Processed data:", e.data);
       enrichedLayers = e.data.rasterLayers;
       policyLensArea = e.data.policyLensArea;
       lensIndices = e.data.lensIndices;
