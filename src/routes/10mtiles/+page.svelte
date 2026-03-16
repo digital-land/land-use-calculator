@@ -1321,7 +1321,7 @@
             <input
               bind:files={zipFile}
               accept=".zip"
-              id="file-upload"
+              id="zip-file-upload"
               type="file"
               onchange={handleFileUpload}
             />

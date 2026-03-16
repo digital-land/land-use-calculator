@@ -279,6 +279,211 @@ export function indexToCoord(
   return { x, y };
 }
 
+export function geometryToGridHits(geometry, bbox, width, height) {
+  console.log("starting the geometryToGridHits function");
+  const polyExtent = geometry.getExtent();
+
+  const cellWidth = (bbox[2] - bbox[0]) / width;
+  const cellHeight = (bbox[3] - bbox[1]) / height;
+
+  const colMin = Math.max(0, Math.floor((polyExtent[0] - bbox[0]) / cellWidth));
+  const colMax = Math.min(
+    width - 1,
+    Math.ceil((polyExtent[2] - bbox[0]) / cellWidth),
+  );
+
+  const rowMin = Math.max(
+    0,
+    Math.floor((polyExtent[1] - bbox[1]) / cellHeight),
+  );
+  const rowMax = Math.min(
+    width - 1,
+    Math.ceil((polyExtent[3] - bbox[1]) / cellHeight),
+  );
+
+  const hits = [];
+
+  function coordToGridIndex(x, y) {
+    const col = Math.floor((x - bbox[0]) / cellWidth);
+    const row = Math.floor((bbox[3] - y) / cellHeight);
+
+    if (col < 0 || col >= width || row < 0 || row >= height) {
+      return null;
+    }
+
+    return row * width + col;
+  }
+
+  // for (let row = rowMin; row <= rowMax; row++) {
+  //   for (let col = colMin; col <= colMax; col++) {
+  //     const center = [
+  //       bbox[0] + (col + 0.5) * cellWidth,
+  //       bbox[1] + (row + 0.5) * cellHeight,
+  //     ];
+
+  //     if (geometry.intersectsCoordinate(center)) {
+  //       const index = coordToGridIndex(center[0], center[1]);
+  //       if (index !== null) hits.push(index);
+  //     }
+  //   }
+  // }
+
+  const center = [0, 0];
+  const cellExtent = [0, 0, 0, 0];
+
+  const xCenters = new Float64Array(width);
+  const yCenters = new Float64Array(height);
+
+  for (let col = 0; col < width; col++) {
+    xCenters[col] = bbox[0] + (col + 0.5) * cellWidth;
+  }
+
+  for (let row = 0; row < height; row++) {
+    yCenters[row] = bbox[1] + (row + 0.5) * cellHeight;
+  }
+
+  const xEdges = new Float64Array(width + 1);
+  const yEdges = new Float64Array(height + 1);
+
+  for (let i = 0; i <= width; i++) {
+    xEdges[i] = bbox[0] + i * cellWidth;
+  }
+
+  for (let i = 0; i <= height; i++) {
+    yEdges[i] = bbox[1] + i * cellHeight;
+  }
+
+  console.time("hits-loop");
+  for (let row = rowMin; row <= rowMax; row++) {
+    for (let col = colMin; col <= colMax; col++) {
+      // const cellExtent = [
+      //   bbox[0] + col * cellWidth,
+      //   bbox[1] + row * cellHeight,
+      //   bbox[0] + (col + 1) * cellWidth,
+      //   bbox[1] + (row + 1) * cellHeight,
+      // ];
+
+      // cellExtent[0] = bbox[0] + col * cellWidth;
+      // cellExtent[1] = bbox[1] + row * cellHeight;
+      // cellExtent[2] = bbox[0] + (col + 1) * cellWidth;
+      // cellExtent[3] = bbox[1] + (row + 1) * cellHeight;
+
+      cellExtent[0] = xEdges[col];
+      cellExtent[2] = xEdges[col + 1];
+      cellExtent[1] = yEdges[row];
+      cellExtent[3] = yEdges[row + 1];
+
+      if (geometry.intersectsExtent(cellExtent)) {
+        // const center = [
+        //   bbox[0] + (col + 0.5) * cellWidth,
+        //   bbox[1] + (row + 0.5) * cellHeight,
+        // ];
+
+        center[0] = xCenters[col];
+        center[1] = yCenters[row];
+
+        if (geometry.intersectsCoordinate(center)) {
+          // hits.push(row * width + col);
+          const index = coordToGridIndex(center[0], center[1]);
+          if (index !== null) hits.push(index);
+        }
+      }
+    }
+  }
+  console.timeEnd("hits-loop");
+  console.log(hits);
+  return hits;
+}
+
+export function geometryToGridHitsScanline(geometry, bbox, width, height) {
+  const hits = [];
+
+  const cellWidth = (bbox[2] - bbox[0]) / width;
+  const cellHeight = (bbox[3] - bbox[1]) / height;
+
+  const polyExtent = geometry.getExtent();
+
+  // const rowMin = Math.max(
+  //   0,
+  //   Math.floor((polyExtent[1] - bbox[1]) / cellHeight),
+  // );
+
+  // const rowMax = Math.min(
+  //   height - 1,
+  //   Math.ceil((polyExtent[3] - bbox[1]) / cellHeight),
+  // );
+  const rowMin = Math.max(
+    0,
+    Math.floor((bbox[3] - polyExtent[3]) / cellHeight),
+  );
+
+  const rowMax = Math.min(
+    height - 1,
+    Math.ceil((bbox[3] - polyExtent[1]) / cellHeight),
+  );
+
+  // normalize geometry → array of polygons
+  const polygons =
+    geometry.getType() === "Polygon"
+      ? [geometry.getCoordinates()]
+      : geometry.getCoordinates(); // MultiPolygon
+
+  for (let row = rowMin; row <= rowMax; row++) {
+    // const y = bbox[1] + (row + 0.5) * cellHeight;
+    const y = bbox[3] - (row + 0.5) * cellHeight;
+
+    const intersections = [];
+
+    for (const polygon of polygons) {
+      for (const ring of polygon) {
+        for (let i = 0; i < ring.length - 1; i++) {
+          const [x1, y1] = ring[i];
+          const [x2, y2] = ring[i + 1];
+
+          if ((y1 <= y && y2 > y) || (y2 <= y && y1 > y)) {
+            const t = (y - y1) / (y2 - y1);
+            const x = x1 + t * (x2 - x1);
+
+            intersections.push(x);
+          }
+        }
+      }
+    }
+
+    intersections.sort((a, b) => a - b);
+
+    for (let i = 0; i < intersections.length; i += 2) {
+      const xStart = intersections[i];
+      const xEnd = intersections[i + 1];
+
+      if (xEnd === undefined) break;
+
+      // const colStart = Math.max(0, Math.floor((xStart - bbox[0]) / cellWidth));
+
+      // const colEnd = Math.min(
+      //   width - 1,
+      //   Math.floor((xEnd - bbox[0]) / cellWidth),
+      // );
+
+      const colStart = Math.max(
+        0,
+        Math.ceil((xStart - bbox[0]) / cellWidth - 0.5),
+      );
+
+      const colEnd = Math.min(
+        width - 1,
+        Math.floor((xEnd - bbox[0]) / cellWidth - 0.5),
+      );
+
+      for (let col = colStart; col <= colEnd; col++) {
+        hits.push(row * width + col);
+      }
+    }
+  }
+  console.log(hits);
+  return hits;
+}
+
 // --- Load GeoTIFF ---
 export async function loadDensityTiff(
   url: string,

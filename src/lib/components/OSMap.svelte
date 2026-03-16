@@ -23,7 +23,7 @@
     mobile,
   } = $props();
 
-  console.log("dataURL", dataURL);
+  // console.log("dataURL", dataURL);
 
   import "/node_modules/ol/ol.css";
   import { onMount } from "svelte";
@@ -47,7 +47,12 @@
   import proj4 from "proj4";
   import { apply, applyStyle } from "ol-mapbox-style";
   import { apiKey, serviceUrl } from "$lib/constants";
-  import { coordToIndex, createGroupLayer, type MapGroup } from "$lib/utils";
+  import {
+    coordToIndex,
+    createGroupLayer,
+    type MapGroup,
+    geometryToGridHitsScanline,
+  } from "$lib/utils";
 
   let mapElement: HTMLDivElement;
   let map: Map;
@@ -289,70 +294,14 @@
     // map.addInteraction(draw);
 
     draw.on("drawend", function (event) {
-      const feature = event.feature;
-      drawnFeature = feature;
-      const geometry = feature.getGeometry();
+      drawnFeature = event.feature;
+      const geometry = event.feature.getGeometry();
+      customAreaBBox = geometry.getExtent();
 
-      // For a Polygon, this is an array of rings
-      const coordinates = geometry.getCoordinates();
-      const extent = geometry.getExtent();
-      customAreaBBox = extent;
+      customArea = geometryToGridHitsScanline(geometry, bbox, width, height);
 
-      // console.log(coordinates, extent);
-
-      const cellWidth = (bbox[2] - bbox[0]) / width;
-      const cellHeight = (bbox[3] - bbox[1]) / height;
-
-      const polyExtent = geometry.getExtent();
-
-      const colMin = Math.max(
-        0,
-        Math.floor((polyExtent[0] - bbox[0]) / cellWidth),
-      );
-      const colMax = Math.min(
-        width - 1,
-        Math.ceil((polyExtent[2] - bbox[0]) / cellWidth),
-      );
-
-      const rowMin = Math.max(
-        0,
-        Math.floor((polyExtent[1] - bbox[1]) / cellHeight),
-      );
-      const rowMax = Math.min(
-        height - 1,
-        Math.ceil((polyExtent[3] - bbox[1]) / cellHeight),
-      );
-
-      const hits = [];
-
-      function coordToGridIndex(x, y) {
-        const col = Math.floor((x - bbox[0]) / cellWidth);
-        const row = Math.floor((bbox[3] - y) / cellHeight);
-
-        if (col < 0 || col >= width || row < 0 || row >= height) {
-          return null; // outside grid
-        }
-
-        return row * width + col;
-      }
-
-      for (let row = rowMin; row <= rowMax; row++) {
-        for (let col = colMin; col <= colMax; col++) {
-          const center = [
-            bbox[0] + (col + 0.5) * cellWidth,
-            bbox[1] + (row + 0.5) * cellHeight,
-          ];
-
-          if (geometry.intersectsCoordinate(center)) {
-            // hits.push(row * width + col);
-            const index = coordToGridIndex(center[0], center[1]);
-            hits.push(index);
-          }
-        }
-      }
-      customArea = hits;
-      // console.log(customArea);
       policyLens = "customArea";
+
       if (usingGeoTiff) {
         unpackZippedLayers();
       } else {
@@ -484,7 +433,7 @@
       }
     });
 
-    map.getTargetElement().addEventListener("pointerleave", function () {
+    map.getTargetElement()?.addEventListener("pointerleave", function () {
       if (isFeature(currentFeature)) currentFeature.set("hover", false);
       currentFeature = undefined;
       info.style.visibility = "hidden";
@@ -493,7 +442,7 @@
 
   $effect(() => {
     if (drawing) {
-      map.addInteraction(draw);
+      map?.addInteraction(draw);
     }
   });
 

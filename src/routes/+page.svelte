@@ -10,6 +10,7 @@
   import ImageLayer from "ol/layer/Image";
   import ImageStatic from "ol/source/ImageStatic";
   import LayerGroup from "ol/layer/Group";
+  import { GeoJSON } from "ol/format";
   import {
     // CheckBox,
     Select,
@@ -39,6 +40,7 @@
     createDensityLayerMobile,
     // originX,
     // originY,
+    geometryToGridHitsScanline,
   } from "$lib/utils";
   import { computeDensityStats } from "$lib/densityStats";
   import { colors, hectareSettings } from "$lib/constants";
@@ -48,6 +50,7 @@
   import type { TableMetadata } from "$lib/utils";
   import { indicesToGeoJSON } from "$lib/downloadGeoJSON";
   const { width, height, bbox, gridSize, sourceFolder } = hectareSettings;
+  // import type { GeoJSON } from "geojson";
 
   // const tileCodes = {
   //   //QUESTION IS - How do we want to identify the tiles we need? A single bounding box approach maybe?
@@ -534,7 +537,10 @@
   // $inspect({ renderUnique });
 
   // let csvFile = $state();
-  let zipFile = $state();
+  let zipFile: FileList = $state();
+  let geoJSONFile: FileList = $state();
+  let uploadedGeoJSON: GeoJSON = $state();
+  // $inspect(uploadedGeoJSON);
   let tiffArrayBuffersFromZip = $state({});
 
   let layersToUnpack = $state();
@@ -586,6 +592,34 @@
         unpackZippedLayers();
       }
     }
+  }
+
+  async function handleGeoJSONFileUpload(event) {
+    uploadedGeoJSON = await event.target.files[0].text();
+    const format = new GeoJSON();
+
+    const features = format.readFeatures(uploadedGeoJSON, {
+      dataProjection: "EPSG:4326",
+      featureProjection: "EPSG:27700",
+    });
+
+    const geometry = features[0].getGeometry();
+
+    drawnFeature = features[0];
+    // const geometry = event.feature.getGeometry();
+    customAreaBBox = geometry.getExtent();
+
+    customArea = new Uint32Array(
+      geometryToGridHitsScanline(geometry, bbox, width, height),
+    );
+console.log(customArea)
+    policyLens = "customArea";
+
+    Object.keys(tiffArrayBuffersFromZip).length > 0
+      ? unpackZippedLayers()
+      : unpackSelectedLayers();
+
+    closePanelAndScrollToMap();
   }
 
   let csvLocation = $derived(
@@ -1297,6 +1331,14 @@
     });
     showFilters = !showFilters;
   }
+
+  async function openPanelAndScrollToMap() {
+    await tick();
+    document.getElementById("map").scrollIntoView({
+      behavior: "smooth",
+    });
+    showFilters = true;
+  }
 </script>
 
 <svelte:head>
@@ -1311,28 +1353,45 @@
   <div>
     <div class="header-left">
       <div class="firstSelections">
-        <Select
-          id="policyLensInput"
-          name="policyLensInput"
-          items={policyLensItems}
-          bind:value={policyLens}
-          label={"Select area to explore"}
-          onchange={() => {
-            customAreaBBox = null;
-            customArea = null;
-            drawnFeature = null;
-            Object.keys(tiffArrayBuffersFromZip).length > 0
-              ? unpackZippedLayers()
-              : unpackSelectedLayers();
-          }}
-        />
-        <Button
-          buttonType="secondary"
-          textContent="Draw an area to explore"
-          onClickFunction={() => {
-            drawing = true;
-          }}
-        />
+        <Details
+          summaryText={"Refine your area"}
+          detailedText={policyLensContent}
+        >
+          {#snippet policyLensContent()}
+            <Select
+              id="policyLensInput"
+              name="policyLensInput"
+              items={policyLensItems}
+              bind:value={policyLens}
+              label={"Select area to explore"}
+              onchange={() => {
+                customAreaBBox = null;
+                customArea = null;
+                drawnFeature = null;
+                Object.keys(tiffArrayBuffersFromZip).length > 0
+                  ? unpackZippedLayers()
+                  : unpackSelectedLayers();
+              }}
+            />
+            <p class="or">~ or ~</p>
+            <Button
+              buttonType="secondary"
+              textContent="Draw an area to explore"
+              onClickFunction={() => {
+                drawing = true;
+              }}
+            />
+            <p class="or">~ or ~</p>
+            <label for="geojson-file-upload">Use a local GeoJSON file:</label>
+            <input
+              bind:files={geoJSONFile}
+              accept=".geojson,.json"
+              id="geojson-file-upload"
+              type="file"
+              onchange={handleGeoJSONFileUpload}
+            />
+          {/snippet}
+        </Details>
         <Details
           summaryText={"Use a local file (optional)"}
           detailedText={detailsContent}
@@ -1342,7 +1401,7 @@
             <input
               bind:files={zipFile}
               accept=".zip"
-              id="file-upload"
+              id="zip-file-upload"
               type="file"
               onchange={handleFileUpload}
             />
@@ -1360,6 +1419,7 @@
           {selectedSubLayers}
           bind:selected
           bind:policyLens
+          {openPanelAndScrollToMap}
           {categoryToColor}
           on:itemRemoved={() => {
             // console.log(startingPosition);
@@ -1791,4 +1851,8 @@
 </div>
 
 <style>
+  .or {
+    text-align: center;
+    font-style: italic;
+  }
 </style>

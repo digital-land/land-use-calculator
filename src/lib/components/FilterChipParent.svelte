@@ -2,6 +2,7 @@
   import { createEventDispatcher } from "svelte";
   import FilterChip from "./FilterChip.svelte";
   import { makeFileNameReadable } from "$lib/utils";
+  import Button from "./Button.svelte";
 
   let {
     startingPosition,
@@ -9,6 +10,7 @@
     selected = $bindable(),
     policyLens = $bindable(),
     categoryToColor,
+    openPanelAndScrollToMap,
   } = $props();
 
   const dispatch = createEventDispatcher();
@@ -112,9 +114,27 @@
   </div>
 </div> -->
 
-<h3 style="margin: 0 0 0 10px; padding-left: 10px">Selected filters</h3>
 <div class="filters-and-legend-container">
   <div class="drop-zone" data-zone="zone2">
+    <h3>Selected filters</h3>
+    <div>
+      <div class="categories-legend">
+        Categories included:
+
+        {#each zoneCategories["zone2"] as category}
+          <div class="categories-legend-item">
+            <span
+              class="choices__item-circle"
+              style={"background: " +
+                categoryToColor[category] +
+                "; margin-right: 10px"}
+            ></span>
+            {category}
+          </div>
+        {/each}
+      </div>
+      <hr />
+    </div>
     {#each zones.zone2 as id}
       {#if id !== "England"}
         <FilterChip
@@ -131,27 +151,24 @@
         />
       {/if}
     {/each}
-  </div>
-  <div>
-    <p>Categories:</p>
-    <div class="categories-legend">
-      {#each zoneCategories["zone2"] as category}
-        <div class="categories-legend-item">
-          <span
-            class="choices__item-circle"
-            style={"background: " + categoryToColor[category]}
-          ></span>
-          {category}
-        </div>
-      {/each}
+    <div class="button-container">
+      <Button
+        textContent="Edit filters"
+        buttonType="default"
+        onClickFunction={openPanelAndScrollToMap}
+      />
     </div>
   </div>
 </div>
 
 <style>
+  .button-container {
+    margin-top: 10px;
+  }
+
   .filters-and-legend-container {
-    display: grid;
-    grid-template-columns: 2fr 1fr;
+    display: flex;
+    /* grid-template-columns: 2fr 1fr; */
   }
 
   .drop-zone {
@@ -160,7 +177,7 @@
     /* min-height: 100px; */
     background-color: #f3f2f1;
     min-height: 50px;
-    margin: 10px;
+    margin: 0px 10px 10px 10px;
     padding: 10px;
   }
 
@@ -172,12 +189,16 @@
   }
 
   .categories-legend {
-    display: grid;
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-wrap: wrap;
+    /* grid-template-columns: 1fr; */
+    padding-bottom: 10px;
   }
 
   .categories-legend-item {
     display: flex;
+    padding-left: 10px;
+    min-height: 1.5rem;
   }
 
   #filter-tooltip {
