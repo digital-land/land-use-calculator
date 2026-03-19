@@ -21,6 +21,7 @@
     unpackZippedLayers,
     usingGeoTiff,
     mobile,
+    gridType,
   } = $props();
 
   // console.log("dataURL", dataURL);
@@ -373,25 +374,28 @@
           info.style.visibility = "visible";
 
           info.innerHTML =
-            "<b>" +
-            feature.get("LAD25NM") +
-            "</b>" +
-            "<br>" +
-            "Area covered by the current selections: " +
-            Number(
-              breakdownData?.find((d) => d.area_code === feature.get("LAD25CD"))
-                ?.selected_area,
-            ).toLocaleString() +
-            "ha" +
-            "<br> (" +
-            (
-              Number(
-                breakdownData?.find(
-                  (d) => d.area_code === feature.get("LAD25CD"),
-                )?.selected_area_as_a_proportion_of_total_area,
-              ) * 100
-            ).toFixed(0) +
-            "%)";
+            gridType !== "hectare"
+              ? feature.get("LAD25NM")
+              : "<b>" +
+                feature.get("LAD25NM") +
+                "</b>" +
+                "<br>" +
+                "Area covered by the current selections: " +
+                Number(
+                  breakdownData?.find(
+                    (d) => d.area_code === feature.get("LAD25CD"),
+                  )?.selected_area,
+                ).toLocaleString() +
+                "ha" +
+                "<br> (" +
+                (
+                  Number(
+                    breakdownData?.find(
+                      (d) => d.area_code === feature.get("LAD25CD"),
+                    )?.selected_area_as_a_proportion_of_total_area,
+                  ) * 100
+                ).toFixed(0) +
+                "%)";
         } else {
           info.style.visibility = "hidden";
         }

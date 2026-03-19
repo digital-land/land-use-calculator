@@ -6,7 +6,6 @@
   import { enhance } from "$app/forms";
   import { MediaQuery } from "svelte/reactivity";
   import { base } from "$app/paths";
-  import { browser } from "$app/environment";
   import ImageLayer from "ol/layer/Image";
   import ImageStatic from "ol/source/ImageStatic";
   import LayerGroup from "ol/layer/Group";
@@ -14,6 +13,7 @@
   import {
     // CheckBox,
     Select,
+    Radios,
     // Tooltip,
     // ServiceNavigation,
     // Tabs,
@@ -43,24 +43,32 @@
     geometryToGridHitsScanline,
   } from "$lib/utils";
   import { computeDensityStats } from "$lib/densityStats";
-  import { colors, hectareSettings } from "$lib/constants";
+  import {
+    colors,
+    hectareSettings,
+    tenMetreSettings,
+    policyLensItems,
+    COLOR_LUT,
+    tableMetadata,
+  } from "$lib/constants";
   import FilterChipParent from "$lib/components/FilterChipParent.svelte";
   import Tabs from "$lib/components/Tabs.svelte";
   import Histogram from "$lib/components/Histogram.svelte";
-  import type { TableMetadata } from "$lib/utils";
   import { indicesToGeoJSON } from "$lib/downloadGeoJSON";
-  const { width, height, bbox, gridSize, sourceFolder } = hectareSettings;
+  import type { PageProps } from "/$types";
+
   // import type { GeoJSON } from "geojson";
 
-  // const tileCodes = {
-  //   //QUESTION IS - How do we want to identify the tiles we need? A single bounding box approach maybe?
-  //   //Where the ultimate metadata provides the bounds of each feature layer
-  //   //Or the user selects their own area which has bounds.
-  //   "9,10": `SUNE`,
-  //   "8,10": `SUNW`,
-  //   "8,11": `SUSW`,
-  // };
+  let gridType = $state("hectare");
+  $inspect(gridType);
 
+  let { width, height, bbox, gridSize, sourceFolder } = $derived(
+    gridType === "hectare" ? hectareSettings : tenMetreSettings,
+  );
+  $inspect(width, height, bbox, gridSize, sourceFolder);
+  let { data }: PageProps = $props();
+  $inspect(data.grid10mVariables);
+  let grid10mVariables = data.grid10mVariables;
   const mobile = new MediaQuery("max-width: 600px");
   // let pageLayout = $state("grid-template-columns: 23% 40% 37%");
   // let currentMousePosition = $state();
@@ -76,9 +84,6 @@
       `${showFilters ? 0 : -100}%`,
     );
   });
-
-  // let tenMetreTilesJoined = $state();
-  // $inspect(tenMetreTilesJoined);
 
   let done = $state(false);
   // $inspect({ done });
@@ -101,47 +106,17 @@
   // $inspect({ seeDensity });
   let seeArea = $state(true);
   // $inspect({ seeArea });
-  // let densityGroup: MapGroup = $state();
-  // $inspect({ densityGroup });
 
   let customArea: Uint32Array = $state();
-  let customAreaBBox = $state();
+  let customAreaBBox: number[] = $state();
   let drawnFeature = $state();
-  let drawing = $state(false);
+  let drawing: boolean = $state(false);
   let opacity: number = $state(0.8);
 
   let uniqueCounts = $state();
-
-  let usingGeoTiff = $state(false);
   // $inspect({ uniqueCounts });
 
-  const NO_DATA_COLOR = 0x00000000; // Transparent
-  const LENS_HIGHLIGHT_COLOR = 0x44ff00ff; // Pale pink
-  const TOTAL_COLOR = 0x88000000; // Grey
-  const SELECTED_AREA_COLOR = 0x990000ff; // Pink
-  const UNIQUE_AREA_COLOR = 0xff0000ff; // Red
-
-  // Build once (module-level or cached)
-  const COLOR_LUT = new Uint32Array(16);
-
-  // Default everything to TOTAL_COLOR (safe fallback)
-  COLOR_LUT.fill(TOTAL_COLOR);
-
-  // Explicit mappings (mirrors your original logic)
-  COLOR_LUT[0b0000] = NO_DATA_COLOR; // blended=0, lens=0
-  COLOR_LUT[0b0100] = LENS_HIGHLIGHT_COLOR; // blended=0, lens=1
-
-  // blended = 1 cases
-  COLOR_LUT[0b1000] = TOTAL_COLOR; // blended only
-  COLOR_LUT[0b1010] = SELECTED_AREA_COLOR; // blended + area
-  COLOR_LUT[0b1011] = UNIQUE_AREA_COLOR; // blended + area + unique
-
-  // Lens + blended
-  COLOR_LUT[0b1100] = TOTAL_COLOR;
-
-  // Lens + blended + area
-  COLOR_LUT[0b1110] = SELECTED_AREA_COLOR;
-  COLOR_LUT[0b1111] = UNIQUE_AREA_COLOR;
+  let usingGeoTiff: boolean = $state(false);
 
   const DENSITY_LUT = $derived.by(() => {
     const LUT = new Uint32Array(65536);
@@ -169,198 +144,10 @@
   });
   // $inspect(DENSITY_LUT);
 
-  let policyLensItems = [
-    {
-      value: "England",
-      text: "The whole of England",
-      sentenceText: "England",
-    },
-    {
-      value: "Physically_restricted.bin",
-      text: "Only physically restricted land",
-      sentenceText: "physically restricted land",
-    },
-    {
-      value: "Bodies_of_water.bin",
-      text: "Only bodies of water",
-      sentenceText: "bodies of water",
-    },
-    {
-      value: "Built_infrastructure_constraints.bin",
-      text: "Only built infrastructure constraints",
-      sentenceText: "land with built infrastructure constraints",
-    },
-    {
-      value: "Built_up_areas.bin",
-      text: "Only built up areas",
-      sentenceText: "built up areas",
-    },
-    {
-      value: "National_Grid_infrastructure.bin",
-      text: "Only national Grid infrastructure",
-      sentenceText: "national Grid infrastructure",
-    },
-    {
-      value: "Current_rail_network.bin",
-      text: "Only current rail network",
-      sentenceText: "current rail network",
-    },
-    {
-      value: "Current_major_roads.bin",
-      text: "Only current major roads",
-      sentenceText: "current major roads",
-    },
-    {
-      value: "Development_restricted.bin",
-      text: "Only development restricted land",
-      sentenceText: "land where development is restricted",
-    },
-    {
-      value: "Wildlife_sites_of_national_and_international_importance_.bin",
-      text: "Only wildlife sites of national and international importance",
-      sentenceText: "wildlife sites of national and international importance",
-    },
-    {
-      value: "Ramsar.bin",
-      text: "Only Ramsar",
-      sentenceText: "Ramsar sites",
-    },
-    {
-      value: "Special_areas_of_conservation.bin",
-      text: "Only special areas of conservation",
-      sentenceText: "special areas of conservation",
-    },
-    {
-      value: "Special_protection_areas.bin",
-      text: "Only special protection areas",
-      sentenceText: "special protection areas",
-    },
-    {
-      value: "Sites_of_Special_Scientific_Interest.bin",
-      text: "Only Sites of Special Scientific Interest",
-      sentenceText: "Sites of Special Scientific Interest",
-    },
-    {
-      value: "Heritage_constraint.bin",
-      text: "Only heritage constraint",
-      sentenceText: "land with heritage constraints",
-    },
-    {
-      value: "Registered_parks_and_gardens.bin",
-      text: "Only registered parks and gardens",
-      sentenceText: "registered parks and gardens",
-    },
-    {
-      value: "Registered_battlefields.bin",
-      text: "Only registered battlefields",
-      sentenceText: "registered battlefields",
-    },
-    {
-      value: "Scheduled_monuments.bin",
-      text: "Only scheduled monuments",
-      sentenceText: "scheduled monuments",
-    },
-    {
-      value: "World_Heritage_Sites.bin",
-      text: "Only World Heritage Sites",
-      sentenceText: "World Heritage Sites",
-    },
-    {
-      value: "World_Heritage_Buffer_Zones.bin",
-      text: "Only World Heritage Buffer Zones",
-      sentenceText: "World Heritage Buffer Zones",
-    },
-    {
-      value: "Greenbelt.bin",
-      text: "Only greenbelt",
-      sentenceText: "greenbelt land",
-    },
-    {
-      value: "Development_limited.bin",
-      text: "Only development limited land",
-      sentenceText: "land where development is limited",
-    },
-    {
-      value: "Protected_landscapes.bin",
-      text: "Only protected landscapes",
-      sentenceText: "protected landscapes",
-    },
-    {
-      value: "national_parks.bin",
-      text: "Only national parks",
-      sentenceText: "national parks",
-    },
-    {
-      value: "Wildlife_sites_.bin",
-      text: "Only wildlife sites",
-      sentenceText: "wildlife sites",
-    },
-    {
-      value: "National_nature_reserves.bin",
-      text: "Only national nature reserves",
-      sentenceText: "national nature reserves",
-    },
-    {
-      value: "Local_nature_reserves.bin",
-      text: "Only local nature reserves",
-      sentenceText: "local nature reserves",
-    },
-    {
-      value: "Conservation_areas.bin",
-      text: "Only conservation areas",
-      sentenceText: "conservation areas",
-    },
-    {
-      value: "Planned_infrastructure_sites.bin",
-      text: "Only planned infrastructure sites",
-      sentenceText: "planned infrastructure sites",
-    },
-    {
-      value: "Nationally_Significant_Infrastructure_Projects.bin",
-      text: "Only Nationally Significant Infrastructure Projects",
-      sentenceText: "Nationally Significant Infrastructure Projects",
-    },
-    {
-      value: "HS2.bin",
-      text: "Only HS2",
-      sentenceText: "HS2",
-    },
-    {
-      value: "Flood_risk_.bin",
-      text: "Only flood risk",
-      sentenceText: "land where there is a flood risk",
-    },
-    {
-      value: "Flood_zone_2.bin",
-      text: "Only flood zone 2",
-      sentenceText: "flood zone 2",
-    },
-    {
-      value: "Flood_zone_3.bin",
-      text: "Only flood zone 3",
-      sentenceText: "flood zone 3",
-    },
-    {
-      value: "within_KM_of_BUA.bin",
-      text: "Only land within 1km of built up areas",
-      sentenceText: "the land within 1km of built up areas",
-    },
-    {
-      value: "imaginaryNewTown",
-      text: "imaginaryNewTown",
-      sentenceText: "imaginaryNewTown",
-    },
-    {
-      value: "customArea",
-      text: "The custom area",
-      sentenceText: "the custom area",
-    },
-  ];
-
   let policyLens = $state("England");
 
-  let policyLensArea = $state();
-  // $inspect(policyLensArea);
+  let policyLensArea = $state((13_046_002 * 10_000) / (gridSize * gridSize));
+  $inspect(policyLensArea);
 
   let currentBitArrays = $state();
   // $inspect({ currentBitArrays });
@@ -400,31 +187,6 @@
       };
     }),
   );
-
-  let tableMetadata: TableMetadata = {
-    name: {
-      explainer: "Sort by restriction name",
-      label: "Name",
-      shortLabel: "Name",
-    },
-    area: {
-      explainer:
-        "Sort by the total area in England covered by this restriction",
-      label: "Area (ha)",
-      shortLabel: "Area (ha)",
-    },
-    unique: {
-      explainer:
-        "Sort by hectares where this is the only barrier to development",
-      label: "Exclusive to this category (ha)",
-      shortLabel: "Exclusive to this category (ha)",
-    },
-    subLayers: {
-      explainer: "",
-      label: "",
-      shortLabel: "",
-    },
-  };
 
   let sortState = $state({ column: "unique", order: "descending" });
 
@@ -527,15 +289,6 @@
   // $inspect(uniqueArrays);
   let uniqueIndices = $derived(uniqueArrays[selectedRestrictionIndex]);
 
-  // let renderUnique = $derived(
-  //   selected.map((d) => makeFileNameReadable(d)).includes(selectedRestriction)
-  //     ? selectedRestrictionIndex >= 0
-  //       ? true
-  //       : false
-  //     : false,
-  // );
-  // $inspect({ renderUnique });
-
   // let csvFile = $state();
   let zipFile: FileList = $state();
   let geoJSONFile: FileList = $state();
@@ -612,7 +365,7 @@
     customArea = new Uint32Array(
       geometryToGridHitsScanline(geometry, bbox, width, height),
     );
-console.log(customArea)
+    console.log(customArea);
     policyLens = "customArea";
 
     Object.keys(tiffArrayBuffersFromZip).length > 0
@@ -629,17 +382,8 @@ console.log(customArea)
   let metadataCsv: string = $state();
   // $inspect(metadataCsv);
 
-  onMount(async () => {
-    densityCanvas = document.createElement("canvas");
-
-    await init({
-      module_or_path: new URL(
-        "$lib/raster_ops/pkg/raster_ops_bg.wasm",
-        import.meta.url,
-      ),
-    });
-    console.log("✅ WASM initialized");
-
+  $effect(async () => {
+    gridType;
     try {
       const response = await fetch(csvLocation);
       if (!response.ok) throw new Error("Failed to fetch CSV");
@@ -656,7 +400,39 @@ console.log(customArea)
         .filter((d) => d.initially_checked === "y")
         .map((d) => d.filename);
       unpackSelectedLayers();
+      seeArea = true;
+      seeDensity = false;
     }
+  });
+
+  onMount(async () => {
+    densityCanvas = document.createElement("canvas");
+
+    await init({
+      module_or_path: new URL(
+        "$lib/raster_ops/pkg/raster_ops_bg.wasm",
+        import.meta.url,
+      ),
+    });
+    console.log("✅ WASM initialized");
+
+    // try {
+    //   const response = await fetch(csvLocation);
+    //   if (!response.ok) throw new Error("Failed to fetch CSV");
+    //   metadataCsv = await response.text();
+    //   // console.log(metadataCsv);
+
+    //   startingPosition = parseCsv(metadataCsv);
+    // } catch (err) {
+    //   console.error(err.message);
+    // }
+
+    // if (startingPosition) {
+    //   selected = startingPosition
+    //     .filter((d) => d.initially_checked === "y")
+    //     .map((d) => d.filename);
+    //   unpackSelectedLayers();
+    // }
 
     const tiffData = await loadDensityTiff(
       `${base}/range/hectare_counts_trimmed.tif`,
@@ -696,6 +472,18 @@ console.log(customArea)
       enrichedLayers = e.data.rasterLayers;
       policyLensArea = e.data.policyLensArea;
       lensIndices = e.data.lensIndices;
+      if (e.data.bbox) {
+        bbox = e.data.bbox;
+      }
+      // console.log(bbox);
+      // canvasWidth = e.data.canvasWidth;
+      if (e.data.canvasWidth) {
+        width = e.data.canvasWidth;
+      }
+      // canvasHeight = e.data.canvasHeight;
+      if (e.data.canvasHeight) {
+        height = e.data.canvasHeight;
+      }
 
       // console.log(enrichedLayers);
 
@@ -716,7 +504,10 @@ console.log(customArea)
       base,
       policyLens,
       customArea: new Uint32Array(customArea).buffer,
-      settingsObject: hectareSettings,
+      settingsObject:
+        gridType === "hectare" ? hectareSettings : tenMetreSettings,
+      grid10mVariables,
+      transformToGlobal: gridType === "hectare" ? false : true,
     });
   }
 
@@ -929,80 +720,68 @@ console.log(customArea)
 
         blendWorker.terminate();
 
-        getLABreakdown(
-          chunkUrls,
-          indicesToBinaryMask(blendedIndices, width, height),
-        )
-          .then((result) => {
-            breakdownData = result.json;
-            // console.log("done breaking down: ", breakdownData);
-          })
-          .catch((err) => {
-            console.error("Breakdown failed:", err);
-          });
+        if (gridType === "hectare") {
+          getLABreakdown(
+            chunkUrls,
+            indicesToBinaryMask(blendedIndices, width, height),
+          )
+            .then((result) => {
+              breakdownData = result.json;
+              // console.log("done breaking down: ", breakdownData);
+            })
+            .catch((err) => {
+              console.error("Breakdown failed:", err);
+            });
+          densityDataURL = !mobile.current
+            ? await createDensityCanvas(
+                densityCanvas,
+                blendedIndices,
+                densityArray,
+                DENSITY_LUT,
+                height,
+                width,
+              )
+            : await createDensityLayerMobile(
+                blendedIndices,
+                densityArray,
+                DENSITY_LUT,
+                bbox,
+                opacity,
+                height,
+                width,
+              );
+        }
 
         mobile.current
           ? (dataURL = await makeAndPaintCanvasFromIndicesMobile())
           : makeAndPaintCanvasFromIndices();
-        densityDataURL = !mobile.current
-          ? await createDensityCanvas(
-              densityCanvas,
-              blendedIndices,
-              densityArray,
-              DENSITY_LUT,
-              height,
-              width,
-            )
-          : // : (
-            //     await createDensityCanvasMobile(
-            //       blendedIndices,
-            //       densityArray,
-            //       DENSITY_LUT,
-            //     )
-            //   ).dataURL;
-            await createDensityLayerMobile(
-              blendedIndices,
-              densityArray,
-              DENSITY_LUT,
-              bbox,
-              opacity,
-              height,
-              width,
-            );
       } else if (e.data.error) {
         console.error("Blend worker error:", e.data.error);
         blendedIndices = [];
         // blendedArrayIndices = [];
-        done = false;
-        showDensity();
-        mobile.current
-          ? (dataURL = await makeAndPaintCanvasFromIndicesMobile())
-          : makeAndPaintCanvasFromIndices();
-        densityDataURL = !mobile.current
-          ? await createDensityCanvas(
-              densityCanvas,
-              blendedIndices,
-              densityArray,
-              DENSITY_LUT,
-              height,
-              width,
-            )
-          : // : (
-            //     await createDensityCanvasMobile(
-            //       blendedIndices,
-            //       densityArray,
-            //       DENSITY_LUT,
-            //     )
-            //   ).dataURL;
-            await createDensityLayerMobile(
-              blendedIndices,
-              densityArray,
-              DENSITY_LUT,
-              bbox,
-              opacity,
-              height,
-              width,
-            );
+        // done = false;
+        // showDensity();
+        // mobile.current
+        //   ? (dataURL = await makeAndPaintCanvasFromIndicesMobile())
+        //   : makeAndPaintCanvasFromIndices();
+        // densityDataURL = !mobile.current
+        //   ? await createDensityCanvas(
+        //       densityCanvas,
+        //       blendedIndices,
+        //       densityArray,
+        //       DENSITY_LUT,
+        //       height,
+        //       width,
+        //     )
+        //   : await createDensityLayerMobile(
+        //       blendedIndices,
+        //       densityArray,
+        //       DENSITY_LUT,
+        //       bbox,
+        //       opacity,
+        //       height,
+        //       width,
+        //     );
       }
     };
   }
@@ -1283,36 +1062,38 @@ console.log(customArea)
     seeDensity = true;
     seeArea = false;
 
-    URL.revokeObjectURL(densityDataURL);
-    densityDataURL = !mobile.current
-      ? await createDensityCanvas(
-          densityCanvas,
-          blendedIndices,
-          densityArray,
-          DENSITY_LUT,
-          height,
-          width,
-        )
-      : await createDensityLayerMobile(
-          blendedIndices,
-          densityArray,
-          DENSITY_LUT,
-          bbox,
-          opacity,
-          height,
-          width,
-        );
+    // URL.revokeObjectURL(densityDataURL);
+    // densityDataURL = !mobile.current
+    //   ? await createDensityCanvas(
+    //       densityCanvas,
+    //       blendedIndices,
+    //       densityArray,
+    //       DENSITY_LUT,
+    //       height,
+    //       width,
+    //     )
+    //   : await createDensityLayerMobile(
+    //       blendedIndices,
+    //       densityArray,
+    //       DENSITY_LUT,
+    //       bbox,
+    //       opacity,
+    //       height,
+    //       width,
+    //     );
     // console.log(typeof densityDataURL, typeof dataURL);
     done = true;
     console.timeEnd("show-density");
   }
 
   const densityStats = $derived(
-    computeDensityStats(blendedIndices, densityArray, {
-      width,
-      height,
-      colOffset: 0,
-    }),
+    gridType === "hectare"
+      ? computeDensityStats(blendedIndices, densityArray, {
+          width,
+          height,
+          colOffset: 0,
+        })
+      : null,
   );
 
   function showArea() {
@@ -1353,27 +1134,41 @@ console.log(customArea)
   <div>
     <div class="header-left">
       <div class="firstSelections">
+        <Radios
+          legend="Select grid size"
+          name="grid-options"
+          options={[
+            { value: "hectare", label: "hectare" },
+            { value: "10m", label: "10m (experimental)" },
+          ]}
+          bind:selectedValue={gridType}
+          legendSize="s"
+          small={true}
+        />
         <Details
           summaryText={"Refine your area"}
           detailedText={policyLensContent}
         >
           {#snippet policyLensContent()}
-            <Select
-              id="policyLensInput"
-              name="policyLensInput"
-              items={policyLensItems}
-              bind:value={policyLens}
-              label={"Select area to explore"}
-              onchange={() => {
-                customAreaBBox = null;
-                customArea = null;
-                drawnFeature = null;
-                Object.keys(tiffArrayBuffersFromZip).length > 0
-                  ? unpackZippedLayers()
-                  : unpackSelectedLayers();
-              }}
-            />
-            <p class="or">~ or ~</p>
+            {#if gridType === "hectare"}
+              <Select
+                id="policyLensInput"
+                name="policyLensInput"
+                items={policyLensItems}
+                bind:value={policyLens}
+                label={"Select area to explore"}
+                onchange={() => {
+                  customAreaBBox = null;
+                  customArea = null;
+                  drawnFeature = null;
+                  Object.keys(tiffArrayBuffersFromZip).length > 0
+                    ? unpackZippedLayers()
+                    : unpackSelectedLayers();
+                }}
+              />
+              <p class="or">~ or ~</p>
+            {/if}
+
             <Button
               buttonType="secondary"
               textContent="Draw an area to explore"
@@ -1392,21 +1187,23 @@ console.log(customArea)
             />
           {/snippet}
         </Details>
-        <Details
-          summaryText={"Use a local file (optional)"}
-          detailedText={detailsContent}
-        >
-          {#snippet detailsContent()}
-            <label for="zip-file-upload">Use a local zip file:</label>
-            <input
-              bind:files={zipFile}
-              accept=".zip"
-              id="zip-file-upload"
-              type="file"
-              onchange={handleFileUpload}
-            />
-          {/snippet}
-        </Details>
+        {#if gridType === "hectare"}
+          <Details
+            summaryText={"Use a local file (optional)"}
+            detailedText={detailsContent}
+          >
+            {#snippet detailsContent()}
+              <label for="zip-file-upload">Use a local zip file:</label>
+              <input
+                bind:files={zipFile}
+                accept=".zip"
+                id="zip-file-upload"
+                type="file"
+                onchange={handleFileUpload}
+              />
+            {/snippet}
+          </Details>
+        {/if}
       </div>
     </div>
   </div>
@@ -1614,6 +1411,7 @@ console.log(customArea)
               {unpackZippedLayers}
               {usingGeoTiff}
               {mobile}
+              {gridType}
             />
           {/key}
         </div>
@@ -1630,18 +1428,26 @@ console.log(customArea)
       <Tabs
         title="Summary"
         selectedTabId="table"
-        tabs={[
-          {
-            id: "table",
-            label: "Results",
-            content: tableSnippet,
-          },
-          {
-            id: "density",
-            label: "Density",
-            content: densitySnippet,
-          },
-        ]}
+        tabs={gridType === "hectare"
+          ? [
+              {
+                id: "table",
+                label: "Results",
+                content: tableSnippet,
+              },
+              {
+                id: "density",
+                label: "Density",
+                content: densitySnippet,
+              },
+            ]
+          : [
+              {
+                id: "table",
+                label: "Results",
+                content: tableSnippet,
+              },
+            ]}
         {showDensity}
         {showArea}
         forceTabBehavior={true}
@@ -1762,28 +1568,31 @@ console.log(customArea)
                   URL.revokeObjectURL(link.href);
                 }}
               ></Button>
-              <Button
-                buttonType="default"
-                textContent="Download Local Authority breakdown of data (.csv)"
-                onClickFunction={function () {
-                  if (!blendedIndices || blendedIndices.length === 0) return;
+              {#if gridType === "hectare"}
+                <Button
+                  buttonType="default"
+                  textContent="Download Local Authority breakdown of data (.csv)"
+                  onClickFunction={function () {
+                    if (!blendedIndices || blendedIndices.length === 0) return;
 
-                  const csvStr = jsonToCsv(
-                    breakdownData,
-                    policyLens,
-                    policyLensItems,
-                    selected,
-                  );
-                  const blob = new Blob([csvStr], { type: "text/csv" });
-                  const link = document.createElement("a");
-                  link.href = URL.createObjectURL(blob);
-                  link.download = "land-data-by-la.csv";
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-                  URL.revokeObjectURL(link.href);
-                }}
-              ></Button>
+                    const csvStr = jsonToCsv(
+                      breakdownData,
+                      policyLens,
+                      policyLensItems,
+                      selected,
+                    );
+                    const blob = new Blob([csvStr], { type: "text/csv" });
+                    const link = document.createElement("a");
+                    link.href = URL.createObjectURL(blob);
+                    link.download = "land-data-by-la.csv";
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(link.href);
+                  }}
+                ></Button>
+              {/if}
+
               <Button
                 buttonType="secondary"
                 textContent="Download the selected area shape (.bin)"

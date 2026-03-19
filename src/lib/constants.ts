@@ -1,3 +1,5 @@
+import type { TableMetadata } from "$lib/utils";
+
 export const apiKey = "oCUBI8DjgzTP5J8VptrnOAxYVeZc0cZ2";
 export const serviceUrl = "https://api.os.uk/maps/vector/v1/vts";
 export const colors: string[] = [
@@ -9,6 +11,34 @@ export const colors: string[] = [
   "#40611f",
   "#333366",
 ];
+
+const NO_DATA_COLOR = 0x00000000; // Transparent
+const LENS_HIGHLIGHT_COLOR = 0x44ff00ff; // Pale pink
+const TOTAL_COLOR = 0x88000000; // Grey
+const SELECTED_AREA_COLOR = 0x990000ff; // Pink
+const UNIQUE_AREA_COLOR = 0xff0000ff; // Red
+
+// Build once (module-level or cached)
+export const COLOR_LUT = new Uint32Array(16);
+
+// Default everything to TOTAL_COLOR (safe fallback)
+COLOR_LUT.fill(TOTAL_COLOR);
+
+// Explicit mappings (mirrors your original logic)
+COLOR_LUT[0b0000] = NO_DATA_COLOR; // blended=0, lens=0
+COLOR_LUT[0b0100] = LENS_HIGHLIGHT_COLOR; // blended=0, lens=1
+
+// blended = 1 cases
+COLOR_LUT[0b1000] = TOTAL_COLOR; // blended only
+COLOR_LUT[0b1010] = SELECTED_AREA_COLOR; // blended + area
+COLOR_LUT[0b1011] = UNIQUE_AREA_COLOR; // blended + area + unique
+
+// Lens + blended
+COLOR_LUT[0b1100] = TOTAL_COLOR;
+
+// Lens + blended + area
+COLOR_LUT[0b1110] = SELECTED_AREA_COLOR;
+COLOR_LUT[0b1111] = UNIQUE_AREA_COLOR;
 
 export interface settingsObject {
   width: number;
@@ -34,6 +64,217 @@ export const tenMetreSettings: settingsObject = {
   gridSize: 10,
   sourceFolder: "ten_metre",
 };
+
+export const tableMetadata: TableMetadata = {
+  name: {
+    explainer: "Sort by restriction name",
+    label: "Name",
+    shortLabel: "Name",
+  },
+  area: {
+    explainer: "Sort by the total area in England covered by this restriction",
+    label: "Area (ha)",
+    shortLabel: "Area (ha)",
+  },
+  unique: {
+    explainer: "Sort by hectares where this is the only barrier to development",
+    label: "Exclusive to this category (ha)",
+    shortLabel: "Exclusive to this category (ha)",
+  },
+  subLayers: {
+    explainer: "",
+    label: "",
+    shortLabel: "",
+  },
+};
+
+export const policyLensItems = [
+  {
+    value: "England",
+    text: "The whole of England",
+    sentenceText: "England",
+  },
+  {
+    value: "Physically_restricted.bin",
+    text: "Only physically restricted land",
+    sentenceText: "physically restricted land",
+  },
+  {
+    value: "Bodies_of_water.bin",
+    text: "Only bodies of water",
+    sentenceText: "bodies of water",
+  },
+  {
+    value: "Built_infrastructure_constraints.bin",
+    text: "Only built infrastructure constraints",
+    sentenceText: "land with built infrastructure constraints",
+  },
+  {
+    value: "Built_up_areas.bin",
+    text: "Only built up areas",
+    sentenceText: "built up areas",
+  },
+  {
+    value: "National_Grid_infrastructure.bin",
+    text: "Only national Grid infrastructure",
+    sentenceText: "national Grid infrastructure",
+  },
+  {
+    value: "Current_rail_network.bin",
+    text: "Only current rail network",
+    sentenceText: "current rail network",
+  },
+  {
+    value: "Current_major_roads.bin",
+    text: "Only current major roads",
+    sentenceText: "current major roads",
+  },
+  {
+    value: "Development_restricted.bin",
+    text: "Only development restricted land",
+    sentenceText: "land where development is restricted",
+  },
+  {
+    value: "Wildlife_sites_of_national_and_international_importance_.bin",
+    text: "Only wildlife sites of national and international importance",
+    sentenceText: "wildlife sites of national and international importance",
+  },
+  {
+    value: "Ramsar.bin",
+    text: "Only Ramsar",
+    sentenceText: "Ramsar sites",
+  },
+  {
+    value: "Special_areas_of_conservation.bin",
+    text: "Only special areas of conservation",
+    sentenceText: "special areas of conservation",
+  },
+  {
+    value: "Special_protection_areas.bin",
+    text: "Only special protection areas",
+    sentenceText: "special protection areas",
+  },
+  {
+    value: "Sites_of_Special_Scientific_Interest.bin",
+    text: "Only Sites of Special Scientific Interest",
+    sentenceText: "Sites of Special Scientific Interest",
+  },
+  {
+    value: "Heritage_constraint.bin",
+    text: "Only heritage constraint",
+    sentenceText: "land with heritage constraints",
+  },
+  {
+    value: "Registered_parks_and_gardens.bin",
+    text: "Only registered parks and gardens",
+    sentenceText: "registered parks and gardens",
+  },
+  {
+    value: "Registered_battlefields.bin",
+    text: "Only registered battlefields",
+    sentenceText: "registered battlefields",
+  },
+  {
+    value: "Scheduled_monuments.bin",
+    text: "Only scheduled monuments",
+    sentenceText: "scheduled monuments",
+  },
+  {
+    value: "World_Heritage_Sites.bin",
+    text: "Only World Heritage Sites",
+    sentenceText: "World Heritage Sites",
+  },
+  {
+    value: "World_Heritage_Buffer_Zones.bin",
+    text: "Only World Heritage Buffer Zones",
+    sentenceText: "World Heritage Buffer Zones",
+  },
+  {
+    value: "Greenbelt.bin",
+    text: "Only greenbelt",
+    sentenceText: "greenbelt land",
+  },
+  {
+    value: "Development_limited.bin",
+    text: "Only development limited land",
+    sentenceText: "land where development is limited",
+  },
+  {
+    value: "Protected_landscapes.bin",
+    text: "Only protected landscapes",
+    sentenceText: "protected landscapes",
+  },
+  {
+    value: "national_parks.bin",
+    text: "Only national parks",
+    sentenceText: "national parks",
+  },
+  {
+    value: "Wildlife_sites_.bin",
+    text: "Only wildlife sites",
+    sentenceText: "wildlife sites",
+  },
+  {
+    value: "National_nature_reserves.bin",
+    text: "Only national nature reserves",
+    sentenceText: "national nature reserves",
+  },
+  {
+    value: "Local_nature_reserves.bin",
+    text: "Only local nature reserves",
+    sentenceText: "local nature reserves",
+  },
+  {
+    value: "Conservation_areas.bin",
+    text: "Only conservation areas",
+    sentenceText: "conservation areas",
+  },
+  {
+    value: "Planned_infrastructure_sites.bin",
+    text: "Only planned infrastructure sites",
+    sentenceText: "planned infrastructure sites",
+  },
+  {
+    value: "Nationally_Significant_Infrastructure_Projects.bin",
+    text: "Only Nationally Significant Infrastructure Projects",
+    sentenceText: "Nationally Significant Infrastructure Projects",
+  },
+  {
+    value: "HS2.bin",
+    text: "Only HS2",
+    sentenceText: "HS2",
+  },
+  {
+    value: "Flood_risk_.bin",
+    text: "Only flood risk",
+    sentenceText: "land where there is a flood risk",
+  },
+  {
+    value: "Flood_zone_2.bin",
+    text: "Only flood zone 2",
+    sentenceText: "flood zone 2",
+  },
+  {
+    value: "Flood_zone_3.bin",
+    text: "Only flood zone 3",
+    sentenceText: "flood zone 3",
+  },
+  {
+    value: "within_KM_of_BUA.bin",
+    text: "Only land within 1km of built up areas",
+    sentenceText: "the land within 1km of built up areas",
+  },
+  {
+    value: "imaginaryNewTown",
+    text: "imaginaryNewTown",
+    sentenceText: "imaginaryNewTown",
+  },
+  {
+    value: "customArea",
+    text: "The custom area",
+    sentenceText: "the custom area",
+  },
+];
 
 export const tiles = [
   {
