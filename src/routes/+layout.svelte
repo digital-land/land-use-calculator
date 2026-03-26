@@ -1,18 +1,37 @@
 <script>
   import "../app.css";
   import PhaseBanner from "$lib/components/PhaseBanner.svelte";
-  import { ServiceNavigation } from "@communitiesuk/svelte-component-library";
+  import {
+    Header,
+    ServiceNavigation,
+    Footer,
+  } from "@communitiesuk/svelte-component-library";
+  import { page } from "$app/state";
 
   let { children } = $props();
+  let currentPath = $derived(page.url.pathname);
+  $inspect(currentPath);
+
+  let applicationPages = [
+    { href: "/", label: "Home" },
+    { href: "/about", label: "About and user guide" },
+    { href: "/paintMapStats", label: "Experimental painting app" },
+  ];
+
+  let navigationItems = $derived(
+    applicationPages.map((el) => ({
+      ...el,
+      isActive: currentPath === el.href,
+    })),
+  );
 </script>
 
+<!-- <Header rebrand={true}/> -->
 <ServiceNavigation
   serviceName={"Development Land Analysis Platform"}
   serviceUrl="./"
-  navigationItems={[
-    { href: "./about", label: "About and user guide" },
-    { href: "./paintMapStats", label: "Experimental painting app" },
-  ]}
+  {navigationItems}
+  customiseServiceNameLink={true}
 />
 <PhaseBanner
   tagText={"PROTOTYPE"}
@@ -22,3 +41,8 @@
   linkTarget={"_blank"}
 />
 {@render children()}
+<Footer
+  rebrand={true}
+  removeCopyrightPadding={true}
+  borderTopColor={"#1d70b8"}
+/>

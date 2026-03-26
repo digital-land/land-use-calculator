@@ -29,6 +29,7 @@
     parseCsv,
     jsonToCsv,
     makeFileNameReadable,
+    makeFileNameDatasetKey,
     loadDensityTiff,
     // computeStats,
     // countOccurrences,
@@ -41,6 +42,7 @@
     // originX,
     // originY,
     geometryToGridHitsScanline,
+    indexToCoord,
   } from "$lib/utils";
   import { computeDensityStats } from "$lib/densityStats";
   import {
@@ -65,9 +67,9 @@
   let { width, height, bbox, gridSize, sourceFolder } = $derived(
     gridType === "hectare" ? hectareSettings : tenMetreSettings,
   );
-  $inspect(width, height, bbox, gridSize, sourceFolder);
+  // $inspect(width, height, bbox, gridSize, sourceFolder);
   let { data }: PageProps = $props();
-  $inspect(data.grid10mVariables);
+  // $inspect(data);
   let grid10mVariables = data.grid10mVariables;
   const mobile = new MediaQuery("max-width: 600px");
   // let pageLayout = $state("grid-template-columns: 23% 40% 37%");
@@ -76,12 +78,17 @@
   let showFilters = $state(true);
   let mapSize: number = $state();
   // $inspect(mapSize);
+  let sidePanelWidth: number = $state();
 
   $effect(() => {
     document.documentElement.style.setProperty("--mapWidth", `${mapSize}%`);
     document.documentElement.style.setProperty(
       "--tw-translate-x",
       `${showFilters ? 0 : -100}%`,
+    );
+    document.documentElement.style.setProperty(
+      "--zoom-control-position",
+      `${showFilters ? sidePanelWidth : 8}px`,
     );
   });
 
@@ -167,15 +174,19 @@
 
   let blendedArrayLength = $derived(blendedIndices?.length);
   let selected = $state([]);
-  // $inspect({ selected });
+  $inspect({ selected });
 
   let tableData = $derived(
     selected?.map((layer, i) => {
       return {
         name: makeFileNameReadable(layer),
-        area: enrichedLayers?.find((d) => d.filename == layer)?.area
+        area: enrichedLayers?.find(
+          (d) => makeFileNameDatasetKey(d.filename) == layer,
+        )?.area
           ? convertPixelsToHectares(
-              enrichedLayers?.find((d) => d.filename == layer)?.area,
+              enrichedLayers?.find(
+                (d) => makeFileNameDatasetKey(d.filename) == layer,
+              )?.area,
               gridSize,
             )
           : 0,
@@ -183,7 +194,7 @@
           uniqueCounts && uniqueCounts[i]
             ? convertPixelsToHectares(uniqueCounts[i], gridSize)
             : 0,
-        subLayers: selectedSubLayers[layer],
+        subLayers: selectedSubLayers?.[layer],
       };
     }),
   );
@@ -232,7 +243,7 @@
               .filter((d) => d.Category == category)
               ?.map((layer) => {
                 return {
-                  value: layer.filename,
+                  value: makeFileNameDatasetKey(layer.filename),
                   label: layer.Data_layer,
                   exclusive: layer.Level == 2 ? true : false,
                   checked: layer.initially_checked === "y" ? true : false,
@@ -340,7 +351,7 @@
     if (startingPosition) {
       selected = startingPosition
         .filter((d) => d.initially_checked === "y")
-        .map((d) => d.filename);
+        .map((d) => makeFileNameDatasetKey(d.filename));
       if (selected.length > 0) {
         unpackZippedLayers();
       }
@@ -396,9 +407,20 @@
     }
 
     if (startingPosition) {
-      selected = startingPosition
-        .filter((d) => d.initially_checked === "y")
-        .map((d) => d.filename);
+      if (data.urlSelected.length > 0) {
+        startingPosition.forEach((d) =>
+          // selected.includes(d.filename) || policyLens === d.filename
+          data.urlSelected.includes(makeFileNameDatasetKey(d.filename)) // Fix for the above line, which was including the policyLens in any new selections
+            ? (d.initially_checked = "y")
+            : (d.initially_checked = false),
+        );
+        selected = data.urlSelected;
+      } else {
+        selected = startingPosition
+          .filter((d) => d.initially_checked === "y")
+          .map((d) => makeFileNameDatasetKey(d.filename));
+      }
+
       unpackSelectedLayers();
       seeArea = true;
       seeDensity = false;
@@ -444,9 +466,7 @@
   function prepareToUnpack() {
     layersToUnpack = selected?.map((d) =>
       parseCsv(metadataCsv).find(
-        (layer) =>
-          layer?.filename === d ||
-          layer?.filename.replace(".bin", ".tif") === d,
+        (layer) => makeFileNameDatasetKey(layer?.filename) === d,
       ),
     );
     // console.log("selected: ", selected, "layers to unpack: ", layersToUnpack);
@@ -680,6 +700,11 @@
 
   function blendLayers() {
     done = selected.length > 0 ? false : true;
+    if (selected.length === 0) {
+      URL.revokeObjectURL(dataURL);
+      dataURL = null;
+    }
+
     console.time("blendLayers");
     const blendWorker = new Worker(
       new URL("$lib/workers/wasmBlendWorker.js", import.meta.url),
@@ -687,7 +712,9 @@
     );
 
     // Select the active layers
-    const active = enrichedLayers.filter((l) => selected.includes(l.filename));
+    const active = enrichedLayers.filter((l) =>
+      selected.includes(makeFileNameDatasetKey(l.filename)),
+    );
     currentBitArrays = active.map((l) => l.data);
     //console.log("CBA---",currentBitArrays);
     // Ensure Uint32Arrays
@@ -1120,6 +1147,15 @@
     });
     showFilters = true;
   }
+
+  let markerLocation = $derived(
+    Object.values(
+      indexToCoord(densityStats.stats.indexOfMaxValue, {
+        width,
+        height,
+      }),
+    ).map((d, i) => d + (i === 0 ? gridSize / 2 : -gridSize / 2)),
+  );
 </script>
 
 <svelte:head>
@@ -1222,7 +1258,7 @@
             // console.log(startingPosition);
             startingPosition.forEach((d) =>
               // selected.includes(d.filename) || policyLens === d.filename
-              selected.includes(d.filename) // Fix for the above line, which was including the policyLens in any new selections
+              selected.includes(makeFileNameDatasetKey(d.filename)) // Fix for the above line, which was including the policyLens in any new selections
                 ? (d.initially_checked = "y")
                 : (d.initially_checked = false),
             );
@@ -1233,7 +1269,8 @@
           on:lensChanged={() => {
             // console.log(startingPosition);
             startingPosition.forEach((d) =>
-              selected.includes(d.filename) || policyLens === d.filename
+              selected.includes(makeFileNameDatasetKey(d.filename)) ||
+              policyLens === d.filename
                 ? (d.initially_checked = "y")
                 : (d.initially_checked = false),
             );
@@ -1254,15 +1291,14 @@
       : '-translate-x-full'} z-10 h-dvh w-[90%] transform bg-white transition-transform duration-200 ease-in-out md:w-[45%] lg:w-[40%]
             xl:w-[35%]"
     id="side-panel"
+    bind:clientWidth={sidePanelWidth}
   >
     {#if startingPosition}
       <form
         method="POST"
         use:enhance={({ formData, cancel }) => {
           selected = [];
-          formData.forEach((d) =>
-            selected.push(usingGeoTiff ? d.replace(".bin", ".tif") : d),
-          );
+          formData.forEach((d) => selected.push(makeFileNameDatasetKey(d)));
           Object.keys(tiffArrayBuffersFromZip).length > 0
             ? unpackZippedLayers()
             : unpackSelectedLayers();
@@ -1313,7 +1349,7 @@
 
           selected = startingPosition
             .filter((d) => d.initially_checked === "y")
-            .map((d) => d.filename);
+            .map((d) => makeFileNameDatasetKey(d.filename));
           Object.keys(tiffArrayBuffersFromZip).length > 0
             ? unpackZippedLayers()
             : unpackSelectedLayers();
@@ -1412,6 +1448,7 @@
               {usingGeoTiff}
               {mobile}
               {gridType}
+              {markerLocation}
             />
           {/key}
         </div>
@@ -1648,6 +1685,14 @@
                 0,
               )).toLocaleString()}
             </div>
+            <div>
+              Index of max value: {densityStats.stats.indexOfMaxValue}, coords {JSON.stringify(
+                indexToCoord(densityStats.stats.indexOfMaxValue, {
+                  width,
+                  height,
+                }),
+              )}
+            </div>
 
             <Histogram histogram={densityStats.histogram} />
           {:else}
@@ -1663,5 +1708,9 @@
   .or {
     text-align: center;
     font-style: italic;
+  }
+  :global(.ol-zoom) {
+    left: var(--zoom-control-position);
+    transition: left 0.1s ease;
   }
 </style>

@@ -1,7 +1,7 @@
 <script>
   import { createEventDispatcher } from "svelte";
   import FilterChip from "./FilterChip.svelte";
-  import { makeFileNameReadable } from "$lib/utils";
+  import { makeFileNameReadable, makeFileNameDatasetKey } from "$lib/utils";
   import Button from "./Button.svelte";
 
   let {
@@ -20,10 +20,12 @@
     const all = {};
     const ids = [...(selected ?? []), policyLens].filter(Boolean);
     for (const id of ids) {
-      const found = startingPosition?.find((d) => d.filename === id);
+      const found = startingPosition?.find(
+        (d) => makeFileNameDatasetKey(d.filename) === id,
+      );
       if (found) {
         all[id] = {
-          id: found.filename,
+          id: makeFileNameDatasetKey(found.filename),
           title: makeFileNameReadable(found.filename),
           category: found.Tier,
           color: categoryToColor[found.Tier],

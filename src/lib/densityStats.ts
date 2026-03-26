@@ -8,6 +8,7 @@ export interface DensityStats {
   median: number;
   min: number;
   max: number;
+  indexOfMaxValue: number;
 }
 
 export type DensityHistogram = Record<string, number>;
@@ -19,7 +20,7 @@ export function computeDensityStats(
 ): { stats: DensityStats; histogram: DensityHistogram } {
   if (!densityArray || paintedIndices.length === 0) {
     return {
-      stats: { count: 0, sum: 0, mean: 0, median: 0, min: 0, max: 0 },
+      stats: { count: 0, sum: 0, mean: 0, median: 0, min: 0, max: 0, indexOfMaxValue: null },
       histogram: {},
     };
   }
@@ -48,6 +49,8 @@ export function computeDensityStats(
     if (v < min) min = v;
     if (v > max) max = v;
   }
+
+  const indexOfMaxValue = densityArray.indexOf(max);
 
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
@@ -88,6 +91,7 @@ export function computeDensityStats(
       median,
       min,
       max,
+      indexOfMaxValue
     },
     histogram,
   };

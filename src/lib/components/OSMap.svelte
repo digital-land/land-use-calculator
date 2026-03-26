@@ -1,4 +1,38 @@
 <script lang="ts">
+  import "/node_modules/ol/ol.css";
+  import { onMount } from "svelte";
+  import { register } from "ol/proj/proj4";
+  import { Map, View } from "ol";
+  import {
+    Tile as TileLayer,
+    VectorTile as VectorTileLayer,
+    Image as ImageLayer,
+    Vector as VectorLayer,
+  } from "ol/layer";
+  import {
+    VectorTile as VectorTileSource,
+    ImageStatic,
+    XYZ,
+    Vector as VectorSource,
+  } from "ol/source";
+  import Point from "ol/geom/Point.js";
+  import Feature from "ol/Feature.js";
+  import { GeoJSON, MVT } from "ol/format";
+  import { TileGrid } from "ol/tilegrid";
+  import { Style, Stroke, Fill, Circle as CircleStyle } from "ol/style";
+  import FullScreen from "ol/control/FullScreen.js";
+  import { defaults as defaultControls } from "ol/control/defaults.js";
+  import Draw from "ol/interaction/Draw.js";
+  import proj4 from "proj4";
+  import { apply, applyStyle } from "ol-mapbox-style";
+  import { apiKey, serviceUrl } from "$lib/constants";
+  import {
+    coordToIndex,
+    // createGroupLayer,
+    // type MapGroup,
+    geometryToGridHitsScanline,
+  } from "$lib/utils";
+
   let {
     dataURL,
     densityDataURL,
@@ -22,38 +56,10 @@
     usingGeoTiff,
     mobile,
     gridType,
+    markerLocation,
   } = $props();
 
-  // console.log("dataURL", dataURL);
-
-  import "/node_modules/ol/ol.css";
-  import { onMount } from "svelte";
-  import { register } from "ol/proj/proj4";
-  import { Map, View } from "ol";
-  import TileLayer from "ol/layer/Tile.js";
-  import XYZ from "ol/source/XYZ.js";
-  import { VectorTile as VectorTileLayer, Image as ImageLayer } from "ol/layer";
-  import VectorLayer from "ol/layer/Vector.js";
-  import { VectorTile as VectorTileSource } from "ol/source";
-  import VectorSource from "ol/source/Vector.js";
-  import { GeoJSON } from "ol/format";
-  import { TileGrid } from "ol/tilegrid";
-  import { MVT } from "ol/format";
-  import ImageStatic from "ol/source/ImageStatic";
-  import { Style, Stroke, Fill } from "ol/style";
-  import CircleStyle from "ol/style/Circle";
-  import FullScreen from "ol/control/FullScreen.js";
-  import { defaults as defaultControls } from "ol/control/defaults.js";
-  import Draw from "ol/interaction/Draw.js";
-  import proj4 from "proj4";
-  import { apply, applyStyle } from "ol-mapbox-style";
-  import { apiKey, serviceUrl } from "$lib/constants";
-  import {
-    coordToIndex,
-    createGroupLayer,
-    type MapGroup,
-    geometryToGridHitsScanline,
-  } from "$lib/utils";
+  $inspect("markerLocation", markerLocation);
 
   let mapElement: HTMLDivElement;
   let map: Map;
@@ -63,13 +69,44 @@
     aerialBaseLayer: TileLayer,
     currentBaseMap;
 
-  const drawSource = new VectorSource({ wrapX: false });
+  // const markerLocation = [287868, 50139];
 
-  const drawLayer = new VectorLayer({
-    source: drawSource,
+  const marker = $derived(
+    new Feature({
+      type: "circle",
+      geometry: new Point(markerLocation),
+    }),
+  );
+
+  const markerSource = $derived(
+    new VectorSource({
+      features: [marker],
+    }),
+  );
+
+  const markerLayer = new VectorLayer({
+    source: markerSource,
+    style: new Style({
+      image: new CircleStyle({
+        radius: 7,
+        fill: new Fill({ color: "black" }),
+        stroke: new Stroke({
+          color: "white",
+          width: 2,
+        }),
+      }),
+    }),
   });
 
-  let draw: Draw = $state();
+  $effect(() => {
+    console.log("UPDATING marker source");
+    if (markerLocation) {
+      const newMarkerSource = markerSource;
+      markerLayer.setSource(newMarkerSource);
+    }
+  });
+
+  const drawSource = new VectorSource({ wrapX: false });
 
   const drawStyle = new Style({
     fill: new Fill({
@@ -91,7 +128,12 @@
     }),
   });
 
-  drawLayer.setStyle(drawStyle);
+  const drawLayer = new VectorLayer({
+    source: drawSource,
+    style: drawStyle,
+  });
+
+  let draw: Draw = $state();
 
   //Makes sense on desktop but nonsense on mobile - when dataURL is a LayerGroup
   let tiffLayerSource = $derived(
@@ -144,10 +186,9 @@
       tileSize,
     });
 
-    ordnanceSurveyBaseLayer = new VectorTileLayer({ declutter: true });
-
-    await ordnanceSurveyBaseLayer.setSource(
-      new VectorTileSource({
+    ordnanceSurveyBaseLayer = new VectorTileLayer({
+      declutter: true,
+      source: new VectorTileSource({
         format: new MVT(),
         url: tiles,
         projection: "EPSG:27700",
@@ -155,7 +196,7 @@
         attributions:
           "Contains OS data © Crown copyright and database rights 2026",
       }),
-    );
+    });
 
     await applyStyle(
       ordnanceSurveyBaseLayer,
@@ -255,6 +296,7 @@
           scotlandAndWalesVectorLayer,
           tiffLayer,
           densityLayer,
+          markerLayer,
         ]
       : [
           currentBaseMap,
@@ -262,6 +304,7 @@
           geoJsonVectorLayer,
           scotlandAndWalesVectorLayer,
           tiffLayer,
+          markerLayer,
         ];
 
     // if (densityLayer) {
