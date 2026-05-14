@@ -78,7 +78,7 @@ $effect(() => {
       Array.from({ length: width }, (_, x) => raster[y * width + x])
     );
 
-    processGrid(grid, width, height, origin, res);
+    processGrid(raster, width, height, origin, res);
   }
 
   // pixel -> projected coords (EPSG:27700)
@@ -88,55 +88,191 @@ $effect(() => {
     return [xMin + x * xRes, yMax + y * yRes];
   }
 
-  function processGrid(grid: number[][], cols: number, rows: number, origin: number[], res: number[]) {
-    // label clusters (flood-fill)
-    const labels: number[][] = Array.from({ length: rows }, () => Array(cols).fill(0));
-    let currentLabel = 1;
-    const inGrid = (y: number, x: number) => y >= 0 && y < rows && x >= 0 && x < cols;
+//   function processGrid(grid: number[][], cols: number, rows: number, origin: number[], res: number[]) {
+//     // label clusters (flood-fill)
+//     const labels: number[][] = Array.from({ length: rows }, () => Array(cols).fill(0));
+//     let currentLabel = 1;
+//     const inGrid = (y: number, x: number) => y >= 0 && y < rows && x >= 0 && x < cols;
 
-    for (let y = 0; y < rows; y++) {
-      for (let x = 0; x < cols; x++) {
-        if (grid[y][x] === 1 && labels[y][x] === 0) {
-          const stack: [number, number][] = [[y, x]];
-          while (stack.length) {
-            const [cy, cx] = stack.pop()!;
-            if (!inGrid(cy, cx)) continue;
-            if (grid[cy][cx] !== 1 || labels[cy][cx] > 0) continue;
-            labels[cy][cx] = currentLabel;
-            stack.push([cy - 1, cx], [cy + 1, cx], [cy, cx - 1], [cy, cx + 1]);
-          }
-          currentLabel++;
-        }
-      }
-    }
+//     for (let y = 0; y < rows; y++) {
+//       for (let x = 0; x < cols; x++) {
+//         if (grid[y][x] === 1 && labels[y][x] === 0) {
+//           const stack: [number, number][] = [[y, x]];
+//           while (stack.length) {
+//             const [cy, cx] = stack.pop()!;
+//             if (!inGrid(cy, cx)) continue;
+//             if (grid[cy][cx] !== 1 || labels[cy][cx] > 0) continue;
+//             labels[cy][cx] = currentLabel;
+//             stack.push([cy - 1, cx], [cy + 1, cx], [cy, cx - 1], [cy, cx + 1]);
+//           }
+//           currentLabel++;
+//         }
+//       }
+//     }
 
-    // build polygons (projected coords)
-    const features: turf.AllGeoJSON[] = [];
-    for (let y = 0; y < rows; y++) {
-      for (let x = 0; x < cols; x++) {
-        if (labels[y][x] > 0) {
-          const ring = [
-            pixelToGeo(x, y, origin, res),
-            pixelToGeo(x + 1, y, origin, res),
-            pixelToGeo(x + 1, y + 1, origin, res),
-            pixelToGeo(x, y + 1, origin, res),
-            pixelToGeo(x, y, origin, res),
-          ];
-          features.push(turf.polygon([ring], { clusterId: labels[y][x] }));
-        }
-      }
-    }
+//     // build polygons (projected coords)
+//     const features: turf.AllGeoJSON[] = [];
+//     for (let y = 0; y < rows; y++) {
+//       for (let x = 0; x < cols; x++) {
+//         if (labels[y][x] > 0) {
+//           const ring = [
+//             pixelToGeo(x, y, origin, res),
+//             pixelToGeo(x + 1, y, origin, res),
+//             pixelToGeo(x + 1, y + 1, origin, res),
+//             pixelToGeo(x, y + 1, origin, res),
+//             pixelToGeo(x, y, origin, res),
+//           ];
+//           features.push(turf.polygon([ring], { clusterId: labels[y][x] }));
+//         }
+//       }
+//     }
 
-    const fc = turf.featureCollection(features);
-    dissolved = turf.dissolve(fc, { propertyName: "clusterId" });
+//     const fc = turf.featureCollection(features);
+//     dissolved = turf.dissolve(fc, { propertyName: "clusterId" });
 
-    // compute bbox in projected coords
-    bbox = turf.bbox(dissolved) as [number, number, number, number];
+//     // compute bbox in projected coords
+//     bbox = turf.bbox(dissolved) as [number, number, number, number];
 
-    // pathData for preview (projected coords)
-    pathData = dissolved.features.map(polygonToPath).join(" ");
+//     // pathData for preview (projected coords)
+//     pathData = dissolved.features.map(polygonToPath).join(" ");
+//   }
+function processGrid(
+  raster: Uint8Array | number[],
+  cols: number,
+  rows: number,
+  origin: number[],
+  res: number[]
+) {
+  const visited = new Uint8Array(cols * rows);
+  const features: number[][][] = [];
+
+  const idx = (x: number, y: number) => y * cols + x;
+
+  function pixelToGeo(x: number, y: number) {
+    const [xMin, yMax] = origin;
+    const [xRes, yRes] = res;
+    return [xMin + x * xRes, yMax + y * yRes];
   }
 
+  function traceBoundary(startX: number, startY: number) {
+    const stack: [number, number][] = [[startX, startY]];
+    const pixels: [number, number][] = [];
+
+    while (stack.length) {
+      const [x, y] = stack.pop()!;
+      const i = idx(x, y);
+
+      if (
+        x < 0 ||
+        y < 0 ||
+        x >= cols ||
+        y >= rows ||
+        visited[i] ||
+        raster[i] !== 1
+      )
+        continue;
+
+      visited[i] = 1;
+      pixels.push([x, y]);
+
+      stack.push([x + 1, y]);
+      stack.push([x - 1, y]);
+      stack.push([x, y + 1]);
+      stack.push([x, y - 1]);
+    }
+
+    if (pixels.length === 0) return null;
+
+    const edges: number[][] = [];
+
+    for (const [x, y] of pixels) {
+      if (y === 0 || raster[idx(x, y - 1)] === 0)
+        edges.push([x, y, x + 1, y]);
+
+      if (x === cols - 1 || raster[idx(x + 1, y)] === 0)
+        edges.push([x + 1, y, x + 1, y + 1]);
+
+      if (y === rows - 1 || raster[idx(x, y + 1)] === 0)
+        edges.push([x + 1, y + 1, x, y + 1]);
+
+      if (x === 0 || raster[idx(x - 1, y)] === 0)
+        edges.push([x, y + 1, x, y]);
+    }
+
+    if (edges.length === 0) return null;
+
+    const ring: number[][] = [];
+    const start = edges.pop()!;
+    let cx = start[0];
+    let cy = start[1];
+    let nx = start[2];
+    let ny = start[3];
+
+    ring.push(pixelToGeo(cx, cy));
+
+    while (true) {
+      ring.push(pixelToGeo(nx, ny));
+
+      const edgeIndex = edges.findIndex(
+        (e) => e[0] === nx && e[1] === ny
+      );
+
+      if (edgeIndex === -1) break;
+
+      const edge = edges.splice(edgeIndex, 1)[0];
+
+      cx = edge[0];
+      cy = edge[1];
+      nx = edge[2];
+      ny = edge[3];
+
+      if (nx === start[0] && ny === start[1]) break;
+    }
+
+    return ring;
+  }
+
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const i = idx(x, y);
+
+      if (raster[i] === 1 && !visited[i]) {
+        const ring = traceBoundary(x, y);
+        if (ring) features.push(ring);
+      }
+    }
+  }
+
+  // build SVG path
+  let path = "";
+
+  for (const ring of features) {
+    path += "M ";
+    for (const [x, y] of ring) {
+      path += `${x},${y} L `;
+    }
+    path += "Z ";
+  }
+
+  pathData = path;
+
+  // compute bbox
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
+
+  for (const ring of features) {
+    for (const [x, y] of ring) {
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x > maxX) maxX = x;
+      if (y > maxY) maxY = y;
+    }
+  }
+
+  bbox = [minX, minY, maxX, maxY];
+}
   // --- viewBox-based pan/zoom handlers (pan at mouse speed regardless of zoom) ---
 
   function svgClientRect() {
@@ -245,18 +381,18 @@ localStorage.geoJson=geojsonStr;
   }
 
 
- function goToMap() {
-  if (!dissolved) {
-    alert("No GeoJSON loaded. Go back and generate data first.");
-    return;
-  }
+//  function goToMap() {
+//   if (!dissolved) {
+//     alert("No GeoJSON loaded. Go back and generate data first.");
+//     return;
+//   }
 
-  // Make sure the store has the latest reprojected data
-  downloadGeoJSON(); // sets geojsonStore
+//   // Make sure the store has the latest reprojected data
+//   downloadGeoJSON(); // sets geojsonStore
 
-  // Navigate to map page
-  window.location.href = "/map";
-}
+//   // Navigate to map page
+//   window.location.href = "/map";
+// }
 
   onMount(() => {
     loadTiff("cornwall_forest.tif");
@@ -284,7 +420,7 @@ localStorage.geoJson=geojsonStr;
     </g>
   {/if}
 </svg>
-<button onclick={goToMap}>View on Map</button>
+<!-- <button onclick={goToMap}>View on Map</button> -->
 
 <style>
   svg { touch-action: none; } /* good for touch/drag */

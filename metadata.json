@@ -1,0 +1,8 @@
+{
+  "num_layers": 37,
+  "dtype": "uint64",
+  "num_pixels": 37346572,
+  "max_pixel_index": 37346571,
+  "lookup_csv": "layer_lookup.csv",
+  "mask_file": "pixel_masks.uint64.bin"
+}

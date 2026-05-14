@@ -17,7 +17,7 @@
     drawing = $bindable(),
     unpackSelectedLayers,
   } = $props();
-
+let zoom = $state()
 console.log("dataURL",dataURL)
 
   import "/node_modules/ol/ol.css";
@@ -46,6 +46,7 @@ console.log("dataURL",dataURL)
 
   let mapElement: HTMLDivElement;
   let map: Map;
+
   let tiffLayer, densityLayer;
   let osmBaseLayer: TileLayer,
     ordnanceSurveyBaseLayer: VectorTileLayer,
@@ -91,6 +92,7 @@ console.log("dataURL",dataURL)
     const resolutions = service.tileInfo.lods
       .map((l) => l.resolution)
       .slice(0, 16);
+      console.log("resolutions",resolutions)
     const tileSize = service.tileInfo.rows;
     const tiles = service.tiles[0];
 
@@ -235,6 +237,9 @@ console.log("dataURL",dataURL)
     } else {
       tiffLayer?.setVisible(false);
     }
+
+
+
     // }
 
     const drawStyle = new Style({
@@ -473,15 +478,6 @@ console.log("dataURL",dataURL)
     }
   });
 
-  $effect(() => {
-    if (!group) return;
-
-    group.paintedIndices = blendedIndices;
-    densityLayer.setOpacity(opacity);
-
-    // Force OpenLayers to re-render
-    densityLayer.getSource()?.changed();
-  });
 
   $effect(() => {
     console.log("UPDATING tiff source");
