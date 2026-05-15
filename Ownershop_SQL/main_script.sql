@@ -86,7 +86,7 @@ WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_n
 -- 21 123111 UK_corporate.non_profit.church.C_of_E.commissioners
 UPDATE nps_categorised n
 SET cat = 123111
-WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietor_name_1 ILIKE '%curch commission%')
+WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietor_name_1 ILIKE '%church commission%')
 -- 22 123112 UK_corporate.non_profit.church.C_of_E.dioscese
 UPDATE nps_categorised n
 SET cat = 123112
