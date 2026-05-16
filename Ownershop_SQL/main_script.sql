@@ -3,6 +3,11 @@ DROP TABLE IF EXISTS nps_categorised
 CREATE TABLE nps_categorised AS
 SELECT n.*, NULL::INT AS cat
 FROM lr_poly_f n
+
+
+DELETE FROM nps_categorised
+WHERE property_address ILIKE '%mineral%';
+
 -- 01 110000 private_individual
 UPDATE nps_categorised n
 SET cat = 110000
@@ -166,7 +171,7 @@ WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_n
 -- 41 121270 UK_corporate.public_sector.central_government.culture_media_sport
 UPDATE nps_categorised n
 SET cat = 121270
-WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietor_name_1 IS NOT NULL AND (c.proprietor_name_1 ILIKE ANY (ARRAY['%SECRETARY OF STATE%','DEPARTMENT %','DEPARTMENT FOR %'])) AND c.proprietor_name_1 ILIKE ANY (ARRAY['%CULTURE%','%MEDIA%','%SPORT%','%HERITAGE%','%MUSEUM%']))
+WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietor_name_1 IS NOT NULL AND (c.proprietor_name_1 ILIKE ANY (ARRAY['%SECRETARY OF STATE%','DEPARTMENT %','DEPARTMENT FOR %'])) AND c.proprietor_name_1 ILIKE ANY (ARRAY['%CULTURE%','%MEDIA%','% SPORT%','%HERITAGE%','%MUSEUM%']))
 -- 42 121280 UK_corporate.public_sector.central_government.other
 UPDATE nps_categorised n
 SET cat = 121280
