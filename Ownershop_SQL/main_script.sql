@@ -13,11 +13,6 @@ UPDATE nps_categorised n
 SET cat = 110000
 WHERE NOT EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no) AND NOT EXISTS (SELECT 1 FROM ocod_full_2025_12 o WHERE o.title_number = n.title_no);
 
--- 01 110000 private_individual
-UPDATE nps_categorised n
-SET cat = 110000
-WHERE NOT EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no) AND NOT EXISTS (SELECT 1 FROM ocod_full_2025_12 o WHERE o.title_number = n.title_no);
-
 -- 02 130000 overseas_corporate
 UPDATE nps_categorised n
 SET cat = 130000
@@ -78,7 +73,7 @@ UPDATE nps_categorised n
 SET cat = 131900
 WHERE NOT EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no) AND EXISTS (SELECT 1 FROM ocod_full_2025_12 o WHERE o.title_number = n.title_no AND o.country_incorporated_1 = 'CAYMAN ISLANDS');
 
--- 14 123000 UK_corporate.other
+-- 14 123000 UK_corporate.other !!!!!!!!NOTE: THIS IS BEING WIPED OUT LATER
 UPDATE nps_categorised n
 SET cat = 123000
 WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no);
@@ -111,7 +106,7 @@ WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_n
 -- 20 123200 UK_corporate.non_profit.national_trust
 UPDATE nps_categorised n
 SET cat = 123200
-WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietor_name_1 ILIKE '% national trus%t' AND c.proprietor_name_1 NOT ILIKE '%first%');
+WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND (c.proprietor_name_1 ILIKE '%the national trust%' or c.proprietor_name_1 ILIKE 'national trust%') AND c.proprietor_name_1 NOT ILIKE '%first%');
 
 -- 21 123111 UK_corporate.non_profit.church.C_of_E.commissioners
 UPDATE nps_categorised n
@@ -126,7 +121,7 @@ WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_n
 -- 23 123120 UK_corporate.non_profit.church.other
 UPDATE nps_categorised n
 SET cat = 123120
-WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietor_name_1 ILIKE ANY (ARRAY['%salvation army%','%mormon%','%quaker%','%gospel%','%mosque%','%islam%','%judai%','%synag%','%hebrew%','%catholic%','%apastolic%','%methodist%','%order of%','%sikh%','%bhuddist%','%baptist%','%cathedral of %','%cathedral church %','% chapel of %','% church of %','% St %''s church%']) AND c.property_address NOT ILIKE '% mine%' AND c.proprietor_name_1 NOT ILIKE '%THE PRESIDENT%' AND c.proprietor_name_1 NOT ILIKE '%MERCHANT TAYLORS%' AND c.proprietor_name_1 NOT ILIKE '%dioc%' AND c.proprietor_name_1 NOT ILIKE '%church commissioner%' AND c.proprietor_name_1 NOT ilike '%SCHOLARS OF%');
+WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietor_name_1 ILIKE ANY (ARRAY['% salvation army%',' %mormon%','% quaker%','% gospel%','% mosque%','% islam%','% judai%','% synag%','% hebrew%','% catholic%','catholic%','%apastolic%','%methodist%','order of %','& order of %','%sikh%','%bhuddist%','%baptist%','%cathedral of %','%cathedral church %','% chapel of %','% church of %','% St %''s church%']) AND c.property_address NOT ILIKE '% mine%' AND c.proprietor_name_1 NOT ILIKE '%THE PRESIDENT%' AND c.proprietor_name_1 NOT ILIKE '%MERCHANT TAYLORS%' AND c.proprietor_name_1 NOT ILIKE '%dioc%' AND c.proprietor_name_1 NOT ILIKE '%church commissioner%' AND c.proprietor_name_1 NOT ilike '% SCHOLARS OF %');
 
 -- 24 121310 UK_corporate.public_sector.public_agency.national_park
 UPDATE nps_categorised n
@@ -163,100 +158,102 @@ UPDATE nps_categorised n
 SET cat = 121353
 WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietor_name_1 ILIKE '% ambulance %');
 
--- 31 121360 UK_corporate.public_sector.public_agency.post_office
-UPDATE nps_categorised n
-SET cat = 121360
-WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND (c.proprietor_name_1 ILIKE '%post office limited%' or c.proprietor_name_1 ILIKE '%the post office%' or c.proprietor_name_1 ILIKE 'post office'));
+-- 31 121360 UK_corporate.public_sector.public_agency.post_office !!! REMOVED !!!!!!!!!!!!!!!!!!!!!
 
 -- 32 121370 UK_corporate.public_sector.public_agency.network_rail
 UPDATE nps_categorised n
 SET cat = 121370
 WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND (c.proprietor_name_1 ILIKE '%network rail%' or c.proprietor_name_1 ILIKE '%british rail%'));
 
--- 33 121380 UK_corporate.public_sector.public_agency.nuclear_decommissioning
+-- 33 121380 UK_corporate.public_sector.public_agency.nuclear_decommissioning !!! REMOVE OR NOT ??? !!!
 UPDATE nps_categorised n
 SET cat = 121380
 WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietor_name_1 ILIKE '%nuclear %' AND c.proprietor_name_1 ILIKE '% authority%');
 
--- 34 121390 UK_corporate.public_sector.public_agency.other
+-- 34 121390 UK_corporate.public_sector.public_agency.other !!! DODGY APPROACH ??? !!!
 UPDATE nps_categorised n
 SET cat = 121390
 WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietor_name_1 ILIKE ANY (ARRAY['%British Broadcasting Corporation%','%Channel 4%','%S4C%','%National Wealth Fund Limited%','%British Business Bank%','%British International Investment%','%UK Government Investments%','%UK Asset Resolution%','%National Energy System Operator%','%Great British Energy%','%Great British Energy – Nuclear%','%United Kingdom National Nuclear Laboratory%','%Nuclear Restoration Services%','%Nuclear Waste Services%','%Sellafield Ltd%','%AWE plc%','%Sheffield Forgemasters%','%High Speed Two (HS2) Ltd%','%East West Railway Company%','%London & Continental Railways%','%DfT Operator%','%Direct Rail Services%','%Ordnance Survey%','%UK Hydrographic Office%','%Met Office%','%National Physical Laboratory%','%The Royal Mint%','%Student Loans Company%','%Civil Aviation Authority%','%Genomics England%','%NHS Professionals%','%Porton Biopharma%','%London North Eastern Railway%','%Northern Trains%','%Southeastern%','%TransPennine Trains%','%South Western Railway%','%C2c%','%Greater Anglia%']));
 
+-- 42 121280 UK_corporate.public_sector.central_government.other // SET THE OTHERS FIRST !!!!!
+UPDATE nps_categorised n
+SET cat = 121280
+WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietor_name_1 IS NOT NULL AND (c.proprietor_name_1 ILIKE ANY (ARRAY['%SECRETARY OF STATE%','DEPARTMENT %','% DEPARTMENT FOR %'%DEPARTMENT OF %','%MINISTRY OF %'])))
+
 -- 35 121210 UK_corporate.public_sector.central_government.defence
 UPDATE nps_categorised n
 SET cat = 121210
-WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietor_name_1 IS NOT NULL AND (c.proprietor_name_1 ILIKE ANY (ARRAY['%SECRETARY OF STATE%','DEPARTMENT %','DEPARTMENT FOR %'])) AND c.proprietor_name_1 ILIKE ANY (ARRAY['%DEFENCE%','%ROYAL NAVY%','%AIR FORCE%','%ROYAL AIR%']));
+WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietor_name_1 IS NOT NULL AND (c.proprietor_name_1 ILIKE ANY (ARRAY['%SECRETARY OF STATE%','DEPARTMENT %','% DEPARTMENT FOR %'%DEPARTMENT OF %','%MINISTRY OF %'])) AND c.proprietor_name_1 ILIKE ANY (ARRAY['%DEFENCE%','%ROYAL NAVY%','%AIR FORCE%','%ROYAL AIR%']));
 
 -- 36 121220 UK_corporate.public_sector.central_government.transport
 UPDATE nps_categorised n
 SET cat = 121220
-WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietor_name_1 IS NOT NULL AND (c.proprietor_name_1 ILIKE ANY (ARRAY['%SECRETARY OF STATE%','DEPARTMENT %','DEPARTMENT FOR %'])) AND c.proprietor_name_1 ILIKE ANY (ARRAY['%TRANSPORT%','%DEPARTMENT FOR TRANSPORT%','%DEPARTMENT OF TRANSPORT%']));
+WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietor_name_1 IS NOT NULL AND (c.proprietor_name_1 ILIKE ANY (ARRAY['%SECRETARY OF STATE%','DEPARTMENT %','% DEPARTMENT FOR %'%DEPARTMENT OF %','%MINISTRY OF %'])) AND c.proprietor_name_1 ILIKE ANY (ARRAY['%TRANSPORT%','%DEPARTMENT FOR TRANSPORT%','%DEPARTMENT OF TRANSPORT%']));
 
 -- 37 121230 UK_corporate.public_sector.central_government.housing
 UPDATE nps_categorised n
 SET cat = 121230
-WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietor_name_1 IS NOT NULL AND (c.proprietor_name_1 ILIKE ANY (ARRAY['%SECRETARY OF STATE%','DEPARTMENT %','DEPARTMENT FOR %'])) AND c.proprietor_name_1 ILIKE ANY (ARRAY['%HOUSING%','%COMMUNITIES%','%LEVELLING UP%']));
+WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietor_name_1 IS NOT NULL AND (c.proprietor_name_1 ILIKE ANY (ARRAY['%SECRETARY OF STATE%','DEPARTMENT %','% DEPARTMENT FOR %'%DEPARTMENT OF %','%MINISTRY OF %'])) AND c.proprietor_name_1 ILIKE ANY (ARRAY['%HOUSING%','%COMMUNITIES%','%LEVELLING UP%']));
 
 -- 38 121240 UK_corporate.public_sector.central_government.environment
 UPDATE nps_categorised n
 SET cat = 121240
-WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietor_name_1 IS NOT NULL AND (c.proprietor_name_1 ILIKE ANY (ARRAY['%SECRETARY OF STATE%','DEPARTMENT %','DEPARTMENT FOR %'])) AND c.proprietor_name_1 ILIKE ANY (ARRAY['%ENVIRONMENT%','%DEFRA%','%RURAL AFFAIRS%','%FISHERIES%']));
+WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietor_name_1 IS NOT NULL AND (c.proprietor_name_1 ILIKE ANY (ARRAY['%SECRETARY OF STATE%','DEPARTMENT %','% DEPARTMENT FOR %'%DEPARTMENT OF %','%MINISTRY OF %'])) AND c.proprietor_name_1 ILIKE ANY (ARRAY['%ENVIRONMENT%','%DEFRA%','%RURAL AFFAIRS%','%FISHERIES%']));
 
 -- 39 121250 UK_corporate.public_sector.central_government.justice
 UPDATE nps_categorised n
 SET cat = 121250
-WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietor_name_1 IS NOT NULL AND (c.proprietor_name_1 ILIKE ANY (ARRAY['%SECRETARY OF STATE%','DEPARTMENT %','DEPARTMENT FOR %'])) AND c.proprietor_name_1 ILIKE ANY (ARRAY['%JUSTICE%','%NATIONAL OFFENDER%','%PRISON%']));
+WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietor_name_1 IS NOT NULL AND (c.proprietor_name_1 ILIKE ANY (ARRAY['%SECRETARY OF STATE%','DEPARTMENT %','% DEPARTMENT FOR %'%DEPARTMENT OF %','%MINISTRY OF %'])) AND c.proprietor_name_1 ILIKE ANY (ARRAY['%JUSTICE%','%NATIONAL OFFENDER%','%PRISON%']));
 
 -- 40 121260 UK_corporate.public_sector.central_government.health
 UPDATE nps_categorised n
 SET cat = 121260
-WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietor_name_1 IS NOT NULL AND (c.proprietor_name_1 ILIKE ANY (ARRAY['%SECRETARY OF STATE%','DEPARTMENT %','DEPARTMENT FOR %'])) AND c.proprietor_name_1 ILIKE ANY (ARRAY['%HEALTH%','%SOCIAL CARE%','%NHS%','%NATIONAL HEALTH SERVICE%']));
+WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietor_name_1 IS NOT NULL AND (c.proprietor_name_1 ILIKE ANY (ARRAY['%SECRETARY OF STATE%','DEPARTMENT %','% DEPARTMENT FOR %'%DEPARTMENT OF %','%MINISTRY OF %'])) AND c.proprietor_name_1 ILIKE ANY (ARRAY['%HEALTH%','%SOCIAL CARE%','%NHS%','%NATIONAL HEALTH SERVICE%']));
 
 -- 41 121270 UK_corporate.public_sector.central_government.culture_media_sport
 UPDATE nps_categorised n
 SET cat = 121270
-WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietor_name_1 IS NOT NULL AND (c.proprietor_name_1 ILIKE ANY (ARRAY['%SECRETARY OF STATE%','DEPARTMENT %','DEPARTMENT FOR %'])) AND c.proprietor_name_1 ILIKE ANY (ARRAY['%CULTURE%','%MEDIA%','% SPORT%','%HERITAGE%','%MUSEUM%']));
+WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietor_name_1 IS NOT NULL AND (c.proprietor_name_1 ILIKE ANY (ARRAY['%SECRETARY OF STATE%','DEPARTMENT %','% DEPARTMENT FOR %'%DEPARTMENT OF %','%MINISTRY OF %'])) AND c.proprietor_name_1 ILIKE ANY (ARRAY['% CULTURE%','% MEDIA%','% SPORT%','% HERITAGE%','%MUSEUM%']));
 
--- 42 121280 UK_corporate.public_sector.central_government.other
-UPDATE nps_categorised n
-SET cat = 121280
-WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietor_name_1 IS NOT NULL AND (c.proprietor_name_1 ILIKE ANY (ARRAY['%SECRETARY OF STATE%','DEPARTMENT %','DEPARTMENT FOR %'])) AND NOT (c.proprietor_name_1 ILIKE ANY(ARRAY['%DEFENCE%','%ROYAL NAVY%','%AIR FORCE%','%ROYAL AIR%','%TRANSPORT%','%DEPARTMENT FOR TRANSPORT%','%DEPARTMENT OF TRANSPORT%','%ENVIRONMENT%','%DEFRA%','%RURAL AFFAIRS%','%FISHERIES%','%JUSTICE%','%NATIONAL OFFENDER%','%PRISON%','%HEALTH%','%SOCIAL CARE%','%NHS%','%EDUCATION%','%SCHOOL%','%HOUSING%','%COMMUNITIES%','%LEVELLING UP%','%HOMES ENGLAND%','%CULTURE%','%MEDIA%','%SPORT%','%HERITAGE%','%MUSEUM%','%HOME DEPARTMENT%','%HOME SECRETARY%','%HOME DEPT%','%INDUSTRY%','%TRADE%'])));
 
 -- 43 121170 UK_corporate.public_sector.local_government.other
 UPDATE nps_categorised n
 SET cat = 121170
-WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietorship_category_1 ILIKE ANY (ARRAY['County Council','Local Authority']));
+WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND (c.proprietorship_category_1 ILIKE ANY (ARRAY['County Council','Local Authority','Corporate Body']) AND c.proprietor_name_1 ILIKE '%COUNCIL%' AND c.proprietor_name_1 NOT ILIKE '%COUNCIL FOR%'));
 
--- 44 121120 UK_corporate.public_sector.local_government.county
+-- 44 121120 UK_corporate.public_sector.local_government.county !! UPDATED TO BE MORE BROAD BRUSH !!!!
 UPDATE nps_categorised n
 SET cat = 121120
-WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietorship_category_1 ILIKE 'County Council');
+WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND (c.proprietorship_category_1 ILIKE 'County Council' OR 
+c.proprietor_name_1 ILIKE '%COUNTY COUNCIL%'));
 
--- 45 121110 UK_corporate.public_sector.local_government.unitary
+-- 45 121110 UK_corporate.public_sector.local_government.unitary !!! NOTE - A LOT OF LAND IS STILL IN THE NAME OF THE PREVIOUS ADMINISTRATIVE BODY
 UPDATE nps_categorised n
 SET cat = 121110
-WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietorship_category_1 ILIKE ANY (ARRAY['County Council','Local Authority']) AND c.proprietor_name_1 ILIKE ANY (ARRAY['%Bath %','%North East Somerset %','%Bedford %','%Blackburn %','%Darwen %','%Blackpool %','%Bournemouth %','%Christchurch %','%Poole %','%Bracknell %','%Brighton %','%Hove %','%Bristol %','%Buckinghamshire %','%Central Bedfordshire %','%Cheshire East %','%Cheshire West %','%Chester %','%Cornwall %','%County Durham %','%Cumberland %','%Darlington %','%Derby %','%Dorset %','%East Riding %','%Halton %','%Hartlepool %','%Herefordshire %','%Isle of Wight %','%Isles of Scilly %','%Kingston upon Hull %','%Leicester %','%Luton %','%Medway %','%Middlesbrough %','%Milton Keynes %','%North East Lincolnshire %','%North Lincolnshire %','%North Northamptonshire %','%North Somerset %','%North Yorkshire %','%Northumberland %','%Nottingham %','%Peterborough %','%Plymouth %','%Portsmouth %','%Reading %','%Redcar%','%Cleveland%','%Rutland %','%Shropshire %','%Slough %','%Somerset %','%South Gloucestershire %','%Southampton %','%Southend %','%Stockton %','%Stoke %','%Swindon %','%Telford %','%Wrekin %','%Thurrock %','%Torbay %','%Warrington %','%West Berkshire %','%West Northamptonshire %','%Westmorland %','%Furness %','%Wiltshire %','%Windsor %','%Maidenhead %','%Wokingham %','%York %']));
+WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND (c.proprietor_name_1 ILIKE ANY (ARRAY['%Bath %','%North East Somerset %','%Bedford %','%Blackburn %','%Darwen %','%Blackpool %','%Bournemouth %','%Christchurch %','%Poole %','%Bracknell %','%Brighton %','%Hove %','%Bristol %','%Buckinghamshire %','%Central Bedfordshire %','%Cheshire East %','%Cheshire West %','% Chester %','CHESTER%','%Cornwall %','%County Durham %','%Cumberland %','%Darlington %','%Derby %','%Dorset %','%East Riding %','%Halton %','%Hartlepool %','%Herefordshire %','%Isle of Wight %','%Isles of Scilly %','%Kingston upon Hull %','%Leicester %','%Luton %','%Medway %','%Middlesbrough %','%Milton Keynes %','%North East Lincolnshire %','%North Lincolnshire %','%North Northamptonshire %','%North Somerset %','%North Yorkshire %','%Northumberland %','%Nottingham %','%Peterborough %','%Plymouth %','%Portsmouth %','%Reading %','%Redcar%','%Cleveland%','%Rutland %','%Shropshire %','%Slough %','%Somerset %','%South Gloucestershire %','%Southampton %','%Southend %','%Stockton %','%Stoke %','%Swindon %','%Telford %','%Wrekin %','%Thurrock %','%Torbay %','%Warrington %','%West Berkshire %','%West Northamptonshire %','%Westmorland %','%Furness %','%Wiltshire %','%Windsor %','%Maidenhead %','%Wokingham %','%York %'])
+AND c.proprietor_name_1 ILIKE '%COUNCIL%' AND c.proprietor_name_1 NOT ILIKE '%COUNCIL FOR%' AND c.proprietor_name_1 not ILIKE'% TOWN %'AND c.proprietor_name_1 not ILIKE'% PARISH %'
+AND c.proprietor_name_1 not ILIKE'TOWN %'AND c.proprietor_name_1 not ILIKE'PARISH %' AND c.proprietor_name_1 not ILIKE'DIOC'))
 
--- 46 121130 UK_corporate.public_sector.local_government.district
+
+-- 46 121130 UK_corporate.public_sector.local_government.district !!! LATER OVERWRITE OTHERS
 UPDATE nps_categorised n
 SET cat = 121130
-WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietorship_category_1 ILIKE 'Local Authority');
+WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND (c.proprietor_name_1 ILIKE '%DISTRICT COUNCIL%' OR c.proprietor_name_1 ILIKE '%BOROUGH COUNCIL%' OR c.proprietor_name_1 ILIKE '%metropolitan district%' OR c.proprietor_name_1 ILIKE '%City of London Corporation%' OR c.proprietor_name_1 ILIKE '%Westminster City Council%'));
 
 -- 47 121140 UK_corporate.public_sector.local_government.parish_or_town
 UPDATE nps_categorised n
 SET cat = 121140
-WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietorship_category_1 ILIKE 'Local Authority' AND c.proprietor_name_1 ILIKE ANY (ARRAY['%Parish Council%','%Town Council%']));
+WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietor_name_1 ILIKE ANY (ARRAY['%Parish Council%','%Town Council%']));
 
 -- 48 121150 UK_corporate.public_sector.local_government.combined_authority
 UPDATE nps_categorised n
 SET cat = 121150
-WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietorship_category_1 ILIKE ANY (ARRAY['County Council','Local Authority']) AND c.proprietor_name_1 ILIKE '%COMBINED AUTHORITY%');
+WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietor_name_1 ILIKE '% COMBINED AUTHORITY%');
 
 -- 49 121160 UK_corporate.public_sector.local_government.greater_london_authority
 UPDATE nps_categorised n
 SET cat = 121160
-WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietorship_category_1 ILIKE ANY (ARRAY['County Council','Local Authority']) AND (c.proprietor_name_1 ILIKE '%GREATER LONDON AUTHORITY%' OR c.proprietor_name_1 ILIKE '%TRANSPORT FOR LONDON%'));
+WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND c.proprietor_name_1 ILIKE '%GREATER LONDON AUTHORITY%' OR c.proprietor_name_1 ILIKE '%TRANSPORT FOR LONDON%');
 
 -- final check for no blanks
 UPDATE nps_categorised SET cat = 110000 WHERE cat IS null;
