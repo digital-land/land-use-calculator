@@ -229,22 +229,53 @@ WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_n
 c.proprietor_name_1 ILIKE '%COUNTY COUNCIL%'));
 
 -- 45 121110 UK_corporate.public_sector.local_government.unitary !!! NOTE - A LOT OF LAND IS STILL IN THE NAME OF THE PREVIOUS ADMINISTRATIVE BODY
+-- Minimal unitary “upcast” based on successor-area tokens.
+-- Extend unitary_area_tokens with the areas that have become unitaries
+-- and whose predecessor council names still appear in proprietor_name_1.
+
+WITH unitary_area_tokens AS (
+  SELECT unnest(ARRAY[
+    -- examples: add/remove as needed
+    'CORNWALL',
+    'NORTH YORKSHIRE',
+    'WEST NORTHAMPTONSHIRE',
+    'CENTRAL BEDFORDSHIRE',
+    'EAST RIDING OF YORKSHIRE',
+    'KINGSTON UPON HULL',
+    'MEDWAY',
+    'REDCAR',
+    'CLEVELAND',
+    'SHROPSHIRE',
+    'BUCKINGHAMSHIRE',
+    'BATH',
+    'NORTH EAST SOMERSET',
+    'BOURNEMOUTH',
+    'CHRISTCHURCH',
+    'POOLE',
+    'CUMBERLAND',
+    'WESTMORLAND',
+    'FURNESS'
+  ]) AS token
+)
 UPDATE nps_categorised n
 SET cat = 121110
-WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND ((c.proprietor_name_1 ILIKE ANY (ARRAY['%Bath %','%North East Somerset %','%Bedford %',
-'%Blackburn %','%Darwen %','%Blackpool %','%Bournemouth %','%Christchurch %','%Poole %','%Bracknell %','%Brighton %','%Hove %','%Bristol %',
-'%Buckinghamshire %','%Central Bedfordshire %','%Cheshire East %','%Cheshire West %','% Chester %','CHESTER%','%Cornwall %','%County Durham %',
-'%Cumberland %','%Darlington %','%Derby %','%Dorset %','%East Riding %','%Halton %','%Hartlepool %','%Herefordshire %','%Isle of Wight %',
-'%Isles of Scilly %','%Kingston upon Hull %','%Leicester %','%Luton %','%Medway %','%Middlesbrough %','%Milton Keynes %','%North East Lincolnshire %',
-'%North Lincolnshire %','%North Northamptonshire %','%North Somerset %','%North Yorkshire %','%Northumberland %','%Nottingham %','%Peterborough %',
-'%Plymouth %','%Portsmouth %','%Reading %','%Redcar%','%Cleveland%','%Rutland %','%Shropshire %','%Slough %','%Somerset %','%South Gloucestershire %',
-'%Southampton %','%Southend %','%Stockton %','%Stoke %','%Swindon %','%Telford %','%Wrekin %','%Thurrock %','%Torbay %','%Warrington %','%West Berkshire %',
-'%West Northamptonshire %','%Westmorland %','%Furness %','%Wiltshire %','%Windsor %','%Maidenhead %','%Wokingham %','%York %']) AND c.proprietor_name_1 ILIKE '%COUNCIL%' AND c.proprietor_name_1 NOT ILIKE '%COUNCIL FOR%' AND c.proprietor_name_1 not ILIKE '% TOWN %'AND c.proprietor_name_1 not ILIKE'% PARISH %'
-AND c.proprietor_name_1 not ILIKE'TOWN %'AND c.proprietor_name_1 not ILIKE'PARISH %' AND c.proprietor_name_1 not ILIKE '%DIOC%')
-OR c.proprietor_name_1 ILIKE ANY(ARRAY
-['%city council%', '%borough council%', '%metropolitan district%', '%City of London Corporation%', 
-'%council of the borough%', '%council of the city%', '%council of the metropolitan%', '%LONDON BOROUGH%']
-)));
+WHERE EXISTS (
+  SELECT 1
+  FROM ccod_full_2025_12 c
+  JOIN unitary_area_tokens u
+    ON upper(c.proprietor_name_1) LIKE '%' || u.token || '%'
+  WHERE c.title_number = n.title_no
+    -- Guard: only treat local-authority-like rows as candidates
+    AND (
+      c.proprietorship_category_1 IN ('Local Authority','County Council')
+      OR upper(c.proprietor_name_1) LIKE '% COUNCIL%'
+      OR upper(c.proprietor_name_1) LIKE '%LONDON BOROUGH%'
+    )
+    -- Exclusions: remove parish/town councils (out of scope) and church bodies
+    AND upper(c.proprietor_name_1) NOT LIKE '%PARISH%'
+    AND upper(c.proprietor_name_1) NOT LIKE '%TOWN%'
+    AND upper(c.proprietor_name_1) NOT LIKE '%DIOC%'
+);
 
 
 
