@@ -231,7 +231,7 @@ c.proprietor_name_1 ILIKE '%COUNTY COUNCIL%'));
 -- 45 121110 UK_corporate.public_sector.local_government.unitary !!! NOTE - A LOT OF LAND IS STILL IN THE NAME OF THE PREVIOUS ADMINISTRATIVE BODY
 UPDATE nps_categorised n
 SET cat = 121110
-WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND (c.proprietor_name_1 ILIKE ANY (ARRAY['%Bath %','%North East Somerset %','%Bedford %',
+WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND ((c.proprietor_name_1 ILIKE ANY (ARRAY['%Bath %','%North East Somerset %','%Bedford %',
 '%Blackburn %','%Darwen %','%Blackpool %','%Bournemouth %','%Christchurch %','%Poole %','%Bracknell %','%Brighton %','%Hove %','%Bristol %',
 '%Buckinghamshire %','%Central Bedfordshire %','%Cheshire East %','%Cheshire West %','% Chester %','CHESTER%','%Cornwall %','%County Durham %',
 '%Cumberland %','%Darlington %','%Derby %','%Dorset %','%East Riding %','%Halton %','%Hartlepool %','%Herefordshire %','%Isle of Wight %',
@@ -244,7 +244,7 @@ AND c.proprietor_name_1 not ILIKE'TOWN %'AND c.proprietor_name_1 not ILIKE'PARIS
 OR c.proprietor_name_1 ILIKE ANY(ARRAY
 ['%city council%', '%borough council%', '%metropolitan district%', '%City of London Corporation%', 
 '%council of the borough%', '%council of the city%', '%council of the metropolitan%', '%LONDON BOROUGH%']
-));
+)));
 
 
 
@@ -369,3 +369,8 @@ LEFT JOIN examples e
   ON e.cat = s.cat
   AND e.rn <= 10
 ORDER BY s.hectares DESC, s.cat, e.rn;
+
+
+WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_no AND (1 AND 1 AND 1 AND 1 AND 1
+AND 1 AND 1 AND 1)
+OR 1);
