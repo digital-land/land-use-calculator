@@ -1,0 +1,33 @@
+﻿Level,Tier,Category,,filename,initially_checked,,,Data_layer,,,,
+3,Physically restricted,All categories,BUA,ENG_100_builtUpArea_B_idx_32_0204.bin,y,ENG,100,builtUpArea,B,idx,32,0204.bin
+3,Development restricted,All categories,Battlefield,ENG_100_battlefield_B_idx_32_0204.bin,y,ENG,100,battlefield,B,idx,32,0204.bin
+3,Development restricted,All categories,GreBel,ENG_100_greenBelt_B_idx_32_0204.bin,y,ENG,100,greenBelt,B,idx,32,0204.bin
+3,Development restricted,All categories,HistParkGar,ENG_100_historicParksAndGardens_B_idx_32_0204.bin,y,ENG,100,historicParksAndGardens,B,idx,32,0204.bin
+3,Development restricted,All categories,Ramsar,ENG_100_ramsarSite_B_idx_32_0204.bin,y,ENG,100,ramsarSite,B,idx,32,0204.bin
+3,Development restricted,All categories,SSSI,ENG_100_siteOfSpecialScientificInterest_B_idx_32_0204.bin,y,ENG,100,siteOfSpecialScientificInterest,B,idx,32,0204.bin
+3,Development restricted,All categories,SAofCons,ENG_100_specialAreaOfConservation_B_idx_32_0204.bin,y,ENG,100,specialAreaOfConservation,B,idx,32,0204.bin
+3,Development restricted,All categories,SPA,ENG_100_specialProtectionArea_B_idx_32_0204.bin,y,ENG,100,specialProtectionArea,B,idx,32,0204.bin
+3,Development restricted,All categories,WorHerSite,ENG_100_worldHeritageSite_B_idx_32_0204.bin,y,ENG,100,worldHeritageSite,B,idx,32,0204.bin
+3,Development restricted,All categories,WorHerBufZon,ENG_100_worldHeritageSiteBufferZone_B_idx_32_0204.bin,y,ENG,100,worldHeritageSiteBufferZone,B,idx,32,0204.bin
+3,Development limited,All categories,ConsArea,ENG_100_conservationArea_B_idx_32_0204.bin,y,ENG,100,conservationArea,B,idx,32,0204.bin
+3,Development limited,All categories,InfrProj,ENG_100_infrastructureProject_B_idx_32_0204.bin,y,ENG,100,infrastructureProject,B,idx,32,0204.bin
+3,Development limited,All categories,LocNatRes,ENG_100_localNatureReserve_B_idx_32_0204.bin,y,ENG,100,localNatureReserve,B,idx,32,0204.bin
+3,Development limited,All categories,NatNatRes,ENG_100_nationalNatureReserve_B_idx_32_0204.bin,y,ENG,100,nationalNatureReserve,B,idx,32,0204.bin
+3,Development limited,All categories,NPark,ENG_100_nationalPark_B_idx_32_0204.bin,y,ENG,100,nationalPark,B,idx,32,0204.bin
+3,Other,All categories,AQMA,ENG_100_airQualityManagementArea_B_idx_32_0204.bin,y,ENG,100,airQualityManagementArea,B,idx,32,0204.bin
+3,Other,All categories,AWood,ENG_100_ancientWoodland_B_idx_32_0204.bin,y,ENG,100,ancientWoodland,B,idx,32,0204.bin
+3,Other,All categories,ArchPArea,ENG_100_archaeologicalPriorityArea_B_idx_32_0204.bin,y,ENG,100,archaeologicalPriorityArea,B,idx,32,0204.bin
+3,Other,All categories,AONB,ENG_100_areaOfOutstandingNaturalBeauty_B_idx_32_0204.bin,y,ENG,100,areaOfOutstandingNaturalBeauty,B,idx,32,0204.bin
+3,Other,All categories,A4DArea,ENG_100_article4DirectionArea_B_idx_32_0204.bin,y,ENG,100,article4DirectionArea,B,idx,32,0204.bin
+3,Other,All categories,Brownfield,ENG_100_brownfieldSite_B_idx_32_0204.bin,y,ENG,100,brownfieldSite,B,idx,32,0204.bin
+3,Other,All categories,CofImmunity,ENG_100_certificateOfImmunity_B_idx_32_0204.bin,y,ENG,100,certificateOfImmunity,B,idx,32,0204.bin
+3,Other,All categories,DesCodeArea,ENG_100_designCodeArea_B_idx_32_0204.bin,y,ENG,100,designCodeArea,B,idx,32,0204.bin
+3,Other,All categories,DevCorpBoundary,ENG_100_developmentCorporationBoundary_B_idx_32_0204.bin,y,ENG,100,developmentCorporationBoundary,B,idx,32,0204.bin
+3,Other,All categories,FloStoArea,ENG_100_floodStorageArea_B_idx_32_0204.bin,y,ENG,100,floodStorageArea,B,idx,32,0204.bin
+3,Other,All categories,HerAtRisk,ENG_100_heritageAtRisk_B_idx_32_0204.bin,y,ENG,100,heritageAtRisk,B,idx,32,0204.bin
+3,Other,All categories,HerCoast,ENG_100_heritageCoast_B_idx_32_0204.bin,y,ENG,100,heritageCoast,B,idx,32,0204.bin
+3,Other,All categories,ListBuilOutl,ENG_100_listedBuildingOutline_B_idx_32_0204.bin,y,ENG,100,listedBuildingOutline,B,idx,32,0204.bin
+3,Other,All categories,NatImpArea,ENG_100_natureImprovementArea_B_idx_32_0204.bin,y,ENG,100,natureImprovementArea,B,idx,32,0204.bin
+3,Other,All categories,SMon,ENG_100_scheduledMonument_B_idx_32_0204.bin,y,ENG,100,scheduledMonument,B,idx,32,0204.bin
+3,Other,All categories,TreePZ,ENG_100_treePreservationZone_B_idx_32_0204.bin,y,ENG,100,treePreservationZone,B,idx,32,0204.bin
+3,Other,All categories,Eng,ENGLAND_100M_OS_GRID_COMPATIBLE.bin,,ENG,100,England,B,idx,32,0204.bin

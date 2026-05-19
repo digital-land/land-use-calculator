@@ -17,7 +17,7 @@
   } from "ol/source";
   import Point from "ol/geom/Point.js";
   import Feature from "ol/Feature.js";
-  import { GeoJSON, MVT } from "ol/format";
+  import { GeoJSON, MVT, WKT } from "ol/format";
   import { TileGrid } from "ol/tilegrid";
   import { Style, Stroke, Fill, Circle as CircleStyle } from "ol/style";
   import FullScreen from "ol/control/FullScreen.js";
@@ -25,12 +25,13 @@
   import Draw from "ol/interaction/Draw.js";
   import proj4 from "proj4";
   import { apply, applyStyle } from "ol-mapbox-style";
-  import { apiKey, serviceUrl } from "$lib/constants";
+  import { apiKey, serviceUrl, tiles, CODES } from "$lib/constants";
   import {
     coordToIndex,
     // createGroupLayer,
     // type MapGroup,
-    geometryToGridHitsScanline,
+    // geometryToGridHitsScanline,
+    tilesForBBox,
   } from "$lib/utils";
 
   let {
@@ -49,17 +50,21 @@
     customArea = $bindable(),
     customAreaBBox = $bindable(),
     drawnFeature = $bindable(),
+    selectedLA = $bindable(),
     policyLens = $bindable(),
     drawing = $bindable(),
-    unpackSelectedLayers,
+    unpackAndBlendLayers,
     unpackZippedLayers,
     usingGeoTiff,
     mobile,
     gridType,
     markerLocation,
+    seeMarker,
+    tileCodes,
+    tileIndex,
   } = $props();
 
-  $inspect("markerLocation", markerLocation);
+  $inspect("tileCodes", tileCodes);
 
   let mapElement: HTMLDivElement;
   let map: Map;
@@ -70,6 +75,55 @@
     currentBaseMap;
 
   // const markerLocation = [287868, 50139];
+
+  //Form WTK from tileCodes
+  function getWKTFromTileCodes() {
+    const tilesWKTs = tileCodes?.map(
+      (d) => tiles.find((e) => e.code === d).square,
+    );
+    return "GEOMETRYCOLLECTION(" + tilesWKTs?.join(", ") + ")";
+  }
+  // WKT
+  const wkt =
+    tileCodes?.length > 0 ? getWKTFromTileCodes() : "GEOMETRYCOLLECTION EMPTY";
+
+  const format = new WKT();
+
+  const feature = format.readFeature(wkt, {
+    dataProjection: "EPSG:27700",
+    featureProjection: "EPSG:27700",
+  });
+
+  const wktVector = new VectorLayer({
+    source: new VectorSource({
+      features: [feature],
+    }),
+    style: new Style({
+      fill: new Fill({
+        color: "transparent",
+      }),
+      stroke: new Stroke({
+        color: "teal",
+        width: 2,
+      }),
+    }),
+  });
+
+  // const wktEng =
+  //   "POLYGON((50000 0,50000 700000,700000 700000,700000 0,50000 0))";
+
+  // const formatEngland = new WKT();
+
+  // const featureEngland = formatEngland.readFeature(wktEng, {
+  //   dataProjection: "EPSG:27700",
+  //   featureProjection: "EPSG:27700",
+  // });
+
+  // const wktEngland = new VectorLayer({
+  //   source: new VectorSource({
+  //     features: [featureEngland],
+  //   }),
+  // });
 
   const marker = $derived(
     new Feature({
@@ -100,9 +154,16 @@
 
   $effect(() => {
     console.log("UPDATING marker source");
-    if (markerLocation) {
+    if (seeMarker && markerLocation) {
       const newMarkerSource = markerSource;
       markerLayer.setSource(newMarkerSource);
+      map?.addLayer(markerLayer);
+    }
+  });
+
+  $effect(() => {
+    if (!seeMarker) {
+      map?.removeLayer(markerLayer);
     }
   });
 
@@ -291,20 +352,26 @@
     let initialLayers = densityLayer
       ? [
           currentBaseMap,
+          wktVector,
           drawLayer,
           geoJsonVectorLayer,
           scotlandAndWalesVectorLayer,
           tiffLayer,
           densityLayer,
-          markerLayer,
+          // markerLayer,
+
+          // wktEngland,
         ]
       : [
           currentBaseMap,
+          wktVector,
           drawLayer,
           geoJsonVectorLayer,
           scotlandAndWalesVectorLayer,
           tiffLayer,
-          markerLayer,
+          // markerLayer,
+
+          // wktEngland,
         ];
 
     // if (densityLayer) {
@@ -327,6 +394,10 @@
     } else {
       tiffLayer?.setVisible(false);
     }
+
+    if (gridType === "hectare") {
+      wktVector?.setVisible(false);
+    }
     // }
 
     draw = new Draw({
@@ -337,28 +408,45 @@
 
     // map.addInteraction(draw);
 
-    draw.on("drawend", function (event) {
+    draw.on("drawend", async function (event) {
       drawnFeature = event.feature;
-      const geometry = event.feature.getGeometry();
-      customAreaBBox = geometry.getExtent();
 
-      customArea = geometryToGridHitsScanline(geometry, bbox, width, height);
+      selectedLA = null;
+      // const geometry = event.feature.getGeometry();
+      // customAreaBBox = geometry.getExtent();
 
+      // const drawnData = geometryToGridHitsScanline(
+      //   geometry,
+      //   bbox,
+      //   width,
+      //   height,
+      // );
+      // tileCodes = await tilesForBBox(
+      //   drawnFeature.getGeometry().getExtent(),
+      //   tileIndex,
+      //   50000,
+      // );
+      // tileCodes = drawnData.tileCodes;
+      // customArea = drawnData.customArea;
+      // console.log(tileCodes);
       policyLens = "customArea";
 
       if (usingGeoTiff) {
         unpackZippedLayers();
       } else {
-        unpackSelectedLayers();
+        await unpackAndBlendLayers();
       }
 
       drawing = false;
     });
 
     if (customAreaBBox) {
-      map
-        .getView()
-        .fit(customAreaBBox, { duration: 1000, padding: [20, 20, 20, 20] });
+      console.log({ customAreaBBox });
+      map.getView().fit(customAreaBBox, {
+        duration: 1000,
+        padding: [20, 20, 20, 20],
+        maxZoom: 10,
+      });
     } else {
       //Zoom to the area
       map.getView().fit(bbox, { duration: 1000 });
@@ -419,26 +507,24 @@
           info.innerHTML =
             gridType !== "hectare"
               ? feature.get("LAD25NM")
-              : "<b>" +
-                feature.get("LAD25NM") +
-                "</b>" +
-                "<br>" +
-                "Area covered by the current selections: " +
-                Number(
-                  breakdownData?.find(
-                    (d) => d.area_code === feature.get("LAD25CD"),
-                  )?.selected_area,
-                ).toLocaleString() +
-                "ha" +
-                "<br> (" +
-                (
-                  Number(
-                    breakdownData?.find(
-                      (d) => d.area_code === feature.get("LAD25CD"),
-                    )?.selected_area_as_a_proportion_of_total_area,
-                  ) * 100
-                ).toFixed(0) +
-                "%)";
+              : "<b>" + feature.get("LAD25NM") + "</b>";
+          // "<br>" +
+          // "Area covered by the current selections: " +
+          // Number(
+          //   breakdownData?.find(
+          //     (d) => d.area_code === feature.get("LAD25CD"),
+          //   )?.selected_area,
+          // ).toLocaleString() +
+          // "ha" +
+          // "<br> (" +
+          // (
+          //   Number(
+          //     breakdownData?.find(
+          //       (d) => d.area_code === feature.get("LAD25CD"),
+          //     )?.selected_area_as_a_proportion_of_total_area,
+          //   ) * 100
+          // ).toFixed(0) +
+          // "%)";
         } else {
           info.style.visibility = "hidden";
         }
@@ -459,17 +545,36 @@
           coordToIndex(...evt.coordinate, { width, height }),
         )
       ) {
+        // console.log(
+        //   "in blended indices: " +
+        //     coordToIndex(...evt.coordinate, { width, height }) +
+        //     " " +
+        //     densityArray[coordToIndex(...evt.coordinate, { width, height })],
+        //   +width + " " + height,
+        // );
         info.style.left = evt.pixel[0] + 15 + "px";
         info.style.top = evt.pixel[1] + 15 + "px";
         info.style.visibility = "visible";
 
         info.innerHTML =
-          densityArray[coordToIndex(...evt.coordinate, { width, height })] +
-          (densityArray[coordToIndex(...evt.coordinate, { width, height })] ===
-          1
-            ? " title at this location"
-            : " titles at this location");
+          CODES.find(
+            (d) =>
+              d[0] ===
+              densityArray[coordToIndex(...evt.coordinate, { width, height })],
+          )?.[1] ?? "Unregistered";
+        // densityArray[coordToIndex(...evt.coordinate, { width, height })] +
+        // (densityArray[coordToIndex(...evt.coordinate, { width, height })] ===
+        // 1
+        //   ? " title at this location"
+        //   : " titles at this location");
       } else {
+        // console.log(
+        //   "NOT in blended indices: " +
+        //     coordToIndex(...evt.coordinate, { width, height }) +
+        //     " " +
+        //     densityArray[coordToIndex(...evt.coordinate, { width, height })],
+        //   +blendedIndices.length,
+        // );
         info.style.visibility = "hidden";
       }
     });

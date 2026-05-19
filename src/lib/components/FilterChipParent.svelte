@@ -1,16 +1,26 @@
-<script>
+<script lang="ts">
   import { createEventDispatcher } from "svelte";
   import FilterChip from "./FilterChip.svelte";
   import { makeFileNameReadable, makeFileNameDatasetKey } from "$lib/utils";
   import Button from "./Button.svelte";
+  import type { DataLayerItem } from "$lib/utils";
 
   let {
+    gridType,
     startingPosition,
     selectedSubLayers,
     selected = $bindable(),
     policyLens = $bindable(),
     categoryToColor,
     openPanelAndScrollToMap,
+  }: {
+    gridType: string;
+    startingPosition: DataLayerItem[];
+    selectedSubLayers: object;
+    selected: string[];
+    policyLens: string;
+    categoryToColor: object;
+    openPanelAndScrollToMap: void;
   } = $props();
 
   const dispatch = createEventDispatcher();
@@ -26,9 +36,9 @@
       if (found) {
         all[id] = {
           id: makeFileNameDatasetKey(found.filename),
-          title: makeFileNameReadable(found.filename),
-          category: found.Tier,
-          color: categoryToColor[found.Tier],
+          title: makeFileNameReadable(found.filename, gridType),
+          category: found.tier,
+          color: categoryToColor[found.tier],
           subLayers: selectedSubLayers[found.filename],
         };
       }

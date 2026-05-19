@@ -7,6 +7,12 @@ import ImageStatic from "ol/source/ImageStatic";
 import LayerGroup from "ol/layer/Group";
 import ImageCanvasSource from "ol/source/ImageCanvas.js";
 // import { width, height, gridSize, bbox } from "./constants";
+import { tiles as tileMetadata, hectareBbox } from "./constants";
+import type { Snippet } from "svelte";
+
+export const tileIndex = Object.fromEntries(
+  tileMetadata.map((t) => [t.code, t]),
+);
 
 type TableMetadataEntry = Record<"explainer" | "label" | "shortLabel", string>;
 
@@ -33,7 +39,95 @@ export interface PolicyLensItem {
   sentenceText: string;
 }
 
-export function parseCsv(csvText: string): object[] {
+export async function loadIndexedArray(url) {
+  try {
+    const res = await fetch(url);
+    // console.log("fetching hectare");
+    if (!res.ok) return new Uint32Array(0); // ← key change
+    return new Uint32Array(await res.arrayBuffer());
+  } catch {
+    return new Uint32Array(0); // network errors too
+  }
+}
+
+export async function loadIndexedArrayUint16(url) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return new Uint16Array(0); // ← key change
+    return new Uint16Array(await res.arrayBuffer());
+  } catch {
+    return new Uint16Array(0); // network errors too
+  }
+}
+
+export interface DataLayerItem {
+  level: 1 | 2 | 3;
+  tier: string;
+  category: string;
+  filename: string;
+  initiallyChecked: boolean;
+  dataLayer: string;
+}
+
+export type RawDataLayerRow = {
+  Level: string;
+  Tier: string;
+  Category: string;
+  filename: string;
+  initially_checked: string;
+  Data_layer: string;
+};
+
+export type DoughnutData = {
+  color: string;
+  name: string;
+  selected: number;
+  total: number;
+};
+
+function normaliseRow(row: RawDataLayerRow): DataLayerItem {
+  const levelNum = Number(row.Level);
+
+  // optional: enforce domain
+  if (![1, 2, 3].includes(levelNum)) {
+    throw new Error(`Invalid Level: "${row.Level}"`);
+  }
+
+  const initiallyChecked =
+    row.initially_checked.trim().toLowerCase() === "y" ||
+    row.initially_checked.trim().toLowerCase() === "yes" ||
+    row.initially_checked.trim() === "1" ||
+    row.initially_checked.trim().toLowerCase() === "true";
+
+  return {
+    level: levelNum as 1 | 2 | 3,
+    tier: row.Tier?.trim() ?? "",
+    category: row.Category?.trim() ?? "",
+    filename: row.filename?.trim() ?? "",
+    initiallyChecked,
+    dataLayer: row.Data_layer?.trim() ?? "",
+  };
+}
+
+export function parseCsv(csvText: string): DataLayerItem[] {
+  const lines = csvText.trim().split("\n");
+  const headers = lines[0]
+    .trim()
+    .split(",")
+    .map((h) => h.replace("\r", ""));
+
+  return lines.slice(1).map((line) => {
+    const values = line.split(",").map((v) => v.replace("\r", ""));
+
+    const row = {} as Record<string, string>;
+    headers.forEach((h, i) => (row[h] = (values[i] ?? "").trim()));
+
+    // Cast to RawDataLayerRow if you trust your CSV columns
+    return normaliseRow(row as unknown as RawDataLayerRow);
+  });
+}
+
+export function parseCsvForBreakdown(csvText: string): object[] {
   const lines = csvText.trim().split("\n");
   const headers = lines[0].trim().split(",");
 
@@ -71,7 +165,7 @@ export function parseCSVToObject(csvText) {
 
     for (let j = FIXED_COLUMNS; j < headers.length; j++) {
       if (values[j] === "1") {
-        tile_codes.push(headers[j]);
+        tile_codes.push(headers[j].split("_")[0]);
       }
     }
 
@@ -85,17 +179,18 @@ export function parseCSVToObject(csvText) {
 
 export function jsonToCsv(
   items: object[],
-  policyLens: string,
-  policyLensItems: PolicyLensItem[],
+  // policyLens: string,
+  // policyLensItems: PolicyLensItem[],
+  selectedAreaWording: string,
   selected: string[],
+  gridType: string,
 ): string {
-  const title = `"Selected area covers : ${selected.map((d) => makeFileNameReadable(d)).join(", ")}"\r\n`;
+  const title = `"Selected area covers : ${selected.map((d) => makeFileNameReadable(d, gridType)).join(", ")}"\r\n`;
   const footer =
     "\r\n Notes: \r\n 1. All figures are in hectares. \r\n 2. This is an experimental product under development.";
   const caveat =
     "Selected area figures relate to the area within " +
-    (policyLensItems.find((d) => d.value == policyLens)?.sentenceText ??
-      'the "' + makeFileNameReadable(policyLens) + '" layer') +
+    selectedAreaWording +
     " \r\n";
   const header = Object.keys(items[0]);
   const headerString = header.join(",");
@@ -111,8 +206,20 @@ export function jsonToCsv(
   return csv;
 }
 
-export function makeFileNameReadable(filename: string): string {
-  return filename.replace(".bin", "").replace(".tif", "").replaceAll("_", " ");
+export function makeFileNameReadable(
+  filename: string,
+  gridType: string = "hectare",
+): string {
+  // return filename.replace(".bin", "").replace(".tif", "").replaceAll("_", " ");
+
+  return filename
+    .split("_")
+    [gridType === "hectare" ? 2 : 1]?.replace(
+      /([A-Z])/g,
+      (match) => ` ${match}`,
+    )
+    .replace(/^./, (match) => match.toUpperCase())
+    .trim();
 }
 
 export function makeFileNameDatasetKey(filename: string): string {
@@ -279,121 +386,121 @@ export function indexToCoord(
   return { x, y };
 }
 
-export function geometryToGridHits(geometry, bbox, width, height) {
-  console.log("starting the geometryToGridHits function");
-  const polyExtent = geometry.getExtent();
+// export function geometryToGridHits(geometry, bbox, width, height) {
+//   console.log("starting the geometryToGridHits function");
+//   const polyExtent = geometry.getExtent();
 
-  const cellWidth = (bbox[2] - bbox[0]) / width;
-  const cellHeight = (bbox[3] - bbox[1]) / height;
+//   const cellWidth = (bbox[2] - bbox[0]) / width;
+//   const cellHeight = (bbox[3] - bbox[1]) / height;
 
-  const colMin = Math.max(0, Math.floor((polyExtent[0] - bbox[0]) / cellWidth));
-  const colMax = Math.min(
-    width - 1,
-    Math.ceil((polyExtent[2] - bbox[0]) / cellWidth),
-  );
+//   const colMin = Math.max(0, Math.floor((polyExtent[0] - bbox[0]) / cellWidth));
+//   const colMax = Math.min(
+//     width - 1,
+//     Math.ceil((polyExtent[2] - bbox[0]) / cellWidth),
+//   );
 
-  const rowMin = Math.max(
-    0,
-    Math.floor((polyExtent[1] - bbox[1]) / cellHeight),
-  );
-  const rowMax = Math.min(
-    width - 1,
-    Math.ceil((polyExtent[3] - bbox[1]) / cellHeight),
-  );
+//   const rowMin = Math.max(
+//     0,
+//     Math.floor((polyExtent[1] - bbox[1]) / cellHeight),
+//   );
+//   const rowMax = Math.min(
+//     width - 1,
+//     Math.ceil((polyExtent[3] - bbox[1]) / cellHeight),
+//   );
 
-  const hits = [];
+//   const hits = [];
 
-  function coordToGridIndex(x, y) {
-    const col = Math.floor((x - bbox[0]) / cellWidth);
-    const row = Math.floor((bbox[3] - y) / cellHeight);
+//   function coordToGridIndex(x, y) {
+//     const col = Math.floor((x - bbox[0]) / cellWidth);
+//     const row = Math.floor((bbox[3] - y) / cellHeight);
 
-    if (col < 0 || col >= width || row < 0 || row >= height) {
-      return null;
-    }
+//     if (col < 0 || col >= width || row < 0 || row >= height) {
+//       return null;
+//     }
 
-    return row * width + col;
-  }
+//     return row * width + col;
+//   }
 
-  // for (let row = rowMin; row <= rowMax; row++) {
-  //   for (let col = colMin; col <= colMax; col++) {
-  //     const center = [
-  //       bbox[0] + (col + 0.5) * cellWidth,
-  //       bbox[1] + (row + 0.5) * cellHeight,
-  //     ];
+//   // for (let row = rowMin; row <= rowMax; row++) {
+//   //   for (let col = colMin; col <= colMax; col++) {
+//   //     const center = [
+//   //       bbox[0] + (col + 0.5) * cellWidth,
+//   //       bbox[1] + (row + 0.5) * cellHeight,
+//   //     ];
 
-  //     if (geometry.intersectsCoordinate(center)) {
-  //       const index = coordToGridIndex(center[0], center[1]);
-  //       if (index !== null) hits.push(index);
-  //     }
-  //   }
-  // }
+//   //     if (geometry.intersectsCoordinate(center)) {
+//   //       const index = coordToGridIndex(center[0], center[1]);
+//   //       if (index !== null) hits.push(index);
+//   //     }
+//   //   }
+//   // }
 
-  const center = [0, 0];
-  const cellExtent = [0, 0, 0, 0];
+//   const center = [0, 0];
+//   const cellExtent = [0, 0, 0, 0];
 
-  const xCenters = new Float64Array(width);
-  const yCenters = new Float64Array(height);
+//   const xCenters = new Float64Array(width);
+//   const yCenters = new Float64Array(height);
 
-  for (let col = 0; col < width; col++) {
-    xCenters[col] = bbox[0] + (col + 0.5) * cellWidth;
-  }
+//   for (let col = 0; col < width; col++) {
+//     xCenters[col] = bbox[0] + (col + 0.5) * cellWidth;
+//   }
 
-  for (let row = 0; row < height; row++) {
-    yCenters[row] = bbox[1] + (row + 0.5) * cellHeight;
-  }
+//   for (let row = 0; row < height; row++) {
+//     yCenters[row] = bbox[1] + (row + 0.5) * cellHeight;
+//   }
 
-  const xEdges = new Float64Array(width + 1);
-  const yEdges = new Float64Array(height + 1);
+//   const xEdges = new Float64Array(width + 1);
+//   const yEdges = new Float64Array(height + 1);
 
-  for (let i = 0; i <= width; i++) {
-    xEdges[i] = bbox[0] + i * cellWidth;
-  }
+//   for (let i = 0; i <= width; i++) {
+//     xEdges[i] = bbox[0] + i * cellWidth;
+//   }
 
-  for (let i = 0; i <= height; i++) {
-    yEdges[i] = bbox[1] + i * cellHeight;
-  }
+//   for (let i = 0; i <= height; i++) {
+//     yEdges[i] = bbox[1] + i * cellHeight;
+//   }
 
-  console.time("hits-loop");
-  for (let row = rowMin; row <= rowMax; row++) {
-    for (let col = colMin; col <= colMax; col++) {
-      // const cellExtent = [
-      //   bbox[0] + col * cellWidth,
-      //   bbox[1] + row * cellHeight,
-      //   bbox[0] + (col + 1) * cellWidth,
-      //   bbox[1] + (row + 1) * cellHeight,
-      // ];
+//   console.time("hits-loop");
+//   for (let row = rowMin; row <= rowMax; row++) {
+//     for (let col = colMin; col <= colMax; col++) {
+//       // const cellExtent = [
+//       //   bbox[0] + col * cellWidth,
+//       //   bbox[1] + row * cellHeight,
+//       //   bbox[0] + (col + 1) * cellWidth,
+//       //   bbox[1] + (row + 1) * cellHeight,
+//       // ];
 
-      // cellExtent[0] = bbox[0] + col * cellWidth;
-      // cellExtent[1] = bbox[1] + row * cellHeight;
-      // cellExtent[2] = bbox[0] + (col + 1) * cellWidth;
-      // cellExtent[3] = bbox[1] + (row + 1) * cellHeight;
+//       // cellExtent[0] = bbox[0] + col * cellWidth;
+//       // cellExtent[1] = bbox[1] + row * cellHeight;
+//       // cellExtent[2] = bbox[0] + (col + 1) * cellWidth;
+//       // cellExtent[3] = bbox[1] + (row + 1) * cellHeight;
 
-      cellExtent[0] = xEdges[col];
-      cellExtent[2] = xEdges[col + 1];
-      cellExtent[1] = yEdges[row];
-      cellExtent[3] = yEdges[row + 1];
+//       cellExtent[0] = xEdges[col];
+//       cellExtent[2] = xEdges[col + 1];
+//       cellExtent[1] = yEdges[row];
+//       cellExtent[3] = yEdges[row + 1];
 
-      if (geometry.intersectsExtent(cellExtent)) {
-        // const center = [
-        //   bbox[0] + (col + 0.5) * cellWidth,
-        //   bbox[1] + (row + 0.5) * cellHeight,
-        // ];
+//       if (geometry.intersectsExtent(cellExtent)) {
+//         // const center = [
+//         //   bbox[0] + (col + 0.5) * cellWidth,
+//         //   bbox[1] + (row + 0.5) * cellHeight,
+//         // ];
 
-        center[0] = xCenters[col];
-        center[1] = yCenters[row];
+//         center[0] = xCenters[col];
+//         center[1] = yCenters[row];
 
-        if (geometry.intersectsCoordinate(center)) {
-          // hits.push(row * width + col);
-          const index = coordToGridIndex(center[0], center[1]);
-          if (index !== null) hits.push(index);
-        }
-      }
-    }
-  }
-  console.timeEnd("hits-loop");
-  console.log(hits);
-  return hits;
-}
+//         if (geometry.intersectsCoordinate(center)) {
+//           // hits.push(row * width + col);
+//           const index = coordToGridIndex(center[0], center[1]);
+//           if (index !== null) hits.push(index);
+//         }
+//       }
+//     }
+//   }
+//   console.timeEnd("hits-loop");
+//   console.log(hits);
+//   return hits;
+// }
 
 export function geometryToGridHitsScanline(geometry, bbox, width, height) {
   const hits = [];
@@ -403,15 +510,9 @@ export function geometryToGridHitsScanline(geometry, bbox, width, height) {
 
   const polyExtent = geometry.getExtent();
 
-  // const rowMin = Math.max(
-  //   0,
-  //   Math.floor((polyExtent[1] - bbox[1]) / cellHeight),
-  // );
+  // const tileCodes = tilesForBBox(polyExtent, tileIndex, 50000);
+  // console.log("tile codes in geometryToGridHitsScanline: ", tileCodes);
 
-  // const rowMax = Math.min(
-  //   height - 1,
-  //   Math.ceil((polyExtent[3] - bbox[1]) / cellHeight),
-  // );
   const rowMin = Math.max(
     0,
     Math.floor((bbox[3] - polyExtent[3]) / cellHeight),
@@ -421,7 +522,15 @@ export function geometryToGridHitsScanline(geometry, bbox, width, height) {
     height - 1,
     Math.ceil((bbox[3] - polyExtent[1]) / cellHeight),
   );
-
+  console.log("settings in geomToGridScan", {
+    bbox,
+    width,
+    height,
+    cellWidth,
+    cellHeight,
+    rowMin,
+    rowMax,
+  });
   // normalize geometry → array of polygons
   const polygons =
     geometry.getType() === "Polygon"
@@ -458,13 +567,6 @@ export function geometryToGridHitsScanline(geometry, bbox, width, height) {
 
       if (xEnd === undefined) break;
 
-      // const colStart = Math.max(0, Math.floor((xStart - bbox[0]) / cellWidth));
-
-      // const colEnd = Math.min(
-      //   width - 1,
-      //   Math.floor((xEnd - bbox[0]) / cellWidth),
-      // );
-
       const colStart = Math.max(
         0,
         Math.ceil((xStart - bbox[0]) / cellWidth - 0.5),
@@ -480,8 +582,28 @@ export function geometryToGridHitsScanline(geometry, bbox, width, height) {
       }
     }
   }
-  console.log(hits);
+  console.log("customArea in geomToGridHits: ", hits);
   return hits;
+}
+
+function tileExtent(t, tileSizeM) {
+  return [t.east, t.north, t.east + tileSizeM, t.north + tileSizeM];
+}
+
+// bbox = [minE, minN, maxE, maxN]
+function intersects(a, b) {
+  return !(b[0] >= a[2] || b[2] <= a[0] || b[1] >= a[3] || b[3] <= a[1]);
+}
+
+export function tilesForBBox(bbox, tileIndex, tileSizeM) {
+  const codes = [];
+  for (const code in tileIndex) {
+    const t = tileIndex[code];
+    if (!t) continue;
+    const ext = tileExtent(t, tileSizeM);
+    if (intersects(bbox, ext)) codes.push(code);
+  }
+  return codes;
 }
 
 // --- Load GeoTIFF ---
@@ -505,6 +627,7 @@ export async function loadDensityTiff(
     );
   }
   const rasters = await image.readRasters();
+  console.log({ rasters });
   return {
     densityArray: rasters[0],
     width: image.getWidth(),
@@ -601,13 +724,14 @@ export function createGroupLayer(
 }
 
 export function createDensityCanvas(
-  densityCanvas,
-  blendedIndices,
+  densityCanvas: HTMLCanvasElement | undefined,
+  blendedIndices: Uint32Array,
   densityArray,
-  DENSITY_LUT,
-  height,
-  width,
+  DENSITY_LUT: Uint32Array,
+  height: number,
+  width: number,
 ) {
+  if (!densityCanvas) return;
   return new Promise((resolve, reject) => {
     const canvas = densityCanvas;
 
@@ -735,11 +859,19 @@ export async function createDensityLayerMobile(
   return new LayerGroup({ layers });
 }
 
+export function unpackABGR(packed: number) {
+  const r = packed & 0xff;
+  const g = (packed >>> 8) & 0xff;
+  const b = (packed >>> 16) & 0xff;
+  const a = (packed >>> 24) & 0xff;
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
+}
+
 export function convertPixelsToHectares(
   value: number,
   gridSize: number,
 ): number {
-  return Math.round((value * gridSize * gridSize) / 10_000);
+  return (value * gridSize * gridSize) / 10_000;
 }
 
 export function indicesToBinaryMask(bin, width, height) {
@@ -763,61 +895,112 @@ export function indicesToBinaryMask(bin, width, height) {
 //   return counts;
 // }
 
+export function getTheInverse(
+  englandUint32Array: Uint32Array,
+  inputUint32Array: Uint32Array,
+): Uint32Array {
+  console.time("inverse");
+  const result: number[] = [];
+
+  let i = 0;
+  let j = 0;
+
+  while (i < englandUint32Array.length) {
+    if (
+      j >= inputUint32Array.length ||
+      englandUint32Array[i] < inputUint32Array[j]
+    ) {
+      result.push(englandUint32Array[i]);
+      i++;
+    } else if (englandUint32Array[i] === inputUint32Array[j]) {
+      i++;
+      j++;
+    } else {
+      j++;
+    }
+  }
+
+  console.timeEnd("inverse");
+  return new Uint32Array(result);
+}
+
 // --- Constants ---
-export const originX = 82768;
-export const originY = 5339;
+// export const originX = 82768;
+// export const originY = 5339;
+export const originX = hectareBbox[0];
+export const originY = hectareBbox[1];
+
 // export const originY = 657439;
 export const cellSize = 100; // meters per cell/hectare
 export const fillOpacity = 0.5;
 
-export async function joinTiles(
-  base: string,
-  width: number,
-  gridSize: number,
-  sourceFolder: string,
-  // tileCodes: object,
-  grid10mVariables: object,
-) {
-  // console.log(base, width, gridSize, sourceFolder, tileCodes, grid10mVariables);
-  return new Promise((resolve, reject) => {
-    console.time("tileWorker");
+// export async function joinTiles(
+//   base: string,
+//   width: number,
+//   gridSize: number,
+//   sourceFolder: string,
+//   // tileCodes: object,
+//   grid10mVariables: object,
+// ) {
+//   // console.log(base, width, gridSize, sourceFolder, tileCodes, grid10mVariables);
+//   return new Promise((resolve, reject) => {
+//     console.time("tileWorker");
 
-    const tilerWorker = new Worker(
-      new URL("$lib/workers/tilerWorker.js", import.meta.url),
-      { type: "module" },
-    );
+//     const tilerWorker = new Worker(
+//       new URL("$lib/workers/tilerWorker.js", import.meta.url),
+//       { type: "module" },
+//     );
 
-    tilerWorker.onerror = (err) => {
-      console.error("Worker error:", err);
-      tilerWorker.terminate();
-      reject(err); // Reject the promise on worker error
-    };
+//     tilerWorker.onerror = (err) => {
+//       console.error("Worker error:", err);
+//       tilerWorker.terminate();
+//       reject(err); // Reject the promise on worker error
+//     };
 
-    tilerWorker.postMessage({
-      base,
-      grid10mVariables, // send urls and relative positions
-      // tileCodes,
-      width,
-      gridSize,
-      sourceFolder,
-    });
+//     tilerWorker.postMessage({
+//       base,
+//       grid10mVariables, // send urls and relative positions
+//       // tileCodes,
+//       width,
+//       gridSize,
+//       sourceFolder,
+//     });
 
-    tilerWorker.onmessage = (e) => {
-      if (e.data.error) {
-        console.warn(e.data.error);
-        tilerWorker.terminate();
-        reject(e.data.error); // Reject the promise on error
-        return;
-      }
-      console.timeEnd("tileWorker");
-      // tilerWorker.terminate();
-      resolve(e.data); // Resolve the promise with the worker's result
-    };
-  });
-}
+//     tilerWorker.onmessage = (e) => {
+//       if (e.data.error) {
+//         console.warn(e.data.error);
+//         tilerWorker.terminate();
+//         reject(e.data.error); // Reject the promise on error
+//         return;
+//       }
+//       console.timeEnd("tileWorker");
+//       // tilerWorker.terminate();
+//       resolve(e.data); // Resolve the promise with the worker's result
+//     };
+//   });
+// }
 
 export function buildTileFilename(tileCode, varName, meta) {
   const { grid_size, data_type, datum, data_structure, date } = meta;
 
   return `${tileCode}_${grid_size}_${varName}_${data_type}_${datum}_${data_structure}_${date}.bin`;
+}
+
+export function getBBoxFromTileCodes(tileCodes, gridSize, tileWidth) {
+  let minEast = Math.min(...tileCodes.map((d) => tileIndex[d].east));
+  let minNorth = Math.min(...tileCodes.map((d) => tileIndex[d].north));
+  let maxEast = Math.max(...tileCodes.map((d) => tileIndex[d].east));
+  let maxNorth = Math.max(...tileCodes.map((d) => tileIndex[d].north));
+  // console.log("in getBBoxFromTileCodes, bbox is: ", [
+  //   minEast,
+  //   minNorth,
+  //   maxEast + gridSize * tileWidth,
+  //   maxNorth + gridSize * tileWidth,
+  // ]);
+  return [
+    minEast,
+    minNorth,
+    maxEast + gridSize * tileWidth,
+    maxNorth + gridSize * tileWidth,
+  ];
 }

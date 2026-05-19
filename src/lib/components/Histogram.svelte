@@ -1,5 +1,6 @@
 <script lang="ts">
   import { interpolateViridis } from "d3-scale-chromatic";
+  import { colorScale, shortCategoricalColorPalette } from "$lib/constants";
 
   let { histogram }: { histogram: Record<string, number> } = $props();
   // console.log("histogram", histogram);
@@ -31,6 +32,7 @@
     const rgbStr = interpolateViridis(1 - normalized);
     // const numbers = rgbStr.match(/\d+(\.\d+)?/g)?.map(Number) ?? [0, 0, 0];
     // const [r, g, b] = numbers;
+    console.log(rgbStr);
     return rgbStr;
   }
   let chartContainerWidth: number = $state(0);
@@ -49,7 +51,7 @@
           y={120 - (histogram[key] / max) * 100}
           width={Math.max(chartWidth / keys.length - 2, 0)}
           height={(histogram[key] / max) * 100}
-          fill={viridisForBucket(key)}
+          fill={shortCategoricalColorPalette[i]}
         />
 
         <!-- Value on top of the bar -->
@@ -57,7 +59,7 @@
           x={(i * chartWidth) / keys.length + chartWidth / keys.length / 2}
           y={120 - (histogram[key] / max) * 100 - 3}
           text-anchor="middle"
-          font-size="10"
+          font-size="12"
           fill="#333"
         >
           {histogram[key].toLocaleString()}
@@ -67,9 +69,9 @@
       <!-- X-axis labels -->
       <text
         x={(i * chartWidth) / keys.length + chartWidth / keys.length / 2}
-        y="130"
+        y="135"
         text-anchor="middle"
-        font-size="10"
+        font-size="12"
         fill="#333"
       >
         {key}

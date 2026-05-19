@@ -1,16 +1,13 @@
 import init from "$lib/raster_ops/pkg/raster_ops.js";
 import { tiles as tileMetadata } from "$lib/constants.ts";
 import { makeFileNameDatasetKey, buildTileFilename } from "$lib/utils";
-
 /* -------------------------------------------------- */
 /* Shared State                                      */
 /* -------------------------------------------------- */
 
 let wasmReady = false;
 
-const tileIndex = Object.fromEntries(
-  tileMetadata.map((t) => [t.code, t])
-);
+const tileIndex = Object.fromEntries(tileMetadata.map((t) => [t.code, t]));
 
 /* -------------------------------------------------- */
 /* WASM                                              */
@@ -53,59 +50,20 @@ function intersectUint32(a, b) {
 /* Precompute global tile grid                        */
 /* -------------------------------------------------- */
 
-// function computeGlobalTileFrame(layersToUnpack, grid10mVariables, TILE_SIZE) {
-//   const allTiles = [];
-
-//   layersToUnpack.forEach((layer) => {
-//     const key = makeFileNameDatasetKey(layer.filename);
-//     const meta = grid10mVariables[key];
-
-//     if (meta?.tile_codes?.length) {
-//       meta.tile_codes.forEach((code) => {
-//         const t = tileIndex[code];
-//         if (!t) throw new Error(`Tile metadata not found for ${code}`);
-//         allTiles.push({
-//           code,
-//           col: t.grid_x,
-//           row: t.grid_y,
-//           east: t.east,
-//           north: t.north,
-//           metaLayerKey: key
-//         });
-//       });
-//     }
-//   });
-
-//   if (!allTiles.length) return null;
-
-//   const minCol = Math.min(...allTiles.map(t => t.col));
-//   const maxCol = Math.max(...allTiles.map(t => t.col));
-//   const minRow = Math.min(...allTiles.map(t => t.row));
-//   const maxRow = Math.max(...allTiles.map(t => t.row));
-
-//   const minEast = Math.min(...allTiles.map(t => t.east));
-//   const minNorth = Math.min(...allTiles.map(t => t.north));
-//   const maxEast = Math.max(...allTiles.map(t => t.east))
-//   const maxNorth = Math.max(...allTiles.map(t => t.north)) - TILE_SIZE;
-
-//   const cols = maxCol - minCol + 1;
-//   const rows = maxRow - minRow + 1;
-
-//   return {
-//     minCol, maxCol, minRow, maxRow, cols, rows,
-//     minEast, minNorth, maxEast, maxNorth
-//   };
-// }
-
-function computeGlobalTileFrame(layersToUnpack, grid10mVariables, gridSize, width) {
+function computeGlobalTileFrame(
+  layersToUnpack,
+  grid10mVariables,
+  gridSize,
+  width,
+) {
   const allTiles = [];
 
-  layersToUnpack.forEach(layer => {
+  layersToUnpack.forEach((layer) => {
     const key = makeFileNameDatasetKey(layer.filename);
     const meta = grid10mVariables[key];
 
     if (meta?.tile_codes?.length) {
-      meta.tile_codes.forEach(code => {
+      meta.tile_codes.forEach((code) => {
         const t = tileIndex[code];
         if (!t) throw new Error(`Tile metadata not found for ${code}`);
         allTiles.push({
@@ -121,10 +79,10 @@ function computeGlobalTileFrame(layersToUnpack, grid10mVariables, gridSize, widt
 
   if (!allTiles.length) return null;
 
-  const minCol = Math.min(...allTiles.map(t => t.col));
-  const maxCol = Math.max(...allTiles.map(t => t.col));
-  const minRow = Math.min(...allTiles.map(t => t.row));
-  const maxRow = Math.max(...allTiles.map(t => t.row));
+  const minCol = Math.min(...allTiles.map((t) => t.col));
+  const maxCol = Math.max(...allTiles.map((t) => t.col));
+  const minRow = Math.min(...allTiles.map((t) => t.row));
+  const maxRow = Math.max(...allTiles.map((t) => t.row));
 
   const cols = maxCol - minCol + 1;
   const rows = maxRow - minRow + 1;
@@ -132,15 +90,24 @@ function computeGlobalTileFrame(layersToUnpack, grid10mVariables, gridSize, widt
   const canvasHeight = rows * width;
 
   const TILE_SIZE_METERS = width * gridSize;
-  const minEast = Math.min(...allTiles.map(t => t.east));
-  const minNorth = Math.min(...allTiles.map(t => t.north));
-  const maxEast = Math.max(...allTiles.map(t => t.east)) + TILE_SIZE_METERS;
-  const maxNorth = Math.max(...allTiles.map(t => t.north)) + TILE_SIZE_METERS;
+  const minEast = Math.min(...allTiles.map((t) => t.east));
+  const minNorth = Math.min(...allTiles.map((t) => t.north));
+  const maxEast = Math.max(...allTiles.map((t) => t.east)) + TILE_SIZE_METERS;
+  const maxNorth = Math.max(...allTiles.map((t) => t.north)) + TILE_SIZE_METERS;
 
   return {
-    minCol, maxCol, minRow, maxRow, cols, rows,
-    canvasWidth, canvasHeight,
-    minEast, minNorth, maxEast, maxNorth
+    minCol,
+    maxCol,
+    minRow,
+    maxRow,
+    cols,
+    rows,
+    canvasWidth,
+    canvasHeight,
+    minEast,
+    minNorth,
+    maxEast,
+    maxNorth,
   };
 }
 
@@ -166,9 +133,9 @@ async function loadTiledDatasetGlobal({
 
       return {
         ...t,
-        data: await loadIndexedArray(url)
+        data: await loadIndexedArray(url),
       };
-    })
+    }),
   );
 
   // Flatten tile data into global grid indices
@@ -201,7 +168,7 @@ async function loadTiledDatasetGlobal({
 /* Main Worker                                       */
 /* -------------------------------------------------- */
 
-self.onmessage = async function(e) {
+self.onmessage = async function (e) {
   const {
     layersToUnpack,
     base,
@@ -209,7 +176,7 @@ self.onmessage = async function(e) {
     customArea,
     settingsObject,
     grid10mVariables = {},
-    transformToGlobal = false
+    transformToGlobal = false,
   } = e.data;
 
   const { gridSize, sourceFolder } = settingsObject;
@@ -235,8 +202,13 @@ self.onmessage = async function(e) {
           base,
           sourceFolder,
           gridSize,
-          globalFrame: computeGlobalTileFrame([{ filename: policyLens }], grid10mVariables, gridSize, width),
-          width
+          globalFrame: computeGlobalTileFrame(
+            [{ filename: policyLens }],
+            grid10mVariables,
+            gridSize,
+            width,
+          ),
+          width,
         });
       }
 
@@ -247,7 +219,14 @@ self.onmessage = async function(e) {
     const lensLayer = await loadLensMask();
 
     // Compute global frame for all datasets if transforming
-    let globalFrame = transformToGlobal ? computeGlobalTileFrame(layersToUnpack, grid10mVariables, width, gridSize) : null;
+    let globalFrame = transformToGlobal
+      ? computeGlobalTileFrame(
+          layersToUnpack,
+          grid10mVariables,
+          width,
+          gridSize,
+        )
+      : null;
 
     // Prepare arrays
     const enrichedRasterLayers = await Promise.all(
@@ -266,7 +245,7 @@ self.onmessage = async function(e) {
               sourceFolder,
               gridSize,
               globalFrame,
-              width
+              width,
             });
           } else {
             // Just merge without global transform
@@ -275,9 +254,12 @@ self.onmessage = async function(e) {
                 const filename = buildTileFilename(code, layerKey, meta);
                 const url = `${base}/data/${sourceFolder}/${filename}`;
                 return await loadIndexedArray(url);
-              })
+              }),
             );
-            const totalLength = loadedTiles.reduce((sum, t) => sum + t.length, 0);
+            const totalLength = loadedTiles.reduce(
+              (sum, t) => sum + t.length,
+              0,
+            );
             result = new Uint32Array(totalLength);
             let offset = 0;
             for (const arr of loadedTiles) {
@@ -295,18 +277,28 @@ self.onmessage = async function(e) {
         if (lensLayer) result = intersectUint32(result, lensLayer);
 
         return { ...layer, area: result.length, data: result };
-      })
+      }),
     );
 
-    self.postMessage({
-      rasterLayers: enrichedRasterLayers,
-      policyLensArea: lensLayer?.length ?? (13_046_002 * 10_000) / (gridSize * gridSize),
-      lensIndices: lensLayer,
-      bbox: globalFrame ? [globalFrame.minEast, globalFrame.minNorth, globalFrame.maxEast, globalFrame.maxNorth] : null,
-      canvasWidth: globalFrame ? globalFrame.cols * width : null,
-      canvasHeight: globalFrame ? globalFrame.rows * width : null
-    }, enrichedRasterLayers.map(l => l.data.buffer));
-
+    self.postMessage(
+      {
+        rasterLayers: enrichedRasterLayers,
+        policyLensArea:
+          lensLayer?.length ?? (13_046_002 * 10_000) / (gridSize * gridSize),
+        lensIndices: lensLayer,
+        bbox: globalFrame
+          ? [
+              globalFrame.minEast,
+              globalFrame.minNorth,
+              globalFrame.maxEast,
+              globalFrame.maxNorth,
+            ]
+          : null,
+        canvasWidth: globalFrame ? globalFrame.cols * width : null,
+        canvasHeight: globalFrame ? globalFrame.rows * width : null,
+      },
+      enrichedRasterLayers.map((l) => l.data.buffer),
+    );
   } catch (error) {
     self.postMessage({ error: error.message || "Unknown error" });
   }

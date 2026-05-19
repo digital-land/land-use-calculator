@@ -16,6 +16,8 @@ docs/data
 docs/data/ALL_LAYERS/
 static/data/10mBinFiles/
 docs/data/10mBinFiles/
+static/data/categorised-land/
+docs/data/categorised-land/
 
 # But explicitly allow chunked files
 !docs/data/LAs/chunks/

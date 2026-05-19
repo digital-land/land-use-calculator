@@ -26,7 +26,7 @@
     title?: string;
     tabs: TabItem[];
     idPrefix?: string;
-    selectedTabId?: string | null;
+    selectedTabId?: string | undefined;
     autoAddHeadings?: boolean;
     forceTabBehavior?: boolean;
     showDensity?: () => void;
@@ -48,7 +48,7 @@
   let tabletMql: MediaQueryList | null = null;
 
   // Handle tab selection - integrate focus and hash logic directly
-  async function selectTab(tabId: string, shouldFocus = false): void {
+  async function selectTab(tabId: string, shouldFocus = false): Promise<void> {
     // Skip if component isn't ready, or tab is already selected
     if (!isSupported || !isInitialized || selectedTabId === tabId) return;
 
@@ -76,7 +76,7 @@
       history.replaceState({}, "", newUrl);
     }
     console.log(selectedTabId);
-    if (selectedTabId === "density") {
+    if (selectedTabId === "density" || selectedTabId === "breakdown") {
       setTimeout(() => {
         showDensity();
       }, 100);

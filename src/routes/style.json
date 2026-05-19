@@ -1,0 +1,4091 @@
+{
+    "version": 8,
+    "name": "OS Open Zoomstack",
+    "center": [
+        -3.2602,
+        58.6287
+    ],
+    "zoom": 10,
+    "glyphs": "http://localhost:8000/fonts/{fontstack}/{range}.pbf ",
+    "sources": {
+        "composite": {
+            "type": "vector",
+            "tiles": [
+                "http://localhost:8000/{z}/{x}/{y}.pbf"
+            ],
+            "minzoom": 5,
+            "maxzoom": 14
+        }
+    },
+    "layers": [
+        {
+            "id": "background",
+            "type": "background",
+            "paint": {
+                "background-color": "#ffffff"
+            }
+        },
+        {
+            "id": "national-parks",
+            "type": "fill",
+            "source": "composite",
+            "source-layer": "national_parks",
+            "maxzoom": 12,
+            "layout": {},
+            "paint": {
+                "fill-color": "#d8ddd4",
+                "fill-opacity": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    5,
+                    0.6,
+                    9,
+                    0.5,
+                    12,
+                    0.1
+                ]
+            }
+        },
+        {
+            "id": "sites",
+            "type": "fill",
+            "source": "composite",
+            "source-layer": "sites",
+            "minzoom": 12,
+            "layout": {},
+            "paint": {
+                "fill-color": "#eee7dd",
+                "fill-opacity": 0.7
+            }
+        },
+        {
+            "id": "greenspace",
+            "type": "fill",
+            "source": "composite",
+            "source-layer": "greenspace",
+            "layout": {},
+            "paint": {
+                "fill-color": "#eaeee7",
+                "fill-antialias": false
+            }
+        },
+        {
+            "id": "greenspace outlines",
+            "type": "line",
+            "source": "composite",
+            "source-layer": "greenspace",
+            "layout": {
+                "line-join": "round"
+            },
+            "paint": {
+                "line-color": "#d5ddd0",
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    10,
+                    0.1,
+                    15,
+                    0.3,
+                    18,
+                    0.6
+                ]
+            }
+        },
+        {
+            "id": "surfacewater",
+            "type": "fill",
+            "source": "composite",
+            "source-layer": "surfacewater",
+            "minzoom": 12,
+            "layout": {},
+            "paint": {
+                "fill-color": "#c5cdd0"
+            }
+        },
+        {
+            "id": "waterlines",
+            "type": "line",
+            "source": "composite",
+            "source-layer": "waterlines",
+            "minzoom": 12,
+            "layout": {
+                "line-join": "round"
+            },
+            "paint": {
+                "line-color": "#c5cdd0",
+                "line-width": [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "National",
+                        "Regional",
+                        "District",
+                        "Local"
+                    ],
+                    1,
+                    [
+                        "MHW"
+                    ],
+                    1.2,
+                    [
+                        "MLW"
+                    ],
+                    0.7,
+                    1
+                ]
+            }
+        },
+        {
+            "id": "building-mask-coarse",
+            "type": "fill",
+            "source": "composite",
+            "source-layer": "exploded",
+            "paint": {
+                "fill-color": "#ffffff",
+                "fill-opacity": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    9,
+                    0.1,
+                    10,
+                    0.3
+                ]
+            },
+            "minzoom": 6,
+            "maxzoom": 10
+        },
+        {
+            "id": "building-mask-fine",
+            "type": "fill",
+            "source": "composite",
+            "source-layer": "building-mask",
+            "paint": {
+                "fill-color": "#ffffff",
+                "fill-opacity": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    10,
+                    0.3,
+                    13,
+                    0.7
+                ]
+            },
+            "minzoom": 10
+        },
+        {
+            "id": "roads 0 Local Road",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "2a680f24b0d35061ed7d21fd33c9cf08"
+            },
+            "source": "composite",
+            "source-layer": "roads_local",
+            "minzoom": 11,
+            "filter": [
+                "all",
+                [
+                    "==",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    0
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "Local"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-cap": "round",
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    12,
+                    0.7,
+                    14,
+                    1.75,
+                    15,
+                    2.5,
+                    16,
+                    6,
+                    18,
+                    17.5,
+                    22,
+                    50
+                ],
+                "line-color": "#ffffff"
+            }
+        },
+        {
+            "id": "roads 0 Guided Busway Casing",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "2a680f24b0d35061ed7d21fd33c9cf08"
+            },
+            "source": "composite",
+            "source-layer": "roads_local",
+            "minzoom": 11,
+            "filter": [
+                "all",
+                [
+                    "==",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    0
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "Guided Busway"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-cap": "round",
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    5,
+                    0.18,
+                    10,
+                    0.75,
+                    12,
+                    0.85,
+                    14,
+                    1.75,
+                    15,
+                    2.5,
+                    16,
+                    6,
+                    18,
+                    17.5,
+                    22,
+                    50
+                ],
+                "line-color": "#ffffff"
+            }
+        },
+        {
+            "id": "roads 0 Guided Busway Centreline",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "2a680f24b0d35061ed7d21fd33c9cf08"
+            },
+            "source": "composite",
+            "source-layer": "roads_local",
+            "minzoom": 11,
+            "filter": [
+                "all",
+                [
+                    "==",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    0
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "Guided Busway"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-cap": "round",
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    8,
+                    0.05,
+                    10,
+                    0.1,
+                    12,
+                    0.1,
+                    14,
+                    0.2,
+                    15,
+                    0.3,
+                    16,
+                    0.38,
+                    18,
+                    1.5,
+                    22,
+                    5
+                ],
+                "line-color": "#e1e1e1"
+            }
+        },
+        {
+            "id": "roads 0 Motorway",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "2a680f24b0d35061ed7d21fd33c9cf08"
+            },
+            "source": "composite",
+            "source-layer": "roads_national",
+            "filter": [
+                "all",
+                [
+                    "==",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    0
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "Motorway"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-cap": "round",
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    5,
+                    0.38,
+                    10,
+                    1,
+                    12,
+                    1.38,
+                    14,
+                    2.25,
+                    15,
+                    4,
+                    16,
+                    8.5,
+                    18,
+                    24,
+                    22,
+                    70
+                ],
+                "line-color": "#ffffff"
+            }
+        },
+        {
+            "id": "roads 0 Minor Road",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "2a680f24b0d35061ed7d21fd33c9cf08"
+            },
+            "source": "composite",
+            "source-layer": "roads_local",
+            "minzoom": 11,
+            "filter": [
+                "all",
+                [
+                    "==",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    0
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "Minor"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-cap": "round",
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    7,
+                    0.18,
+                    10,
+                    0.4,
+                    12,
+                    0.85,
+                    14,
+                    1.75,
+                    15,
+                    3.25,
+                    16,
+                    7.5,
+                    18,
+                    22,
+                    22,
+                    60
+                ],
+                "line-color": "hsl(0, 0%, 100%)"
+            }
+        },
+        {
+            "id": "roads 0 B Road",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "2a680f24b0d35061ed7d21fd33c9cf08"
+            },
+            "source": "composite",
+            "source-layer": "roads_regional",
+            "minzoom": 10,
+            "filter": [
+                "all",
+                [
+                    "==",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    0
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "B Road"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-cap": "round",
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    7,
+                    0.18,
+                    10,
+                    0.4,
+                    12,
+                    0.85,
+                    14,
+                    1.75,
+                    15,
+                    3.25,
+                    16,
+                    7.5,
+                    18,
+                    22,
+                    22,
+                    60
+                ],
+                "line-color": "hsl(0, 0%, 100%)"
+            }
+        },
+        {
+            "id": "roads 0 A Road",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "2a680f24b0d35061ed7d21fd33c9cf08"
+            },
+            "source": "composite",
+            "source-layer": "roads_regional",
+            "minzoom": 8,
+            "filter": [
+                "all",
+                [
+                    "==",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    0
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "A Road"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-cap": "round",
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    7,
+                    0.18,
+                    10,
+                    0.4,
+                    12,
+                    0.85,
+                    14,
+                    1.75,
+                    15,
+                    3.25,
+                    16,
+                    7.5,
+                    18,
+                    22,
+                    22,
+                    60
+                ],
+                "line-color": "hsl(0, 0%, 100%)"
+            }
+        },
+        {
+            "id": "roads 0 Primary Road",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "2a680f24b0d35061ed7d21fd33c9cf08"
+            },
+            "source": "composite",
+            "source-layer": "roads_national",
+            "filter": [
+                "all",
+                [
+                    "==",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    0
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "Primary"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-cap": "round",
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    5,
+                    0.25,
+                    10,
+                    0.88,
+                    12,
+                    1,
+                    14,
+                    2,
+                    15,
+                    3.75,
+                    16,
+                    8,
+                    18,
+                    23,
+                    22,
+                    65
+                ],
+                "line-color": "#ffffff",
+                "line-opacity": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    5,
+                    0.6,
+                    9,
+                    1
+                ]
+            }
+        },
+        {
+            "id": "roads 1 Local Road Casing",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "52c81d2ff926c87a0714f2697b2f3694"
+            },
+            "source": "composite",
+            "source-layer": "roads_local",
+            "minzoom": 11,
+            "filter": [
+                "all",
+                [
+                    "match",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    [
+                        1
+                    ],
+                    true,
+                    false
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "Local"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    12,
+                    2.2,
+                    14,
+                    5,
+                    15,
+                    7,
+                    16,
+                    18,
+                    18,
+                    48,
+                    22,
+                    140
+                ],
+                "line-color": "#f2f0ed"
+            }
+        },
+        {
+            "id": "roads 1 Minor Road Casing",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "52c81d2ff926c87a0714f2697b2f3694"
+            },
+            "source": "composite",
+            "source-layer": "roads_local",
+            "minzoom": 11,
+            "filter": [
+                "all",
+                [
+                    "match",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    [
+                        1
+                    ],
+                    true,
+                    false
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "Minor"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    5,
+                    0.35,
+                    10,
+                    2,
+                    12,
+                    3,
+                    14,
+                    6.5,
+                    15,
+                    10,
+                    16,
+                    23,
+                    18,
+                    58,
+                    22,
+                    160
+                ],
+                "line-color": "#f2f0ed"
+            }
+        },
+        {
+            "id": "roads 1 B Road Casing",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "52c81d2ff926c87a0714f2697b2f3694"
+            },
+            "source": "composite",
+            "source-layer": "roads_regional",
+            "minzoom": 10,
+            "filter": [
+                "all",
+                [
+                    "match",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    [
+                        1
+                    ],
+                    true,
+                    false
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "B Road"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    5,
+                    0.35,
+                    10,
+                    2,
+                    12,
+                    3,
+                    14,
+                    6.5,
+                    15,
+                    10,
+                    16,
+                    23,
+                    18,
+                    58,
+                    22,
+                    160
+                ],
+                "line-color": "#f2f0ed"
+            }
+        },
+        {
+            "id": "roads 1 A Road Casing",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "52c81d2ff926c87a0714f2697b2f3694"
+            },
+            "source": "composite",
+            "source-layer": "roads_regional",
+            "minzoom": 8,
+            "filter": [
+                "all",
+                [
+                    "match",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    [
+                        1
+                    ],
+                    true,
+                    false
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "A Road"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    5,
+                    0.35,
+                    10,
+                    2,
+                    12,
+                    3,
+                    14,
+                    6.5,
+                    15,
+                    10,
+                    16,
+                    23,
+                    18,
+                    58,
+                    22,
+                    160
+                ],
+                "line-color": "#f2f0ed"
+            }
+        },
+        {
+            "id": "roads 1 Primary Road Casing",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "52c81d2ff926c87a0714f2697b2f3694"
+            },
+            "source": "composite",
+            "source-layer": "roads_national",
+            "filter": [
+                "all",
+                [
+                    "match",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    [
+                        1
+                    ],
+                    true,
+                    false
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "Primary"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    5,
+                    0.35,
+                    10,
+                    2,
+                    12,
+                    3,
+                    14,
+                    6.5,
+                    15,
+                    10,
+                    16,
+                    23,
+                    18,
+                    58,
+                    22,
+                    160
+                ],
+                "line-color": "#f2f0ed",
+                "line-opacity": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    5,
+                    0.4,
+                    9,
+                    1
+                ]
+            }
+        },
+        {
+            "id": "roads 1 Motorway Casing",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "52c81d2ff926c87a0714f2697b2f3694"
+            },
+            "source": "composite",
+            "source-layer": "roads_national",
+            "filter": [
+                "all",
+                [
+                    "match",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    [
+                        1
+                    ],
+                    true,
+                    false
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "Motorway"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    5,
+                    0.35,
+                    10,
+                    2,
+                    12,
+                    3,
+                    14,
+                    6.5,
+                    15,
+                    10,
+                    16,
+                    23,
+                    18,
+                    58,
+                    22,
+                    160
+                ],
+                "line-color": "#f2f0ed"
+            }
+        },
+        {
+            "id": "roads 1 Restricted Road",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "52c81d2ff926c87a0714f2697b2f3694"
+            },
+            "source": "composite",
+            "source-layer": "roads_local",
+            "minzoom": 11,
+            "filter": [
+                "all",
+                [
+                    "match",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    [
+                        1
+                    ],
+                    true,
+                    false
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "Restricted"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-join": "round"
+            },
+            "paint": {
+                "line-color": "hsl(0, 0%, 100%)",
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    12,
+                    1,
+                    14,
+                    2.5,
+                    15,
+                    4,
+                    16,
+                    7,
+                    18,
+                    24,
+                    22,
+                    85
+                ],
+                "line-opacity": 1,
+                "line-dasharray": [
+                    2,
+                    0.5
+                ]
+            }
+        },
+        {
+            "id": "roads 1 Local Road",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "52c81d2ff926c87a0714f2697b2f3694"
+            },
+            "source": "composite",
+            "source-layer": "roads_local",
+            "minzoom": 11,
+            "filter": [
+                "all",
+                [
+                    "match",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    [
+                        1
+                    ],
+                    true,
+                    false
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "Local"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-cap": "round",
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    12,
+                    0.7,
+                    14,
+                    1.75,
+                    15,
+                    2.5,
+                    16,
+                    6,
+                    18,
+                    17.5,
+                    22,
+                    50
+                ],
+                "line-color": "#ffffff"
+            }
+        },
+        {
+            "id": "roads 1 Guided Busway Casing",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "52c81d2ff926c87a0714f2697b2f3694"
+            },
+            "source": "composite",
+            "source-layer": "roads_local",
+            "minzoom": 11,
+            "filter": [
+                "all",
+                [
+                    "match",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    [
+                        1
+                    ],
+                    true,
+                    false
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "Guided Busway"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-cap": "round",
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    5,
+                    0.18,
+                    10,
+                    0.75,
+                    12,
+                    0.85,
+                    14,
+                    1.75,
+                    15,
+                    2.5,
+                    16,
+                    6,
+                    18,
+                    17.5,
+                    22,
+                    50
+                ],
+                "line-color": "#ffffff"
+            }
+        },
+        {
+            "id": "roads 1 Guided Busway Centreline",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "52c81d2ff926c87a0714f2697b2f3694"
+            },
+            "source": "composite",
+            "source-layer": "roads_local",
+            "minzoom": 11,
+            "filter": [
+                "all",
+                [
+                    "match",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    [
+                        1
+                    ],
+                    true,
+                    false
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "Guided Busway"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-cap": "round",
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    8,
+                    0.05,
+                    10,
+                    0.1,
+                    12,
+                    0.1,
+                    14,
+                    0.2,
+                    15,
+                    0.3,
+                    16,
+                    0.38,
+                    18,
+                    1.5,
+                    22,
+                    5
+                ],
+                "line-color": "#e1e1e1"
+            }
+        },
+        {
+            "id": "roads 1 Motorway",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "52c81d2ff926c87a0714f2697b2f3694"
+            },
+            "source": "composite",
+            "source-layer": "roads_national",
+            "filter": [
+                "all",
+                [
+                    "match",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    [
+                        1
+                    ],
+                    true,
+                    false
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "Motorway"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-cap": "round",
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    5,
+                    0.38,
+                    10,
+                    1,
+                    12,
+                    1.38,
+                    14,
+                    2.25,
+                    15,
+                    4,
+                    16,
+                    8.5,
+                    18,
+                    24,
+                    22,
+                    70
+                ],
+                "line-color": "#ffffff"
+            }
+        },
+        {
+            "id": "roads 1 Minor Road",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "52c81d2ff926c87a0714f2697b2f3694"
+            },
+            "source": "composite",
+            "source-layer": "roads_local",
+            "minzoom": 11,
+            "filter": [
+                "all",
+                [
+                    "match",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    [
+                        1
+                    ],
+                    true,
+                    false
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "Minor"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-cap": "round",
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    7,
+                    0.18,
+                    10,
+                    0.4,
+                    12,
+                    0.85,
+                    14,
+                    1.75,
+                    15,
+                    3.25,
+                    16,
+                    7.5,
+                    18,
+                    22,
+                    22,
+                    60
+                ],
+                "line-color": "hsl(0, 0%, 100%)"
+            }
+        },
+        {
+            "id": "roads 1 B Road",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "52c81d2ff926c87a0714f2697b2f3694"
+            },
+            "source": "composite",
+            "source-layer": "roads_regional",
+            "minzoom": 10,
+            "filter": [
+                "all",
+                [
+                    "match",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    [
+                        1
+                    ],
+                    true,
+                    false
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "B Road"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-cap": "round",
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    7,
+                    0.18,
+                    10,
+                    0.4,
+                    12,
+                    0.85,
+                    14,
+                    1.75,
+                    15,
+                    3.25,
+                    16,
+                    7.5,
+                    18,
+                    22,
+                    22,
+                    60
+                ],
+                "line-color": "hsl(0, 0%, 100%)"
+            }
+        },
+        {
+            "id": "roads 1 A Road",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "52c81d2ff926c87a0714f2697b2f3694"
+            },
+            "source": "composite",
+            "source-layer": "roads_regional",
+            "minzoom": 8,
+            "filter": [
+                "all",
+                [
+                    "match",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    [
+                        1
+                    ],
+                    true,
+                    false
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "A Road"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-cap": "round",
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    7,
+                    0.18,
+                    10,
+                    0.4,
+                    12,
+                    0.85,
+                    14,
+                    1.75,
+                    15,
+                    3.25,
+                    16,
+                    7.5,
+                    18,
+                    22,
+                    22,
+                    60
+                ],
+                "line-color": "hsl(0, 0%, 100%)"
+            }
+        },
+        {
+            "id": "roads 1 Primary Road",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "52c81d2ff926c87a0714f2697b2f3694"
+            },
+            "source": "composite",
+            "source-layer": "roads_national",
+            "filter": [
+                "all",
+                [
+                    "match",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    [
+                        1
+                    ],
+                    true,
+                    false
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "Primary"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-join": "round",
+                "line-cap": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    5,
+                    0.25,
+                    10,
+                    0.88,
+                    12,
+                    1,
+                    14,
+                    2,
+                    15,
+                    3.75,
+                    16,
+                    8,
+                    18,
+                    23,
+                    22,
+                    65
+                ],
+                "line-color": "#ffffff",
+                "line-opacity": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    5,
+                    0.6,
+                    9,
+                    1
+                ]
+            }
+        },
+        {
+            "id": "roads 2 Local Road Casing",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "0845f59ef0d52359da6fd788b079f747"
+            },
+            "source": "composite",
+            "source-layer": "roads_local",
+            "minzoom": 11,
+            "filter": [
+                "all",
+                [
+                    "match",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    [
+                        2
+                    ],
+                    true,
+                    false
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "Local"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    12,
+                    2.2,
+                    14,
+                    5,
+                    15,
+                    7,
+                    16,
+                    18,
+                    18,
+                    48,
+                    22,
+                    140
+                ],
+                "line-color": "#f2f0ed"
+            }
+        },
+        {
+            "id": "roads 2 Minor Road Casing",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "0845f59ef0d52359da6fd788b079f747"
+            },
+            "source": "composite",
+            "source-layer": "roads_local",
+            "minzoom": 11,
+            "filter": [
+                "all",
+                [
+                    "match",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    [
+                        2
+                    ],
+                    true,
+                    false
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "Minor"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    5,
+                    0.35,
+                    10,
+                    2,
+                    12,
+                    3,
+                    14,
+                    6.5,
+                    15,
+                    10,
+                    16,
+                    23,
+                    18,
+                    58,
+                    22,
+                    160
+                ],
+                "line-color": "#f2f0ed"
+            }
+        },
+        {
+            "id": "roads 2 B Road Casing",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "0845f59ef0d52359da6fd788b079f747"
+            },
+            "source": "composite",
+            "source-layer": "roads_regional",
+            "minzoom": 10,
+            "filter": [
+                "all",
+                [
+                    "match",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    [
+                        2
+                    ],
+                    true,
+                    false
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "B Road"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    5,
+                    0.35,
+                    10,
+                    2,
+                    12,
+                    3,
+                    14,
+                    6.5,
+                    15,
+                    10,
+                    16,
+                    23,
+                    18,
+                    58,
+                    22,
+                    160
+                ],
+                "line-color": "#f2f0ed"
+            }
+        },
+        {
+            "id": "roads 2 A Road Casing",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "0845f59ef0d52359da6fd788b079f747"
+            },
+            "source": "composite",
+            "source-layer": "roads_regional",
+            "minzoom": 8,
+            "filter": [
+                "all",
+                [
+                    "match",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    [
+                        2
+                    ],
+                    true,
+                    false
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "A Road"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    5,
+                    0.35,
+                    10,
+                    2,
+                    12,
+                    3,
+                    14,
+                    6.5,
+                    15,
+                    10,
+                    16,
+                    23,
+                    18,
+                    58,
+                    22,
+                    160
+                ],
+                "line-color": "#f2f0ed"
+            }
+        },
+        {
+            "id": "roads 2 Primary Road Casing",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "0845f59ef0d52359da6fd788b079f747"
+            },
+            "source": "composite",
+            "source-layer": "roads_national",
+            "filter": [
+                "all",
+                [
+                    "match",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    [
+                        2
+                    ],
+                    true,
+                    false
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "Primary"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    5,
+                    0.35,
+                    10,
+                    2,
+                    12,
+                    3,
+                    14,
+                    6.5,
+                    15,
+                    10,
+                    16,
+                    23,
+                    18,
+                    58,
+                    22,
+                    160
+                ],
+                "line-color": "#f2f0ed",
+                "line-opacity": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    5,
+                    0.4,
+                    9,
+                    1
+                ]
+            }
+        },
+        {
+            "id": "roads 2 Motorway Casing",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "0845f59ef0d52359da6fd788b079f747"
+            },
+            "source": "composite",
+            "source-layer": "roads_national",
+            "filter": [
+                "all",
+                [
+                    "match",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    [
+                        2
+                    ],
+                    true,
+                    false
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "Motorway"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    5,
+                    0.35,
+                    10,
+                    2,
+                    12,
+                    3,
+                    14,
+                    6.5,
+                    15,
+                    10,
+                    16,
+                    23,
+                    18,
+                    58,
+                    22,
+                    160
+                ],
+                "line-color": "#f2f0ed"
+            }
+        },
+        {
+            "id": "roads 2 Restricted Road",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "0845f59ef0d52359da6fd788b079f747"
+            },
+            "source": "composite",
+            "source-layer": "roads_local",
+            "minzoom": 11,
+            "filter": [
+                "all",
+                [
+                    "match",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    [
+                        2
+                    ],
+                    true,
+                    false
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "Restricted"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-join": "round"
+            },
+            "paint": {
+                "line-color": "hsl(0, 0%, 100%)",
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    12,
+                    1,
+                    14,
+                    2.5,
+                    15,
+                    4,
+                    16,
+                    7,
+                    18,
+                    24,
+                    22,
+                    85
+                ],
+                "line-opacity": 1,
+                "line-dasharray": [
+                    2,
+                    0.5
+                ]
+            }
+        },
+        {
+            "id": "roads 2 Local Road",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "0845f59ef0d52359da6fd788b079f747"
+            },
+            "source": "composite",
+            "source-layer": "roads_local",
+            "minzoom": 11,
+            "filter": [
+                "all",
+                [
+                    "match",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    [
+                        2
+                    ],
+                    true,
+                    false
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "Local"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-cap": "round",
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    12,
+                    0.7,
+                    14,
+                    1.75,
+                    15,
+                    2.5,
+                    16,
+                    6,
+                    18,
+                    17.5,
+                    22,
+                    50
+                ],
+                "line-color": "#ffffff"
+            }
+        },
+        {
+            "id": "roads 2 Guided Busway Casing",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "0845f59ef0d52359da6fd788b079f747"
+            },
+            "source": "composite",
+            "source-layer": "roads_local",
+            "minzoom": 11,
+            "filter": [
+                "all",
+                [
+                    "match",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    [
+                        2
+                    ],
+                    true,
+                    false
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "Guided Busway"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-cap": "round",
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    5,
+                    0.18,
+                    10,
+                    0.75,
+                    12,
+                    0.85,
+                    14,
+                    1.75,
+                    15,
+                    2.5,
+                    16,
+                    6,
+                    18,
+                    17.5,
+                    22,
+                    50
+                ],
+                "line-color": "#ffffff"
+            }
+        },
+        {
+            "id": "roads 2 Guided Busway Centreline",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "0845f59ef0d52359da6fd788b079f747"
+            },
+            "source": "composite",
+            "source-layer": "roads_local",
+            "minzoom": 11,
+            "filter": [
+                "all",
+                [
+                    "match",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    [
+                        2
+                    ],
+                    true,
+                    false
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "Guided Busway"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-cap": "round",
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    8,
+                    0.05,
+                    10,
+                    0.1,
+                    12,
+                    0.1,
+                    14,
+                    0.2,
+                    15,
+                    0.3,
+                    16,
+                    0.38,
+                    18,
+                    1.5,
+                    22,
+                    5
+                ],
+                "line-color": "#e1e1e1"
+            }
+        },
+        {
+            "id": "roads 2 Motorway",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "0845f59ef0d52359da6fd788b079f747"
+            },
+            "source": "composite",
+            "source-layer": "roads_national",
+            "filter": [
+                "all",
+                [
+                    "match",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    [
+                        2
+                    ],
+                    true,
+                    false
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "Motorway"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-cap": "round",
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    5,
+                    0.38,
+                    10,
+                    1,
+                    12,
+                    1.38,
+                    14,
+                    2.25,
+                    15,
+                    4,
+                    16,
+                    8.5,
+                    18,
+                    24,
+                    22,
+                    70
+                ],
+                "line-color": "#ffffff"
+            }
+        },
+        {
+            "id": "roads 2 Minor Road",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "0845f59ef0d52359da6fd788b079f747"
+            },
+            "source": "composite",
+            "source-layer": "roads_local",
+            "minzoom": 11,
+            "filter": [
+                "all",
+                [
+                    "match",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    [
+                        2
+                    ],
+                    true,
+                    false
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "Minor"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-cap": "round",
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    7,
+                    0.18,
+                    10,
+                    0.4,
+                    12,
+                    0.85,
+                    14,
+                    1.75,
+                    15,
+                    3.25,
+                    16,
+                    7.5,
+                    18,
+                    22,
+                    22,
+                    60
+                ],
+                "line-color": "hsl(0, 0%, 100%)"
+            }
+        },
+        {
+            "id": "roads 2 B Road",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "0845f59ef0d52359da6fd788b079f747"
+            },
+            "source": "composite",
+            "source-layer": "roads_regional",
+            "minzoom": 10,
+            "filter": [
+                "all",
+                [
+                    "match",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    [
+                        2
+                    ],
+                    true,
+                    false
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "B Road"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-cap": "round",
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    7,
+                    0.18,
+                    10,
+                    0.4,
+                    12,
+                    0.85,
+                    14,
+                    1.75,
+                    15,
+                    3.25,
+                    16,
+                    7.5,
+                    18,
+                    22,
+                    22,
+                    60
+                ],
+                "line-color": "hsl(0, 0%, 100%)"
+            }
+        },
+        {
+            "id": "roads 2 A Road",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "0845f59ef0d52359da6fd788b079f747"
+            },
+            "source": "composite",
+            "source-layer": "roads_regional",
+            "minzoom": 8,
+            "filter": [
+                "all",
+                [
+                    "match",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    [
+                        2
+                    ],
+                    true,
+                    false
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "A Road"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-cap": "round",
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    7,
+                    0.18,
+                    10,
+                    0.4,
+                    12,
+                    0.85,
+                    14,
+                    1.75,
+                    15,
+                    3.25,
+                    16,
+                    7.5,
+                    18,
+                    22,
+                    22,
+                    60
+                ],
+                "line-color": "hsl(0, 0%, 100%)"
+            }
+        },
+        {
+            "id": "roads 2 Primary Road",
+            "type": "line",
+            "metadata": {
+                "mapbox:group": "0845f59ef0d52359da6fd788b079f747"
+            },
+            "source": "composite",
+            "source-layer": "roads_national",
+            "filter": [
+                "all",
+                [
+                    "match",
+                    [
+                        "get",
+                        "level"
+                    ],
+                    [
+                        2
+                    ],
+                    true,
+                    false
+                ],
+                [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "Primary"
+                    ],
+                    true,
+                    false
+                ]
+            ],
+            "layout": {
+                "line-cap": "round",
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    5,
+                    0.25,
+                    10,
+                    0.88,
+                    12,
+                    1,
+                    14,
+                    2,
+                    15,
+                    3.75,
+                    16,
+                    8,
+                    18,
+                    23,
+                    22,
+                    65
+                ],
+                "line-color": "#ffffff",
+                "line-opacity": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    5,
+                    0.6,
+                    9,
+                    1
+                ]
+            }
+        },
+        {
+            "id": "road Tunnels",
+            "type": "line",
+            "source": "composite",
+            "source-layer": "roads_local",
+            "minzoom": 11,
+            "filter": [
+                "match",
+                [
+                    "get",
+                    "type"
+                ],
+                [
+                    "Tunnels"
+                ],
+                true,
+                false
+            ],
+            "layout": {
+                "line-cap": "round",
+                "line-join": "round"
+            },
+            "paint": {
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    9,
+                    0.5,
+                    17,
+                    2
+                ],
+                "line-color": "#4b4444",
+                "line-opacity": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    9,
+                    0.1,
+                    14,
+                    0.35
+                ],
+                "line-dasharray": [
+                    3,
+                    2.5
+                ]
+            }
+        },
+        {
+            "id": "rail",
+            "type": "line",
+            "source": "composite",
+            "source-layer": "rail",
+            "filter": [
+                "match",
+                [
+                    "get",
+                    "type"
+                ],
+                [
+                    "Tunnel"
+                ],
+                false,
+                true
+            ],
+            "layout": {
+                "line-join": "round"
+            },
+            "paint": {
+                "line-color": "#a7a39b",
+                "line-opacity": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    10,
+                    0.2,
+                    14,
+                    1
+                ],
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    10,
+                    [
+                        "match",
+                        [
+                            "get",
+                            "type"
+                        ],
+                        [
+                            "Multi Track"
+                        ],
+                        0.6,
+                        [
+                            "Single Track"
+                        ],
+                        0.5,
+                        [
+                            "Narrow Gauge"
+                        ],
+                        0.4,
+                        1
+                    ],
+                    17,
+                    [
+                        "match",
+                        [
+                            "get",
+                            "type"
+                        ],
+                        [
+                            "Multi Track"
+                        ],
+                        2,
+                        [
+                            "Single Track"
+                        ],
+                        1.5,
+                        [
+                            "Narrow Gauge"
+                        ],
+                        1,
+                        1
+                    ]
+                ]
+            }
+        },
+        {
+            "id": "rail tunnel",
+            "type": "line",
+            "source": "composite",
+            "source-layer": "rail",
+            "filter": [
+                "match",
+                [
+                    "get",
+                    "type"
+                ],
+                [
+                    "Tunnel"
+                ],
+                true,
+                false
+            ],
+            "layout": {
+                "line-join": "round"
+            },
+            "paint": {
+                "line-color": "#a7a39b",
+                "line-opacity": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    10,
+                    0.2,
+                    14,
+                    0.6
+                ],
+                "line-width": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    10,
+                    0.6,
+                    17,
+                    1.5
+                ],
+                "line-dasharray": [
+                    5,
+                    3
+                ]
+            }
+        },
+        {
+            "id": "road numbers",
+            "type": "symbol",
+            "metadata": {
+                "mapbox:group": "beaf4956fb8a63410ecf80abdebcdfb5"
+            },
+            "source": "composite",
+            "source-layer": "roads_national",
+            "minzoom": 10,
+            "filter": [
+                "match",
+                [
+                    "get",
+                    "type"
+                ],
+                [
+                    "Primary",
+                    "Motorway"
+                ],
+                false,
+                true
+            ],
+            "layout": {
+                "text-field": [
+                    "to-string",
+                    [
+                        "get",
+                        "number"
+                    ]
+                ],
+                "symbol-placement": "line",
+                "text-max-angle": 45,
+                "text-size": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    10,
+                    8,
+                    15,
+                    11,
+                    22,
+                    28
+                ],
+                "text-font": [
+                    "Source Sans Pro Regular"
+                ]
+            },
+            "paint": {
+                "text-halo-color": "hsl(0, 0%, 100%)",
+                "text-halo-width": 1,
+                "text-halo-blur": 1,
+                "text-color": "#1a1c1e"
+            }
+        },
+        {
+            "id": "road names",
+            "type": "symbol",
+            "metadata": {
+                "mapbox:group": "beaf4956fb8a63410ecf80abdebcdfb5"
+            },
+            "source": "composite",
+            "source-layer": "roads_local",
+            "minzoom": 10,
+            "filter": [
+                "match",
+                [
+                    "get",
+                    "type"
+                ],
+                [
+                    "Primary",
+                    "Motorway"
+                ],
+                false,
+                true
+            ],
+            "layout": {
+                "text-field": [
+                    "to-string",
+                    [
+                        "get",
+                        "name"
+                    ]
+                ],
+                "symbol-placement": "line",
+                "text-font": [
+                    "Source Sans Pro Regular"
+                ],
+                "text-size": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    10,
+                    8,
+                    15,
+                    10,
+                    22,
+                    25
+                ],
+                "symbol-spacing": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    10,
+                    25,
+                    15,
+                    97,
+                    17,
+                    250
+                ],
+                "text-max-angle": 82,
+                "text-padding": 1
+            },
+            "paint": {
+                "text-halo-color": "hsl(0, 0%, 100%)",
+                "text-halo-width": 1,
+                "text-halo-blur": 1,
+                "text-color": "#1a1c1e"
+            }
+        },
+        {
+            "id": "primary road numbers",
+            "type": "symbol",
+            "metadata": {
+                "mapbox:group": "beaf4956fb8a63410ecf80abdebcdfb5"
+            },
+            "source": "composite",
+            "source-layer": "roads_national",
+            "minzoom": 9,
+            "filter": [
+                "match",
+                [
+                    "get",
+                    "type"
+                ],
+                [
+                    "Primary"
+                ],
+                true,
+                false
+            ],
+            "layout": {
+                "text-field": [
+                    "to-string",
+                    [
+                        "get",
+                        "number"
+                    ]
+                ],
+                "symbol-placement": "line",
+                "text-max-angle": 65,
+                "text-size": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    9,
+                    8.5,
+                    15,
+                    12,
+                    22,
+                    28
+                ],
+                "text-font": [
+                    "Source Sans Pro SemiBold"
+                ],
+                "text-letter-spacing": 0.1,
+                "symbol-spacing": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    9,
+                    50,
+                    15,
+                    250
+                ]
+            },
+            "paint": {
+                "text-halo-color": "#ffffff",
+                "text-halo-width": 1.25,
+                "text-halo-blur": 0,
+                "text-color": "#1a1c1e"
+            }
+        },
+        {
+            "id": "motorway numbers",
+            "type": "symbol",
+            "metadata": {
+                "mapbox:group": "beaf4956fb8a63410ecf80abdebcdfb5"
+            },
+            "source": "composite",
+            "source-layer": "roads_national",
+            "minzoom": 8,
+            "filter": [
+                "match",
+                [
+                    "get",
+                    "type"
+                ],
+                [
+                    "Motorway"
+                ],
+                true,
+                false
+            ],
+            "layout": {
+                "text-field": [
+                    "to-string",
+                    [
+                        "get",
+                        "number"
+                    ]
+                ],
+                "symbol-placement": "line",
+                "text-max-angle": 45,
+                "text-size": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    8,
+                    8.5,
+                    10,
+                    9,
+                    15,
+                    12,
+                    22,
+                    28
+                ],
+                "text-font": [
+                    "Source Sans Pro SemiBold"
+                ],
+                "text-letter-spacing": 0.1,
+                "symbol-spacing": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    8,
+                    50,
+                    15,
+                    250
+                ]
+            },
+            "paint": {
+                "text-halo-color": "#ffffff",
+                "text-halo-width": 1.25,
+                "text-halo-blur": 0,
+                "text-color": "#1a1c1e"
+            }
+        },
+        {
+            "id": "motorway junction numbers",
+            "type": "symbol",
+            "metadata": {
+                "mapbox:group": "e196265c0e550aaddd2885dc32fdb674"
+            },
+            "source": "composite",
+            "source-layer": "names",
+            "minzoom": 13,
+            "filter": [
+                "match",
+                [
+                    "get",
+                    "type"
+                ],
+                [
+                    "Motorway Junctions"
+                ],
+                true,
+                false
+            ],
+            "layout": {
+                "text-field": [
+                    "to-string",
+                    [
+                        "get",
+                        "name1"
+                    ]
+                ],
+                "text-size": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    13,
+                    11,
+                    16,
+                    16,
+                    22,
+                    30
+                ],
+                "text-font": [
+                    "Source Sans Pro Bold"
+                ]
+            },
+            "paint": {
+                "text-color": "#ffffff",
+                "text-halo-color": "#9c9c9c",
+                "text-halo-width": 10
+            }
+        },
+        {
+            "id": "sites names",
+            "type": "symbol",
+            "metadata": {
+                "mapbox:group": "e196265c0e550aaddd2885dc32fdb674"
+            },
+            "source": "composite",
+            "source-layer": "names",
+            "minzoom": 13,
+            "filter": [
+                "match",
+                [
+                    "get",
+                    "type"
+                ],
+                [
+                    "Sites"
+                ],
+                true,
+                false
+            ],
+            "layout": {
+                "text-field": [
+                    "to-string",
+                    [
+                        "get",
+                        "name1"
+                    ]
+                ],
+                "text-size": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    13,
+                    9,
+                    14,
+                    11
+                ],
+                "text-font": [
+                    "Source Sans Pro Regular"
+                ],
+                "text-line-height": 1
+            },
+            "paint": {
+                "text-color": "#1a1c1e",
+                "text-halo-color": "#f1efec",
+                "text-halo-width": 1,
+                "text-halo-blur": 1
+            }
+        },
+        {
+            "id": "landform names",
+            "type": "symbol",
+            "metadata": {
+                "mapbox:group": "e196265c0e550aaddd2885dc32fdb674"
+            },
+            "source": "composite",
+            "source-layer": "names",
+            "minzoom": 11,
+            "filter": [
+                "match",
+                [
+                    "get",
+                    "type"
+                ],
+                [
+                    "Landform"
+                ],
+                true,
+                false
+            ],
+            "layout": {
+                "text-field": [
+                    "to-string",
+                    [
+                        "get",
+                        "name1"
+                    ]
+                ],
+                "text-size": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    11,
+                    9,
+                    14,
+                    11
+                ],
+                "text-font": [
+                    "Source Sans Pro Regular"
+                ],
+                "text-line-height": 1
+            },
+            "paint": {
+                "text-color": "#1a1c1e",
+                "text-halo-color": "#f1efec",
+                "text-halo-width": 1,
+                "text-halo-blur": 1
+            }
+        },
+        {
+            "id": "water names",
+            "type": "symbol",
+            "metadata": {
+                "mapbox:group": "e196265c0e550aaddd2885dc32fdb674"
+            },
+            "source": "composite",
+            "source-layer": "names",
+            "minzoom": 12,
+            "filter": [
+                "match",
+                [
+                    "get",
+                    "type"
+                ],
+                [
+                    "Water"
+                ],
+                true,
+                false
+            ],
+            "layout": {
+                "text-field": [
+                    "to-string",
+                    [
+                        "get",
+                        "name1"
+                    ]
+                ],
+                "text-size": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    11,
+                    9,
+                    14,
+                    11
+                ],
+                "text-font": [
+                    "Source Sans Pro Italic"
+                ],
+                "text-line-height": 1
+            },
+            "paint": {
+                "text-color": "#6c8499",
+                "text-halo-color": "#f1efec",
+                "text-halo-width": 1,
+                "text-halo-blur": 1
+            }
+        },
+        {
+            "id": "suburban area names",
+            "type": "symbol",
+            "metadata": {
+                "mapbox:group": "e196265c0e550aaddd2885dc32fdb674"
+            },
+            "source": "composite",
+            "source-layer": "names",
+            "minzoom": 10,
+            "filter": [
+                "match",
+                [
+                    "get",
+                    "type"
+                ],
+                [
+                    "Suburban Area"
+                ],
+                true,
+                false
+            ],
+            "layout": {
+                "text-field": [
+                    "to-string",
+                    [
+                        "get",
+                        "name1"
+                    ]
+                ],
+                "text-size": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    10,
+                    10.5,
+                    14,
+                    14
+                ],
+                "text-font": [
+                    "Source Sans Pro Regular"
+                ],
+                "text-line-height": 1,
+                "text-padding": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    10,
+                    10,
+                    14,
+                    2
+                ]
+            },
+            "paint": {
+                "text-color": "#1a1c1e",
+                "text-halo-color": "#f1efec",
+                "text-halo-width": 1,
+                "text-halo-blur": 1,
+                "text-opacity": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    10,
+                    0.8,
+                    14,
+                    1
+                ]
+            }
+        },
+        {
+            "id": "railwaystations",
+            "type": "symbol",
+            "metadata": {
+                "mapbox:group": "e196265c0e550aaddd2885dc32fdb674"
+            },
+            "source": "composite",
+            "source-layer": "railway_stations",
+            "minzoom": 10,
+            "layout": {
+                "text-line-height": 1,
+                "text-size": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    12,
+                    9,
+                    15,
+                    13
+                ],
+                "icon-image": [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "Railway Station"
+                    ],
+                    "RS",
+                    [
+                        "London Underground Station"
+                    ],
+                    "UG",
+                    [
+                        "Light Rapid Transit Station"
+                    ],
+                    "LRTS",
+                    [
+                        "Light Rapid Transit Station And London Underground Station"
+                    ],
+                    "LRTS-UG",
+                    [
+                        "Light Rapid Transit Station And Railway Station"
+                    ],
+                    "RS-LRTS",
+                    [
+                        "Railway Station And London Underground Station"
+                    ],
+                    "RS-UG",
+                    ""
+                ],
+                "text-font": [
+                    "Source Sans Pro Regular"
+                ],
+                "text-justify": "left",
+                "text-offset": [
+                    "match",
+                    [
+                        "get",
+                        "type"
+                    ],
+                    [
+                        "Railway Station"
+                    ],
+                    [
+                        "literal",
+                        [
+                            1,
+                            0
+                        ]
+                    ],
+                    [
+                        "Light Rapid Transit Station"
+                    ],
+                    [
+                        "literal",
+                        [
+                            1,
+                            0
+                        ]
+                    ],
+                    [
+                        "London Underground Station"
+                    ],
+                    [
+                        "literal",
+                        [
+                            1,
+                            0
+                        ]
+                    ],
+                    [
+                        "Railway Station And London Underground Station"
+                    ],
+                    [
+                        "literal",
+                        [
+                            1.7,
+                            0
+                        ]
+                    ],
+                    [
+                        "Light Rapid Transit Station And London Underground Station"
+                    ],
+                    [
+                        "literal",
+                        [
+                            1.5,
+                            0
+                        ]
+                    ],
+                    [
+                        "Light Rapid Transit Station And Railway Station"
+                    ],
+                    [
+                        "literal",
+                        [
+                            1.7,
+                            0
+                        ]
+                    ],
+                    [
+                        "literal",
+                        [
+                            0,
+                            0
+                        ]
+                    ]
+                ],
+                "icon-size": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    12,
+                    0.5,
+                    15,
+                    1
+                ],
+                "text-anchor": "left",
+                "text-field": [
+                    "to-string",
+                    [
+                        "get",
+                        "name"
+                    ]
+                ]
+            },
+            "paint": {
+                "text-halo-color": "#ffffff",
+                "text-halo-width": 1,
+                "text-halo-blur": 1,
+                "text-color": "#1a1c1e"
+            }
+        },
+        {
+            "id": "airports",
+            "type": "symbol",
+            "metadata": {
+                "mapbox:group": "e196265c0e550aaddd2885dc32fdb674"
+            },
+            "source": "composite",
+            "source-layer": "airports",
+            "minzoom": 10,
+            "layout": {
+                "icon-image": "Airport",
+                "icon-size": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    10,
+                    0.8,
+                    15,
+                    1
+                ],
+                "text-field": [
+                    "to-string",
+                    [
+                        "get",
+                        "name"
+                    ]
+                ],
+                "text-font": [
+                    "Source Sans Pro Regular"
+                ],
+                "text-size": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    10,
+                    9,
+                    15,
+                    13
+                ],
+                "text-justify": "left",
+                "text-anchor": "left",
+                "text-offset": [
+                    0.8,
+                    0
+                ]
+            },
+            "paint": {
+                "text-color": "#1a1c1e",
+                "text-halo-color": "hsl(0, 0%, 100%)",
+                "text-halo-width": 1,
+                "text-halo-blur": 1
+            }
+        },
+        {
+            "id": "village and hamlet names",
+            "type": "symbol",
+            "metadata": {
+                "mapbox:group": "e196265c0e550aaddd2885dc32fdb674"
+            },
+            "source": "composite",
+            "source-layer": "names",
+            "minzoom": 12,
+            "filter": [
+                "match",
+                [
+                    "get",
+                    "type"
+                ],
+                [
+                    "Village",
+                    "Hamlet"
+                ],
+                true,
+                false
+            ],
+            "layout": {
+                "text-field": [
+                    "to-string",
+                    [
+                        "get",
+                        "name1"
+                    ]
+                ],
+                "text-size": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    12,
+                    9,
+                    14,
+                    15
+                ],
+                "text-font": [
+                    "Source Sans Pro Regular"
+                ],
+                "text-line-height": 1,
+                "text-padding": 2
+            },
+            "paint": {
+                "text-color": "#1a1c1e",
+                "text-halo-color": "#f1efec",
+                "text-halo-width": 1,
+                "text-halo-blur": 1,
+                "text-opacity": 1
+            }
+        },
+        {
+            "id": "town names",
+            "type": "symbol",
+            "metadata": {
+                "mapbox:group": "e196265c0e550aaddd2885dc32fdb674"
+            },
+            "source": "composite",
+            "source-layer": "names",
+            "minzoom": 7,
+            "filter": [
+                "match",
+                [
+                    "get",
+                    "type"
+                ],
+                [
+                    "Town"
+                ],
+                true,
+                false
+            ],
+            "layout": {
+                "text-field": [
+                    "to-string",
+                    [
+                        "get",
+                        "name1"
+                    ]
+                ],
+                "text-size": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    7,
+                    10,
+                    14,
+                    18
+                ],
+                "text-font": [
+                    "Source Sans Pro Regular"
+                ],
+                "text-line-height": 1,
+                "text-padding": 2
+            },
+            "paint": {
+                "text-color": "#1a1c1e",
+                "text-halo-color": "#f1efec",
+                "text-halo-width": 1,
+                "text-halo-blur": 1,
+                "text-opacity": 1
+            }
+        },
+        {
+            "id": "city names",
+            "type": "symbol",
+            "metadata": {
+                "mapbox:group": "e196265c0e550aaddd2885dc32fdb674"
+            },
+            "source": "composite",
+            "source-layer": "names",
+            "minzoom": 6,
+            "filter": [
+                "match",
+                [
+                    "get",
+                    "type"
+                ],
+                [
+                    "City"
+                ],
+                true,
+                false
+            ],
+            "layout": {
+                "text-field": [
+                    "to-string",
+                    [
+                        "get",
+                        "name1"
+                    ]
+                ],
+                "text-size": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    6,
+                    10,
+                    14,
+                    20
+                ],
+                "text-font": [
+                    "Source Sans Pro SemiBold"
+                ],
+                "text-line-height": 1,
+                "text-padding": 2,
+                "text-letter-spacing": 0.05
+            },
+            "paint": {
+                "text-color": "#1e2022",
+                "text-halo-color": "#f1efec",
+                "text-halo-width": 1,
+                "text-halo-blur": 1,
+                "text-opacity": 1
+            }
+        },
+        {
+            "id": "national park names",
+            "type": "symbol",
+            "metadata": {
+                "mapbox:group": "e196265c0e550aaddd2885dc32fdb674"
+            },
+            "source": "composite",
+            "source-layer": "names",
+            "minzoom": 9,
+            "filter": [
+                "match",
+                [
+                    "get",
+                    "type"
+                ],
+                [
+                    "National Park"
+                ],
+                true,
+                false
+            ],
+            "layout": {
+                "text-field": [
+                    "to-string",
+                    [
+                        "get",
+                        "name1"
+                    ]
+                ],
+                "text-size": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    9,
+                    8,
+                    14,
+                    15
+                ],
+                "text-font": [
+                    "Source Sans Pro SemiBold"
+                ],
+                "text-line-height": 1,
+                "text-padding": 2,
+                "text-letter-spacing": 0.06
+            },
+            "paint": {
+                "text-color": "#556c55",
+                "text-halo-color": "#f1efec",
+                "text-halo-width": 1,
+                "text-halo-blur": 1,
+                "text-opacity": 0.8
+            }
+        },
+        {
+            "id": "capital city names",
+            "type": "symbol",
+            "metadata": {
+                "mapbox:group": "e196265c0e550aaddd2885dc32fdb674"
+            },
+            "source": "composite",
+            "source-layer": "names",
+            "minzoom": 6,
+            "filter": [
+                "match",
+                [
+                    "get",
+                    "type"
+                ],
+                [
+                    "Capital"
+                ],
+                true,
+                false
+            ],
+            "layout": {
+                "text-field": [
+                    "to-string",
+                    [
+                        "get",
+                        "name1"
+                    ]
+                ],
+                "text-size": [
+                    "interpolate",
+                    [
+                        "linear"
+                    ],
+                    [
+                        "zoom"
+                    ],
+                    7,
+                    10.5,
+                    14,
+                    22
+                ],
+                "text-font": [
+                    "Source Sans Pro SemiBold"
+                ],
+                "text-line-height": 1,
+                "text-padding": 2,
+                "text-letter-spacing": 0.1,
+                "text-transform": "uppercase"
+            },
+            "paint": {
+                "text-color": "#1e2022",
+                "text-halo-color": "#f1efec",
+                "text-halo-width": 1,
+                "text-halo-blur": 1,
+                "text-opacity": 1
+            }
+        }
+    ]
+}

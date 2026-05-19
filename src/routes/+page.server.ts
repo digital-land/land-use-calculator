@@ -3,30 +3,28 @@ import { base } from "$app/paths";
 import type { PageServerLoad } from "./$types";
 
 export const load: PageServerLoad = async ({ fetch, url }) => {
-  const response = await fetch(`${base}/meta_feb_26.csv`);
+  const response: Response = await fetch(`${base}/output.csv`);
 
   if (!response.ok) {
     throw new Error("Failed to fetch CSV");
   }
 
-  const csvText = await response.text();
+  const csvText: string = await response.text();
 
-  const grid10mVariables = parseCSVToObject(csvText);
+  const grid10mVariables: object = parseCSVToObject(csvText);
 
-  let urlParams = {};
+  let urlParams = new URLSearchParams(url.searchParams);
 
-  for (const p of url.searchParams) {
-    urlParams[p[0]] = p[1];
-  }
+  const urlSelected: string[] = urlParams.getAll("selected");
+  const urlPolicyLens: string = urlParams.getAll("policyLens")[0];
 
-  const urlSelected = url.searchParams.getAll("selected");
-
-  let urlParamsString = url.searchParams.toString();
+  let urlParamsString = urlParams.toString();
 
   return {
     grid10mVariables,
-    urlParams,
+    urlParams: [...urlParams],
     urlParamsString,
     urlSelected,
+    urlPolicyLens,
   };
 };

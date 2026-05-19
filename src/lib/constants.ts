@@ -12,6 +12,80 @@ export const colors: string[] = [
   "#333366",
 ];
 
+export const mhclgPaletteRGB = [
+  // Core MHCLG / GOV.UK base
+  [0, 98, 94], // MHCLG teal (#00625E)
+
+  // Core identity secondary colours (bright)
+  [255, 93, 136], // bright pink (#FF5D88)
+  [221, 50, 48], // bright red (#DD3230)
+  [250, 163, 50], // bright orange (#FAA332)
+  [154, 184, 60], // bright green (#98B83C)
+  [8, 179, 213], // bright blue (#08B2D5)
+  [135, 135, 192], // bright indigo (#8687C1)
+  [153, 152, 143], // bright grey (#99988F)
+
+  // Core identity secondary colours
+  [147, 42, 114], // pink (#932A72)
+  [133, 41, 42], // red (#85292A)
+  [191, 74, 29], // orange (#BF4A1D)
+  [64, 97, 31], // green (#40611F)
+  [33, 80, 132], // blue (#215084)
+  [51, 51, 102], // indigo (#333366)
+  [84, 84, 84], // grey (#535453)
+
+  [11, 12, 12], // black (#0B0C0C)
+  [80, 90, 95], // dark grey (#505A5F)
+  [177, 180, 182], // mid grey (#B1B4B6)
+  [243, 242, 241], // light grey (#F3F2F1)
+  [255, 255, 255], // white (#FFFFFF)
+];
+
+export const colorScale = [
+  // Core MHCLG / GOV.UK base
+  "#00625E", // MHCLG teal
+
+  // Core identity secondary colours (bright)
+  "#FF5D88", // bright pink
+  "#DD3230", // bright red
+  "#FAA332", // bright orange
+  "#98B83C", // bright green
+  "#08B2D5", // bright blue
+  "#8687C1", // bright indigo
+  "#99988F", // bright grey
+
+  // Core identity secondary colours
+  "#932A72", // pink
+  "#85292A", // red
+  "#BF4A1D", // orange
+  "#40611F", // green
+  "#215084", // blue (from R33 G80 B132)
+  "#333366", // indigo
+  "#535453", // grey
+
+  "#0B0C0C", // black
+  "#505A5F", // dark grey
+  "#B1B4B6", // mid grey
+  "#F3F2F1", // light grey
+  "#FFFFFF", // white
+];
+
+export const shortCategoricalColorPalette = [
+  "#66c2a5",
+  "#fc8d62",
+  "#8da0cb",
+  "#e78ac3",
+  "#a6d854",
+];
+
+export const shortCategoricalColorPaletteRgb = [
+  [102, 194, 165],
+  [252, 141, 98],
+  [141, 160, 203],
+  [231, 138, 195],
+  [166, 216, 84],
+];
+
 const NO_DATA_COLOR = 0x00000000; // Transparent
 const LENS_HIGHLIGHT_COLOR = 0x44ff00ff; // Pale pink
 const TOTAL_COLOR = 0x88000000; // Grey
@@ -40,44 +114,112 @@ COLOR_LUT[0b1100] = TOTAL_COLOR;
 COLOR_LUT[0b1110] = SELECTED_AREA_COLOR;
 COLOR_LUT[0b1111] = UNIQUE_AREA_COLOR;
 
+export const CODES: Array<[number, string]> = [
+  [44464, "private_individual"],
+  [64464, "overseas_corporate"],
+  [928, "overseas_corporate.other_countries"],
+  [28, "overseas_corporate.top_countries_1"],
+  [128, "overseas_corporate.top_countries_2"],
+  [228, "overseas_corporate.top_countries_3"],
+  [328, "overseas_corporate.top_countries_4"],
+  [428, "overseas_corporate.top_countries_5"],
+  [528, "overseas_corporate.top_countries_6"],
+  [628, "overseas_corporate.top_countries_7"],
+  [728, "overseas_corporate.top_countries_8"],
+  [828, "overseas_corporate.top_countries_9"],
+  [54464, "UK_corporate"],
+  [58464, "UK_corporate.Crown Estate"],
+  [57864, "UK_corporate.non_profit.charity_in_name"],
+  [57575, "UK_corporate.non_profit.church.C_of_E.commissioners"],
+  [57576, "UK_corporate.non_profit.church.C_of_E.dioscese"],
+  [57584, "UK_corporate.non_profit.church.other"],
+  [57764, "UK_corporate.non_profit.community_interest_company"],
+  [57664, "UK_corporate.non_profit.national_trust"],
+  [57464, "UK_corporate.other"],
+  [56464, "UK_corporate.private_sector"],
+  [55734, "UK_corporate.public_sector.central_government.culture_media_sport"],
+  [55674, "UK_corporate.public_sector.central_government.defence"],
+  [55704, "UK_corporate.public_sector.central_government.environment"],
+  [55724, "UK_corporate.public_sector.central_government.health"],
+  [55694, "UK_corporate.public_sector.central_government.housing"],
+  [55714, "UK_corporate.public_sector.central_government.justice"],
+  [55744, "UK_corporate.public_sector.central_government.other"],
+  [55684, "UK_corporate.public_sector.central_government.transport"],
+  [55614, "UK_corporate.public_sector.local_government.combined_authority"],
+  [55584, "UK_corporate.public_sector.local_government.county"],
+  [55594, "UK_corporate.public_sector.local_government.district"],
+  [
+    55624,
+    "UK_corporate.public_sector.local_government.greater_london_authority",
+  ],
+  [55634, "UK_corporate.public_sector.local_government.other"],
+  [55604, "UK_corporate.public_sector.local_government.parish_or_town"],
+  [55574, "UK_corporate.public_sector.local_government.unitary"],
+  [55817, "UK_corporate.public_sector.public_agency.emergency.ambulance"],
+  [55816, "UK_corporate.public_sector.public_agency.emergency.fire_service"],
+  [55815, "UK_corporate.public_sector.public_agency.emergency.police"],
+  [55804, "UK_corporate.public_sector.public_agency.historic_england"],
+  [55784, "UK_corporate.public_sector.public_agency.homes_england"],
+  [55794, "UK_corporate.public_sector.public_agency.national_highways"],
+  [55774, "UK_corporate.public_sector.public_agency.national_park"],
+  [55834, "UK_corporate.public_sector.public_agency.network_rail"],
+  [55844, "UK_corporate.public_sector.public_agency.nuclear_decommissioning"],
+  [55854, "UK_corporate.public_sector.public_agency.other"],
+  [55824, "UK_corporate.public_sector.public_agency.post_office"],
+  [59464, "UK_corporate.university"],
+];
+
 export interface settingsObject {
-  width: number;
-  height: number;
-  bbox: number[];
+  // width: number;
+  // height: number;
+  // bbox: number[];
   gridSize: number;
   sourceFolder: string;
 }
 
+export const hectareBbox: number[] = [50000, 0, 700000, 700000];
+// export const hectareBbox: number[] = [82768, 5339, 655568, 657439];
+
 export const hectareSettings: settingsObject = {
-  width: 5728,
-  height: 6521,
-  bbox: [82768, 5339, 655568, 657439],
+  //   width: 5728,
+  //   height: 6521,
+  //   bbox: [82768, 5339, 655568, 657439],
+  // sourceFolder: "PUBLIC_BIN_LAYERS",
+  // width: 6500,
+  // height: 7000,
+  // bbox: [50000, 0, 700000, 700000],
+  sourceFolder: "ENG_100_aLL_B_idx_32_0204",
   gridSize: 100,
-  sourceFolder: "PUBLIC_BIN_LAYERS",
+  // width: 5000,
+  // height: 5000,
+  // bbox: [250000, 100000, 300000, 150000],
+  // sourceFolder: "20260417-clipped/SSSE_10_B_idx_32_20260417",
+  // gridSize: 10,
 };
 
 export const tenMetreSettings: settingsObject = {
   // width: 10000,
   // height: 10000,
-  //bbox: number[] = [445_942, 149_055, 454_704, 155_813],
+  // bbox: number[] = [445_942, 149_055, 454_704, 155_813],
   // bbox: [400000, 100000, 500000, 200000],
   gridSize: 10,
-  sourceFolder: "ten_metre",
+  // sourceFolder: "ten_metre",
+  sourceFolder: "Tiles_10_B_idx_32_20260417",
 };
 
 export const tableMetadata: TableMetadata = {
   name: {
-    explainer: "Sort by restriction name",
+    explainer: "Sort by category name",
     label: "Name",
     shortLabel: "Name",
   },
   area: {
-    explainer: "Sort by the total area in England covered by this restriction",
+    explainer: "Sort by the total area in England covered by this category",
     label: "Area (ha)",
     shortLabel: "Area (ha)",
   },
   unique: {
-    explainer: "Sort by hectares where this is the only barrier to development",
+    explainer: "Sort by hectares where this is the only category selected",
     label: "Exclusive to this category (ha)",
     shortLabel: "Exclusive to this category (ha)",
   },
@@ -274,7 +416,98 @@ export const policyLensItems = [
     text: "The custom area",
     sentenceText: "the custom area",
   },
+  {
+    value: "ENG_100_builtUpArea_B_idx_32_0204.bin",
+    text: "BUAs",
+    sentenceText: "built up areas",
+  },
 ];
+
+// export const uniqueTileCodes = [
+//   "SVSE",
+//   "SWSW",
+//   "SWSE",
+//   "SWNE",
+//   "SXSW",
+//   "SXNW",
+//   "SSSW",
+//   "SXSE",
+//   "SXNE",
+//   "SSSE",
+//   "SSNE",
+//   "NXSE",
+//   "SYNW",
+//   "STSW",
+//   "STNW",
+//   "SOSW",
+//   "SONW",
+//   "SJSW",
+//   "SJNW",
+//   "SDSW",
+//   "SDNW",
+//   "NYSW",
+//   "NYNW",
+//   "SYNE",
+//   "STSE",
+//   "STNE",
+//   "SOSE",
+//   "SONE",
+//   "SJSE",
+//   "SJNE",
+//   "SDSE",
+//   "SDNE",
+//   "NYSE",
+//   "NYNE",
+//   "NTSE",
+//   "NTNE",
+//   "SZNW",
+//   "SUSW",
+//   "SUNW",
+//   "SPSW",
+//   "SPNW",
+//   "SKSW",
+//   "SKNW",
+//   "SESW",
+//   "SENW",
+//   "NZSW",
+//   "NZNW",
+//   "NUSW",
+//   "NUNW",
+//   "SZNE",
+//   "SUSE",
+//   "SUNE",
+//   "SPSE",
+//   "SPNE",
+//   "SKSE",
+//   "SKNE",
+//   "SESE",
+//   "SENE",
+//   "NZSE",
+//   "TVNW",
+//   "TQSW",
+//   "TQNW",
+//   "TLSW",
+//   "TLNW",
+//   "TFSW",
+//   "TFNW",
+//   "TASW",
+//   "TANW",
+//   "OVSW",
+//   "TVNE",
+//   "TQSE",
+//   "TQNE",
+//   "TLSE",
+//   "TLNE",
+//   "TFSE",
+//   "TFNE",
+//   "TRSW",
+//   "TRNW",
+//   "TMSW",
+//   "TMNW",
+//   "TGSW",
+//   "TMNE",
+//   "TGSE",
+// ];
 
 export const tiles = [
   {
