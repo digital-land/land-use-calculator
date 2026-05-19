@@ -278,3 +278,94 @@ WHERE EXISTS (
   WHERE c.title_number = n.title_no
     AND c.property_address ILIKE '%mineral%'
 );
+
+
+-- CHECK
+
+WITH cat_lookup AS (
+  SELECT *
+  FROM (VALUES
+    (110000, 'private_individual'),
+    (120000, 'UK_corporate'),
+    (121110, 'local_government.unitary'),
+    (121120, 'local_government.county'),
+    (121130, 'local_government.district'),
+    (121140, 'local_government.parish_town'),
+    (121150, 'local_government.combined_authority'),
+    (121160, 'local_government.greater_london_authority'),
+    (121170, 'local_government.other'),
+    (121210, 'central_government.defence'),
+    (121220, 'central_government.transport'),
+    (121230, 'central_government.housing'),
+    (121240, 'central_government.environment'),
+    (121250, 'central_government.justice'),
+    (121260, 'central_government.health'),
+    (121270, 'central_government.culture_media_sport'),
+    (121280, 'central_government.other'),
+    (121310, 'public_agency.national_park'),
+    (121320, 'public_agency.homes_england'),
+    (121330, 'public_agency.national_highways'),
+    (121340, 'public_agency.historic_england'),
+    (121351, 'public_agency.police'),
+    (121352, 'public_agency.fire'),
+    (121353, 'public_agency.ambulance'),
+    (121370, 'public_agency.network_rail'),
+    (121380, 'public_agency.nuclear'),
+    (121390, 'public_agency.other'),
+    (122000, 'UK_corporate.private_sector'),
+    (123000, 'UK_corporate.other'),
+    (123200, 'UK_corporate.national_trust'),
+    (123300, 'UK_corporate.CIC'),
+    (123400, 'UK_corporate.charity'),
+    (123111, 'church.C_of_E.commissioners'),
+    (123112, 'church.C_of_E.diocese'),
+    (123120, 'church.other'),
+    (124000, 'crown_estate'),
+    (125000, 'university'),
+    (130000, 'overseas_corporate'),
+	(131100, 'overseas.jersey'),
+	(131200, 'overseas.british_virgin_islands'),
+	(131300, 'overseas.guernsey'),
+	(131400, 'overseas.isle_of_man'),
+	(131500, 'overseas.singapore'),
+	(131600, 'overseas.luxembourg'),
+	(131700, 'overseas.gibraltar'),
+	(131800, 'overseas.hong_kong'),
+	(131900, 'overseas.cayman_islands'),
+    (132000, 'overseas.other')
+  ) AS t(cat, name)
+),
+stats AS (
+  SELECT
+    n.cat,
+    COUNT(*) AS n,
+    SUM(ST_Area(n.geom))/10000.0 AS hectares
+  FROM nps_categorised n
+  GROUP BY n.cat
+),
+examples AS (
+  SELECT
+    n.cat,
+    c.proprietor_name_1,
+    c.proprietorship_category_1,
+    ROW_NUMBER() OVER (
+      PARTITION BY n.cat
+      ORDER BY random()
+    ) AS rn
+  FROM nps_categorised n
+  LEFT JOIN ccod_full_2025_12 c
+    ON c.title_number = n.title_no
+)
+SELECT
+  s.cat,
+  cl.name AS category_name,
+  s.n,
+  s.hectares,
+  e.proprietor_name_1,
+  e.proprietorship_category_1
+FROM stats s
+LEFT JOIN cat_lookup cl ON cl.cat = s.cat
+LEFT JOIN examples e
+  ON e.cat = s.cat
+  AND e.rn <= 10
+ORDER BY s.hectares DESC, s.cat, e.rn;
