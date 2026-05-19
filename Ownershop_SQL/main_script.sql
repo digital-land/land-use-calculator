@@ -239,13 +239,13 @@ WHERE EXISTS (SELECT 1 FROM ccod_full_2025_12 c WHERE c.title_number = n.title_n
 '%North Lincolnshire %','%North Northamptonshire %','%North Somerset %','%North Yorkshire %','%Northumberland %','%Nottingham %','%Peterborough %',
 '%Plymouth %','%Portsmouth %','%Reading %','%Redcar%','%Cleveland%','%Rutland %','%Shropshire %','%Slough %','%Somerset %','%South Gloucestershire %',
 '%Southampton %','%Southend %','%Stockton %','%Stoke %','%Swindon %','%Telford %','%Wrekin %','%Thurrock %','%Torbay %','%Warrington %','%West Berkshire %',
-'%West Northamptonshire %','%Westmorland %','%Furness %','%Wiltshire %','%Windsor %','%Maidenhead %','%Wokingham %','%York %']) 
+'%West Northamptonshire %','%Westmorland %','%Furness %','%Wiltshire %','%Windsor %','%Maidenhead %','%Wokingham %','%York %']) AND c.proprietor_name_1 ILIKE '%COUNCIL%' AND c.proprietor_name_1 NOT ILIKE '%COUNCIL FOR%' AND c.proprietor_name_1 not ILIKE '% TOWN %'AND c.proprietor_name_1 not ILIKE'% PARISH %'
+AND c.proprietor_name_1 not ILIKE'TOWN %'AND c.proprietor_name_1 not ILIKE'PARISH %' AND c.proprietor_name_1 not ILIKE '%DIOC%')
 OR c.proprietor_name_1 ILIKE ANY(ARRAY
 ['%city council%', '%borough council%', '%metropolitan district%', '%City of London Corporation%', 
-'%council of the borough%', '%council of the city%', '%council of the metropolitan%']
-))
-AND c.proprietor_name_1 ILIKE '%COUNCIL%' AND c.proprietor_name_1 NOT ILIKE '%COUNCIL FOR%' AND c.proprietor_name_1 not ILIKE '% TOWN %'AND c.proprietor_name_1 not ILIKE'% PARISH %'
-AND c.proprietor_name_1 not ILIKE'TOWN %'AND c.proprietor_name_1 not ILIKE'PARISH %' AND c.proprietor_name_1 not ILIKE '%DIOC%');
+'%council of the borough%', '%council of the city%', '%council of the metropolitan%', '%LONDON BOROUGH%']
+));
+
 
 
 -- 46 121130 UK_corporate.public_sector.local_government.district !!! LATER OVERWRITE OTHERS
