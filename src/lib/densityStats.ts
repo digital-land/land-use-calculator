@@ -66,17 +66,27 @@ export function computeDensityStats(
     sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 
   const histogram: DensityHistogram = {
-    Unregistered: 0,
-    Private: 0,
-    "UK company": 0,
-    "Overseas company": 0,
+    "<=1": 0,
+    "2 to 5": 0,
+    "6 to 10": 0,
+    "11 to 20": 0,
+    "21 to 50": 0,
+    "51 to 100": 0,
+    "101 to 200": 0,
+    "201 to 500": 0,
+    "over 500": 0,
   };
 
   for (const v of values) {
-    if (v === 0) histogram["Unregistered"]++;
-    else if (v === 1) histogram["Private"]++;
-    else if (v === 2) histogram["UK company"]++;
-    else if (v === 3) histogram["Overseas company"]++;
+    if (v <= 1) histogram["<=1"]++;
+    else if (v <= 5) histogram["2 to 5"]++;
+    else if (v <= 10) histogram["6 to 10"]++;
+    else if (v <= 20) histogram["11 to 20"]++;
+    else if (v <= 50) histogram["21 to 50"]++;
+    else if (v <= 100) histogram["51 to 100"]++;
+    else if (v <= 200) histogram["101 to 200"]++;
+    else if (v <= 500) histogram["201 to 500"]++;
+    else histogram["over 500"]++;
   }
 
   return {

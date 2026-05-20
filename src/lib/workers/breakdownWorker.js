@@ -109,7 +109,7 @@ self.onmessage = async (e) => {
     csvUrl,
     numCats = 400,
     numChunks,
-    DENSITY_LUT,
+    BREAKDOWN_LUT,
   } = e.data;
 
   if (!wasmReady) {
@@ -187,7 +187,7 @@ self.onmessage = async (e) => {
         selected_area_as_a_proportion_of_total_area: total
           ? selected / total
           : 0,
-        color: unpackABGR(DENSITY_LUT[idx]),
+        color: unpackABGR(BREAKDOWN_LUT[idx]),
       };
     });
     console.log(jsonResult);

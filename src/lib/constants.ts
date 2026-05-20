@@ -118,7 +118,7 @@ export const CODES: Array<[number, string]> = [
   [44464, "private_individual"],
   [64464, "overseas_corporate"],
   [928, "overseas_corporate.other_countries"],
-  [28,  "overseas_corporate.jersey"],
+  [28, "overseas_corporate.jersey"],
   [128, "overseas_corporate.british_virgin_islands"],
   [228, "overseas_corporate.guernsey"],
   [328, "overseas_corporate.isle_of_man"],

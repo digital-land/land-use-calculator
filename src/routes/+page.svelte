@@ -153,31 +153,31 @@
 
   let usingGeoTiff: boolean = $state(false);
 
-  // const DENSITY_LUT = $derived.by(() => {
-  //   const LUT = new Uint32Array(65536);
-  //   for (let i = 0; i < 65536; i++) {
-  //     // const normalized = normalizeDensity(i);
-  //     let normalized;
+  const DENSITY_LUT = $derived.by(() => {
+    const LUT = new Uint32Array(65536);
+    for (let i = 0; i < 65536; i++) {
+      // const normalized = normalizeDensity(i);
+      let normalized;
 
-  //     if (i < 1) normalized = shortCategoricalColorPaletteRgb[0];
-  //     else if (i <= 1) normalized = shortCategoricalColorPaletteRgb[1];
-  //     else if (i <= 2) normalized = shortCategoricalColorPaletteRgb[2];
-  //     else if (i <= 3) normalized = shortCategoricalColorPaletteRgb[3];
-  //     else if (i <= 50) normalized = [30, 156, 137];
-  //     else if (i <= 100) normalized = [37, 132, 142];
-  //     else if (i <= 200) normalized = [47, 108, 142];
-  //     else if (i <= 500) normalized = [65, 68, 135];
-  //     else normalized = [68, 1, 84];
-  //     const [r, g, b] = normalized;
-  //     // console.log(interpolateViridis(1 - normalized));
+      if (i <= 1) normalized = [253, 231, 37];
+      else if (i <= 5) normalized = [189, 223, 38];
+      else if (i <= 10) normalized = [122, 209, 81];
+      else if (i <= 20) normalized = [47, 180, 124];
+      else if (i <= 50) normalized = [30, 156, 137];
+      else if (i <= 100) normalized = [37, 132, 142];
+      else if (i <= 200) normalized = [47, 108, 142];
+      else if (i <= 500) normalized = [65, 68, 135];
+      else normalized = [68, 1, 84];
+      const [r, g, b] = normalized;
+      // console.log(interpolateViridis(1 - normalized));
 
-  //     const a = Math.floor(opacity * 255);
+      const a = Math.floor(opacity * 255);
 
-  //     LUT[i] = (a << 24) | (b << 16) | (g << 8) | r;
-  //   }
-  //   return LUT;
-  // });
-  // $inspect(DENSITY_LUT);
+      LUT[i] = (a << 24) | (b << 16) | (g << 8) | r;
+    }
+    return LUT;
+  });
+  $inspect(DENSITY_LUT);
 
   type RGB = [number, number, number];
 
@@ -255,7 +255,7 @@
   }
 
   const GROUP_HUES: Record<string, { hue?: number; fixed?: RGB }> = {
-    private_individual: { hue: 28 }, // orange
+    private_individual: { hue: 0 }, // red
     overseas_corporate: { hue: 285 }, // purple
 
     UK_corporate_root: { hue: 210 }, // blue (root)
@@ -271,7 +271,7 @@
     other: { fixed: [180, 180, 180] },
   };
 
-  const DENSITY_LUT = $derived.by(() => {
+  const BREAKDOWN_LUT = $derived.by(() => {
     const LUT = new Uint32Array(65536);
 
     // default: transparent
@@ -309,7 +309,7 @@
 
     return LUT;
   });
-  $inspect(DENSITY_LUT);
+  $inspect(BREAKDOWN_LUT);
 
   let policyLens = $state("England");
   if (urlPolicyLens) {
@@ -392,7 +392,7 @@
         )
       : policyLens === "England" && gridType === "hectare"
         ? englandAreaHectare
-        : null,
+        : new Uint32Array(0),
   );
 
   // $effect(() => {
@@ -518,7 +518,7 @@
         return acc;
       }, {});
   }
-  let breakdownChartSortValue: string | null = $state("total");
+  let breakdownChartSortValue: string = $state("total");
   $inspect(breakdownChartSortValue);
   let summaryByCategory = $derived(
     Object.entries(summariseByCategory(breakdownData)).sort((a, b) => {
@@ -901,13 +901,13 @@
     //   unpackSelectedLayers();
     // }
 
-    //   const tiffData = await loadDensityTiff(
-    //     `${base}/range/hectare_counts_trimmed.tif`,
-    //     bbox,
-    //   );
-    //   densityArray = tiffData.densityArray;
+    // const tiffData = await loadDensityTiff(
+    //   `${base}/range/hectare_counts_trimmed.tif`,
+    //   bbox,
+    // );
+    // densityArray = tiffData.densityArray;
     densityArray = await loadIndexedArrayUint16(
-      `${base}/data/categorised-land/ownership_cat_260518_8am.bin`,
+      `${base}/data/categorised-land/ownership_cats_260520.bin`,
     );
     console.log({ densityArray });
   });
@@ -1190,7 +1190,7 @@
           csvUrl,
           numCats: 64465,
           numChunks,
-          DENSITY_LUT,
+          BREAKDOWN_LUT,
         });
       });
 
@@ -1299,6 +1299,36 @@
     };
   }
 
+  // let blendedIndicesForDensityCanvas = $derived(
+  //   breakdownChartSortValue === "total" ? customArea : blendedIndices,
+  // );
+
+  $effect(async () => {
+    const b = breakdownChartSortValue;
+    console.log("outer effecting", b);
+    // async () => {
+    console.log("inner effecting", b);
+    densityDataURL = !mobile.current
+      ? await createDensityCanvas(
+          densityCanvas,
+          b === "total" ? customArea : blendedIndices,
+          densityArray,
+          BREAKDOWN_LUT,
+          height,
+          width,
+        )
+      : await createDensityLayerMobile(
+          b === "total" ? customArea : blendedIndices,
+          densityArray,
+          BREAKDOWN_LUT,
+          bbox,
+          opacity,
+          height,
+          width,
+        );
+    // };
+  });
+
   async function getBreakdownAndCreateDensityCanvas() {
     if (gridType === "hectare") {
       getLABreakdown(
@@ -1316,16 +1346,16 @@
       densityDataURL = !mobile.current
         ? await createDensityCanvas(
             densityCanvas,
-            blendedIndices,
+            breakdownChartSortValue === "total" ? customArea : blendedIndices,
             densityArray,
-            DENSITY_LUT,
+            BREAKDOWN_LUT,
             height,
             width,
           )
         : await createDensityLayerMobile(
-            blendedIndices,
+            breakdownChartSortValue === "total" ? customArea : blendedIndices,
             densityArray,
-            DENSITY_LUT,
+            BREAKDOWN_LUT,
             bbox,
             opacity,
             height,
@@ -2413,7 +2443,7 @@
               />
             </div>
 
-            <Histogram histogram={densityStats.histogram} />
+            <Histogram histogram={densityStats.histogram} {DENSITY_LUT} />
           {:else}
             <Spinner />
           {/if}
@@ -2449,7 +2479,11 @@
                   : (value.selected / value.total ?? 0)}
             {#if value.selected}
               <div class="mosaic-row">
-                <div class="mosaic-row-label">{key}</div>
+                <div class="mosaic-row-label">
+                  {key
+                    .split(".")
+                    [key.split(".").length - 1].replaceAll("_", " ")}
+                </div>
                 <div class="mosaic-row-bar">
                   <div
                     class="mosaic-row-bar-inner"

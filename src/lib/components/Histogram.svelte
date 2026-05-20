@@ -1,8 +1,12 @@
 <script lang="ts">
   import { interpolateViridis } from "d3-scale-chromatic";
   import { colorScale, shortCategoricalColorPalette } from "$lib/constants";
+  import { unpackABGR } from "$lib/utils";
 
-  let { histogram }: { histogram: Record<string, number> } = $props();
+  let {
+    histogram,
+    DENSITY_LUT,
+  }: { histogram: Record<string, number>; DENSITY_LUT: Uint32Array } = $props();
   // console.log("histogram", histogram);
   let vals: number[] = [];
   let max: number = $state();
@@ -32,7 +36,7 @@
     const rgbStr = interpolateViridis(1 - normalized);
     // const numbers = rgbStr.match(/\d+(\.\d+)?/g)?.map(Number) ?? [0, 0, 0];
     // const [r, g, b] = numbers;
-    console.log(rgbStr);
+    // console.log(rgbStr);
     return rgbStr;
   }
   let chartContainerWidth: number = $state(0);
@@ -51,7 +55,11 @@
           y={120 - (histogram[key] / max) * 100}
           width={Math.max(chartWidth / keys.length - 2, 0)}
           height={(histogram[key] / max) * 100}
-          fill={shortCategoricalColorPalette[i]}
+          fill={unpackABGR(
+            DENSITY_LUT[
+              key === "<=1" ? 0 : key.split(" ")[key.split(" ").length - 1]
+            ],
+          )}
         />
 
         <!-- Value on top of the bar -->

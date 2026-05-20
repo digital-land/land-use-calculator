@@ -369,5 +369,6 @@
   } */
   text {
     transition: all 0.5s ease;
+    pointer-events: none;
   }
 </style>

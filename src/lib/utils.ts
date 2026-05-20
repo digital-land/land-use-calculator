@@ -723,7 +723,7 @@ export function createGroupLayer(
   });
 }
 
-export function createDensityCanvas(
+export async function createDensityCanvas(
   densityCanvas: HTMLCanvasElement | undefined,
   blendedIndices: Uint32Array,
   densityArray,
