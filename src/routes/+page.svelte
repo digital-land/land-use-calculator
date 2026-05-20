@@ -1071,7 +1071,7 @@
     { length: numChunks },
     // (_, i) => `${baseUrl}chunk_${i}.bin`,
     // (_, i) => `${baseUrl}/Simply_categorised_land_uint16.bin`,
-    (_, i) => `${baseUrl}/ownership_cat_260518_8am.bin`,
+    (_, i) => `${baseUrl}/ownership_cats_260520.bin`,
   );
 
   // async function getLABreakdown(cRoutes, bitArray) {
