@@ -233,7 +233,7 @@ c.proprietor_name_1 ILIKE '%COUNTY COUNCIL%'));
 -- Extend unitary_area_tokens with the areas that have become unitaries
 -- and whose predecessor council names still appear in proprietor_name_1.
 
-WITH unitary_area_tokens AS (
+WITH unitary_area_tokens AS ( --NEED TO COMPLETE LIST
   SELECT unnest(ARRAY[
     -- examples: add/remove as needed
     'CORNWALL',
