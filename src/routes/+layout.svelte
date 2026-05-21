@@ -1,6 +1,7 @@
 <script>
   import "../app.css";
   import PhaseBanner from "$lib/components/PhaseBanner.svelte";
+    import WarningText from "$lib/components/WarningText.svelte";
   import {
     Header,
     ServiceNavigation,
@@ -28,7 +29,7 @@
 
 <!-- <Header rebrand={true}/> -->
 <ServiceNavigation
-  serviceName={"Development Land Analysis Platform"}
+  serviceName={"Land Analysis Platform"}
   serviceUrl="./"
   {navigationItems}
   customiseServiceNameLink={true}
@@ -39,6 +40,8 @@
   linkText={"Share your feedback (opens in a new tab)"}
   linkHref={"https://mhclg.sharepoint.com/:x:/s/HousingDiversification/ETTZ0xrT3yZMpeaX1GkOy1oBBqdv1ZFXJHiZK47qCUQMhw?e=FggJfN"}
   linkTarget={"_blank"}
+/>
+<WarningText text={"Shortlisted for the Government Geography Awards, 2026 - Knowledge Driven Policy Making Category"}
 />
 {@render children()}
 <Footer
