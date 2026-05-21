@@ -54,7 +54,7 @@ Rasterisation converts vector land parcel geometries into a regular grid of squa
 Each raster cell is assigned a value based on whether it intersects or is contained within a feature. This process introduces systematic and statistical deviations from the original vector geometries, which are described below.
 </p>
 
----
+
 
 <h3>13.2 Sources of Error</h3>
 
@@ -72,7 +72,7 @@ Rasterisation introduces three primary types of error:
 These effects are inherent to all raster representations and cannot be fully eliminated.
 </p>
 
----
+
 
 <h3>13.3 Boundary-Driven Error</h3>
 
@@ -97,7 +97,7 @@ This relationship can be expressed as:
 As a result, features with complex or irregular boundaries (e.g. urban parcels or coastlines) are more affected than large, compact geometries.
 </p>
 
----
+
 
 <h3>13.4 Resolution Comparison</h3>
 
@@ -125,7 +125,7 @@ As a result, features with complex or irregular boundaries (e.g. urban parcels o
 </tbody>
 </table>
 
----
+
 
 <h3>13.5 Area Estimation Accuracy</h3>
 
@@ -147,7 +147,7 @@ Relative error can be approximated by:
 <code>Relative error ≈ (cell size × perimeter) / area</code>
 </p>
 
----
+
 
 <h3>13.6 Systematic Bias</h3>
 
@@ -164,7 +164,7 @@ Rasterisation introduces systematic bias depending on how cells are classified:
 This bias is significantly larger at coarser resolutions (e.g. 100&nbsp;m grids) and reduces as resolution increases.
 </p>
 
----
+
 
 <h3>13.7 Feature Detection Limits</h3>
 
@@ -187,7 +187,7 @@ This affects representation of:
   <li>small or fragmented land parcels</li>
 </ul>
 
----
+
 
 <h3>13.8 Practical Implications</h3>
 
@@ -197,7 +197,7 @@ This affects representation of:
   <li>Rasterisation error is highest where land ownership is fragmented or geometries are complex</li>
 </ul>
 
----
+
 
 <h3>13.9 Interpretation Guidance</h3>
 
@@ -211,7 +211,7 @@ Users should interpret raster-derived statistics with the following consideratio
   <li>Comparisons at fine spatial scales are more reliable using 10&nbsp;m data</li>
 </ul>
 
----
+
 
 <h3>13.10 Summary</h3>
 
@@ -219,7 +219,8 @@ Users should interpret raster-derived statistics with the following consideratio
 Rasterisation introduces predictable, boundary-driven error that scales with grid resolution and feature complexity. While 100&nbsp;m grids enable efficient large-scale analysis, they may distort fine spatial patterns. The use of 10&nbsp;m grids significantly reduces these errors and improves fidelity to underlying land parcel geometries, supporting more accurate spatial analysis.
 </p>
 
-<h2>Land Ownership Categorisation Methodology</h2>
+<hr/>
+<h1>Land Ownership Categorisation Methodology</h1>
 
 <p>
 This document describes the methodology used to classify land ownership records into a structured taxonomy of ownership types.
@@ -235,7 +236,7 @@ The categorisation is applied to HM Land Registry polygon data, enriched with co
 The objective is to produce a reproducible, explainable classification of land ownership across public, private, and institutional sectors.
 </p>
 
----
+
 
 <h2>1. Data Preparation</h2>
 
@@ -249,7 +250,7 @@ A new working table (<code>nps_categorised</code>) is created from the base land
   <li>Later rules overwrite earlier ones to enforce hierarchy and precedence</li>
 </ul>
 
----
+
 
 <h2>2. High-Level Classification Structure</h2>
 
@@ -265,7 +266,7 @@ The classification follows a top-level hierarchy:
   <li><strong>Non-profit and institutional ownership</strong></li>
 </ul>
 
----
+
 
 <h2>3. Private and Corporate Ownership</h2>
 
@@ -285,7 +286,7 @@ Titles appearing in OCOD but not CCOD are classified as overseas corporate.
 Major jurisdictions are identified explicitly (e.g. Jersey, BVI, Guernsey, etc.), with remaining countries grouped into an “other” category.
 </p>
 
----
+
 
 <h2>4. Corporate Subclassification</h2>
 
@@ -310,7 +311,7 @@ Detected using keyword matching on “UNIVERSITY”.
 Identified using standard Crown ownership phrasing (e.g. “Most Excellent Majesty”).
 </p>
 
----
+
 
 <h2>5. Non-Profit and Institutional Ownership</h2>
 
@@ -347,7 +348,7 @@ A three-level hierarchy is used:
   <li>Other religious organisations (broad keyword matching across denominations)</li>
 </ul>
 
----
+
 
 <h2>6. Public Sector Classification</h2>
 
@@ -383,7 +384,7 @@ Identified using references to:
 Subcategories (e.g. defence, transport, environment, health) are derived from keywords within the organisation name.
 </p>
 
----
+
 
 <h2>7. Local Government Classification</h2>
 
@@ -411,7 +412,7 @@ Subcategories include:
   <li>Other local authorities</li>
 </ul>
 
----
+
 
 <h3>7.2 Unitary Authority Classification (Key Methodological Step)</h3>
 
@@ -452,7 +453,7 @@ Strict filtering is applied to avoid false positives:
   <li>Only records consistent with local authority ownership patterns are included</li>
 </ul>
 
----
+
 
 <h2>8. Classification Ordering and Precedence</h2>
 
@@ -471,7 +472,7 @@ The order of rules is critical:
 This ensures consistent and deterministic assignment of each record to a single category.
 </p>
 
----
+
 
 <h2>9. Data Cleaning and Finalisation</h2>
 
@@ -481,7 +482,7 @@ This ensures consistent and deterministic assignment of each record to a single 
   <li>Summary statistics are generated for QA and validation</li>
 </ul>
 
----
+
 
 <h2>10. Quality Assurance</h2>
 
@@ -505,7 +506,7 @@ Special attention is given to:
   <li>Edge cases such as legacy naming and merged authorities</li>
 </ul>
 
----
+
 
 <h2>11. Limitations</h2>
 
@@ -515,7 +516,7 @@ Special attention is given to:
   <li>Some organisations span multiple categories and are simplified into a single classification</li>
 </ul>
 
----
+
 
 <h2>12. Summary</h2>
 
