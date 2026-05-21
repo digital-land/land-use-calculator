@@ -40,6 +40,185 @@
 
 <div class="govuk-body">
 <h1>Methodology</h1>
+
+
+<h2>13. Rasterisation Methodology and Limitations</h2>
+
+<h3>13.1 Overview</h3>
+
+<p>
+Rasterisation converts vector land parcel geometries into a regular grid of square cells (pixels), enabling fast spatial aggregation and analysis. In this implementation, raster grids of <strong>100&nbsp;metres</strong> and <strong>10&nbsp;metres</strong> resolution are used.
+</p>
+
+<p>
+Each raster cell is assigned a value based on whether it intersects or is contained within a feature. This process introduces systematic and statistical deviations from the original vector geometries, which are described below.
+</p>
+
+---
+
+<h3>13.2 Sources of Error</h3>
+
+<p>
+Rasterisation introduces three primary types of error:
+</p>
+
+<ul>
+  <li><strong>Quantisation error</strong>: continuous geometry is approximated using discrete grid cells</li>
+  <li><strong>Boundary error</strong>: cells partially intersecting a feature must be classified as either inside or outside</li>
+  <li><strong>Resolution error</strong>: features smaller than the grid resolution may be distorted or lost</li>
+</ul>
+
+<p>
+These effects are inherent to all raster representations and cannot be fully eliminated.
+</p>
+
+---
+
+<h3>13.3 Boundary-Driven Error</h3>
+
+<p>
+The dominant source of error arises at feature boundaries. The magnitude of this error is proportional to:
+</p>
+
+<ul>
+  <li>the <strong>grid cell size</strong></li>
+  <li>the <strong>perimeter length</strong> of the feature</li>
+</ul>
+
+<p>
+This relationship can be expressed as:
+</p>
+
+<p>
+<code>Expected error ∝ cell size × feature perimeter</code>
+</p>
+
+<p>
+As a result, features with complex or irregular boundaries (e.g. urban parcels or coastlines) are more affected than large, compact geometries.
+</p>
+
+---
+
+<h3>13.4 Resolution Comparison</h3>
+
+<table border="1" cellpadding="6" cellspacing="0">
+<tbody>
+<tr>
+  <th>Grid Resolution</th>
+  <th>Cell Area</th>
+  <th>Typical Behaviour</th>
+</tr>
+<tr>
+  <td>100&nbsp;m</td>
+  <td>10,000&nbsp;m² (1&nbsp;ha)</td>
+  <td>
+    Larger boundary error; suitable for coarse aggregation; limited representation of fine features
+  </td>
+</tr>
+<tr>
+  <td>10&nbsp;m</td>
+  <td>100&nbsp;m² (0.01&nbsp;ha)</td>
+  <td>
+    Much lower boundary error; improved representation of parcels and narrow features; higher computational cost
+  </td>
+</tr>
+</tbody>
+</table>
+
+---
+
+<h3>13.5 Area Estimation Accuracy</h3>
+
+<p>
+Raster-based estimates of feature area deviate from true vector area depending on geometry complexity:
+</p>
+
+<ul>
+  <li><strong>Large, compact features</strong>: low error (typically &lt;1–2% at 100&nbsp;m, &lt;0.5% at 10&nbsp;m)</li>
+  <li><strong>Irregular or fragmented features</strong>: moderate error (typically 5–15% at 100&nbsp;m)</li>
+  <li><strong>Narrow or linear features</strong>: high and unstable error, particularly at 100&nbsp;m</li>
+</ul>
+
+<p>
+Relative error can be approximated by:
+</p>
+
+<p>
+<code>Relative error ≈ (cell size × perimeter) / area</code>
+</p>
+
+---
+
+<h3>13.6 Systematic Bias</h3>
+
+<p>
+Rasterisation introduces systematic bias depending on how cells are classified:
+</p>
+
+<ul>
+  <li><strong>Centroid-based assignment</strong>: tends to underestimate area</li>
+  <li><strong>Any-overlap assignment</strong>: tends to overestimate area</li>
+</ul>
+
+<p>
+This bias is significantly larger at coarser resolutions (e.g. 100&nbsp;m grids) and reduces as resolution increases.
+</p>
+
+---
+
+<h3>13.7 Feature Detection Limits</h3>
+
+<p>
+The minimum reliably detectable feature width is approximately equal to the grid resolution:
+</p>
+
+<ul>
+  <li>At 100&nbsp;m resolution, features narrower than ~100&nbsp;m may be omitted or distorted</li>
+  <li>At 10&nbsp;m resolution, features down to ~10&nbsp;m can be resolved</li>
+</ul>
+
+<p>
+This affects representation of:
+</p>
+
+<ul>
+  <li>roads and transport corridors</li>
+  <li>rivers and streams</li>
+  <li>small or fragmented land parcels</li>
+</ul>
+
+---
+
+<h3>13.8 Practical Implications</h3>
+
+<ul>
+  <li><strong>100&nbsp;m grids</strong> are suitable for large-scale aggregation and national-level analysis but introduce noticeable boundary error</li>
+  <li><strong>10&nbsp;m grids</strong> provide substantially improved spatial accuracy and are appropriate for parcel-level and land assembly analysis</li>
+  <li>Rasterisation error is highest where land ownership is fragmented or geometries are complex</li>
+</ul>
+
+---
+
+<h3>13.9 Interpretation Guidance</h3>
+
+<p>
+Users should interpret raster-derived statistics with the following considerations:
+</p>
+
+<ul>
+  <li>Reported areas are approximations of true vector geometry</li>
+  <li>Differences between categories may be influenced by boundary effects, particularly at 100&nbsp;m resolution</li>
+  <li>Comparisons at fine spatial scales are more reliable using 10&nbsp;m data</li>
+</ul>
+
+---
+
+<h3>13.10 Summary</h3>
+
+<p>
+Rasterisation introduces predictable, boundary-driven error that scales with grid resolution and feature complexity. While 100&nbsp;m grids enable efficient large-scale analysis, they may distort fine spatial patterns. The use of 10&nbsp;m grids significantly reduces these errors and improves fidelity to underlying land parcel geometries, supporting more accurate spatial analysis.
+</p>
+
 <h2>Land Ownership Categorisation Methodology</h2>
 
 <p>
