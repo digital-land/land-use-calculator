@@ -47,7 +47,7 @@
 <h3>13.1 Overview</h3>
 
 <p>
-Rasterisation converts vector land parcel geometries into a regular grid of square cells (pixels), enabling fast spatial aggregation and analysis. In this implementation, raster grids of <strong>100&nbsp;metres</strong> and <strong>10&nbsp;metres</strong> resolution are used.
+Rasterisation converts vector geometries into a regular grid of square cells (pixels), enabling fast spatial aggregation and analysis. In this implementation, raster grids of <strong>100&nbsp;metres</strong> and <strong>10&nbsp;metres</strong> resolution are used.
 </p>
 
 <p>
