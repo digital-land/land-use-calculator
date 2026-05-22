@@ -2220,11 +2220,11 @@
                 label: "Results",
                 content: tableSnippet,
               },
-              {
-                id: "density",
-                label: "Density",
-                content: densitySnippet,
-              },
+              // {
+              //   id: "density",
+              //   label: "Density",
+              //   content: densitySnippet,
+              // },
               {
                 id: "breakdown",
                 label: "Breakdown",
@@ -2470,6 +2470,7 @@
           ]}
         ></Radios>
         {#if breakdownChartSortValue === "proportion"}
+          <strong>Owner</strong>
           {#each summaryByCategory as [key, value]}
             {@const barWidth =
               breakdownChartSortValue === "selected"
