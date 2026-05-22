@@ -1,3 +1,48 @@
+# Node / Svelte
 node_modules/
 .svelte-kit/
 .DS_Store
+
+# Ignore big source binaries
+*.bin
+*.zip
+
+# Ignore images
+*.jpg
+*.png
+
+static/data/ALL_LAYERS/
+static/data
+docs/data
+docs/data/ALL_LAYERS/
+static/data/10mBinFiles/
+docs/data/10mBinFiles/
+static/data/categorised-land/
+docs/data/categorised-land/
+
+# But explicitly allow chunked files
+!docs/data/LAs/chunks/
+!docs/data/LAs/chunks/*.bin
+!static/data/
+!static/data/LAs/chunks/
+!static/data/LAs/chunks/*.bin
+!static/data/PUBLIC_BIN_LAYERS/
+!static/data/PUBLIC_BIN_LAYERS/*.bin
+!static/data/ten_metre/
+!static/data/ten_metre/*.bin
+!docs/data/
+!docs/data/PUBLIC_BIN_LAYERS/
+!docs/data/PUBLIC_BIN_LAYERS/*.bin
+!docs/data/ten_metre/
+!docs/data/ten_metre/*.bin
+
+
+.venv/
+
+scripts/
+
+
+#python stuff 
+.venv/
+scripts/
+# static/data/

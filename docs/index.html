@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" href="./favicon.png" />
+		<link rel="stylesheet" href="./govuk-frontend.min.css">
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		
+		<link href="./_app/immutable/assets/0.guzJzDHG.css" rel="stylesheet">
+		<link href="./_app/immutable/assets/Histogram.SzKv57hF.css" rel="stylesheet">
+		<link href="./_app/immutable/assets/Select.DOxdSoU1.css" rel="stylesheet">
+		<link href="./_app/immutable/assets/Spinner.BYh0kO8X.css" rel="stylesheet">
+		<link rel="modulepreload" href="./_app/immutable/entry/start.CSi9Ebk5.js">
+		<link rel="modulepreload" href="./_app/immutable/chunks/tag2roFl.js">
+		<link rel="modulepreload" href="./_app/immutable/chunks/C4oW3Iry.js">
+		<link rel="modulepreload" href="./_app/immutable/chunks/BmJ-F5Vg.js">
+		<link rel="modulepreload" href="./_app/immutable/chunks/CpL6yaLQ.js">
+		<link rel="modulepreload" href="./_app/immutable/entry/app.Bv7u7Gz-.js">
+		<link rel="modulepreload" href="./_app/immutable/chunks/Dp1pzeXC.js">
+		<link rel="modulepreload" href="./_app/immutable/chunks/Hnno1OSk.js">
+		<link rel="modulepreload" href="./_app/immutable/chunks/DtB15sEL.js">
+		<link rel="modulepreload" href="./_app/immutable/chunks/CcJCNmrY.js">
+		<link rel="modulepreload" href="./_app/immutable/chunks/B2lOp2Ah.js">
+		<link rel="modulepreload" href="./_app/immutable/chunks/0HPSjy9r.js">
+		<link rel="modulepreload" href="./_app/immutable/chunks/BBmlKf-0.js">
+		<link rel="modulepreload" href="./_app/immutable/chunks/CwuICN7Y.js">
+		<link rel="modulepreload" href="./_app/immutable/nodes/0.CSJE5s1J.js">
+		<link rel="modulepreload" href="./_app/immutable/chunks/BZ-f6NR1.js">
+		<link rel="modulepreload" href="./_app/immutable/chunks/PvESYUT2.js">
+		<link rel="modulepreload" href="./_app/immutable/chunks/CqlCBjwW.js">
+		<link rel="modulepreload" href="./_app/immutable/nodes/2.DTM2227I.js">
+		<link rel="modulepreload" href="./_app/immutable/chunks/DNaf3cAp.js">
+		<link rel="modulepreload" href="./_app/immutable/chunks/CpP1W7xT.js">
+		<link rel="modulepreload" href="./_app/immutable/chunks/DT0IPDFe.js">
+		<link rel="modulepreload" href="./_app/immutable/chunks/BtZsvOqb.js">
+		<link rel="modulepreload" href="./_app/immutable/chunks/BVXAfLiI.js"><!--[--><meta name="description" content="This tool brings together datasets on land use and development constraints to provide statistical insight into land supply in England. It is designed to show how physical constraints, planning restrictions and land use trade-offs overlap and impact the overall supply of land for various uses."/><!--]--><title>Development Land Analysis Platform</title>
+	</head>
+	<body data-sveltekit-preload-data="hover" class="govuk-frontend-supported">
+		<div style="display: contents"><!--[--><!--[--><!----><section aria-label="Service information" class="govuk-service-navigation" data-module="govuk-service-navigation"><div class="govuk-width-container"><div class="govuk-service-navigation__container"><span class="govuk-service-navigation__service-name"><a href="./" class="govuk-service-navigation__link svelte-h8sh8f">Development Land Analysis Platform</a></span> <!--[--><nav aria-label="Menu" class="govuk-service-navigation__wrapper"><button type="button" class="govuk-service-navigation__toggle govuk-js-service-navigation-toggle" aria-controls="navigation" aria-expanded="false" hidden>Menu</button> <ul class="govuk-service-navigation__list" id="navigation"><!--[--><li class="govuk-service-navigation__item"><a class="govuk-service-navigation__link" href="./about"><!--[!-->About and user guide<!--]--></a></li><li class="govuk-service-navigation__item"><a class="govuk-service-navigation__link" href="./paintMapStats"><!--[!-->Experimental painting app<!--]--></a></li><li class="govuk-service-navigation__item"><a class="govuk-service-navigation__link" href="./10mtiles"><!--[!-->10m<!--]--></a></li><!--]--></ul></nav><!--]--></div></div></section><!----> <div class="govuk-phase-banner"><p class="govuk-phase-banner__content"><strong class="govuk-tag govuk-phase-banner__content__tag">PROTOTYPE</strong> <span class="govuk-phase-banner__text">This is an experimental product under development. All results are provisional and should not be used publicly. <a class="govuk-link" href="https://mhclg.sharepoint.com/:x:/s/HousingDiversification/ETTZ0xrT3yZMpeaX1GkOy1oBBqdv1ZFXJHiZK47qCUQMhw?e=FggJfN" target="_blank">Share your feedback (opens in a new tab)</a>.</span></p></div><!----> <!----><div class="header-section"><div><div class="header-left"><div class="firstSelections"><div class="govuk-form-group svelte-1u0cjf9"><!--[!--><label class="govuk-label" for="policyLensInput">Select area to explore</label><!--]--> <!--[!--><!--]--> <!--[!--><!--]--> <!--[!--><div class="select-row svelte-1u0cjf9"><div class="select-cell svelte-1u0cjf9"><select class="govuk-select svelte-1u0cjf9" id="policyLensInput" name="policyLensInput"><!--[--><!--[!--><option value="England">The whole of England</option><!--]--><!--[!--><option value="Physically_restricted.bin">Only physically restricted land</option><!--]--><!--[!--><option value="Bodies_of_water.bin">Only bodies of water</option><!--]--><!--[!--><option value="Built_infrastructure_constraints.bin">Only built infrastructure constraints</option><!--]--><!--[!--><option value="Built_up_areas.bin">Only built up areas</option><!--]--><!--[!--><option value="National_Grid_infrastructure.bin">Only national Grid infrastructure</option><!--]--><!--[!--><option value="Current_rail_network.bin">Only current rail network</option><!--]--><!--[!--><option value="Current_major_roads.bin">Only current major roads</option><!--]--><!--[!--><option value="Development_restricted.bin">Only development restricted land</option><!--]--><!--[!--><option value="Wildlife_sites_of_national_and_international_importance_.bin">Only wildlife sites of national and international importance</option><!--]--><!--[!--><option value="Ramsar.bin">Only Ramsar</option><!--]--><!--[!--><option value="Special_areas_of_conservation.bin">Only special areas of conservation</option><!--]--><!--[!--><option value="Special_protection_areas.bin">Only special protection areas</option><!--]--><!--[!--><option value="Sites_of_Special_Scientific_Interest.bin">Only Sites of Special Scientific Interest</option><!--]--><!--[!--><option value="Heritage_constraint.bin">Only heritage constraint</option><!--]--><!--[!--><option value="Registered_parks_and_gardens.bin">Only registered parks and gardens</option><!--]--><!--[!--><option value="Registered_battlefields.bin">Only registered battlefields</option><!--]--><!--[!--><option value="Scheduled_monuments.bin">Only scheduled monuments</option><!--]--><!--[!--><option value="World_Heritage_Sites.bin">Only World Heritage Sites</option><!--]--><!--[!--><option value="World_Heritage_Buffer_Zones.bin">Only World Heritage Buffer Zones</option><!--]--><!--[!--><option value="Greenbelt.bin">Only greenbelt</option><!--]--><!--[!--><option value="Development_limited.bin">Only development limited land</option><!--]--><!--[!--><option value="Protected_landscapes.bin">Only protected landscapes</option><!--]--><!--[!--><option value="national_parks.bin">Only national parks</option><!--]--><!--[!--><option value="Wildlife_sites_.bin">Only wildlife sites</option><!--]--><!--[!--><option value="National_nature_reserves.bin">Only national nature reserves</option><!--]--><!--[!--><option value="Local_nature_reserves.bin">Only local nature reserves</option><!--]--><!--[!--><option value="Conservation_areas.bin">Only conservation areas</option><!--]--><!--[!--><option value="Planned_infrastructure_sites.bin">Only planned infrastructure sites</option><!--]--><!--[!--><option value="Nationally_Significant_Infrastructure_Projects.bin">Only Nationally Significant Infrastructure Projects</option><!--]--><!--[!--><option value="HS2.bin">Only HS2</option><!--]--><!--[!--><option value="Flood_risk_.bin">Only flood risk</option><!--]--><!--[!--><option value="Flood_zone_2.bin">Only flood zone 2</option><!--]--><!--[!--><option value="Flood_zone_3.bin">Only flood zone 3</option><!--]--><!--[!--><option value="within_KM_of_BUA.bin">Only land within 1km of built up areas</option><!--]--><!--[!--><option value="imaginaryNewTown">imaginaryNewTown</option><!--]--><!--[!--><option value="customArea">The custom area</option><!--]--><!--]--></select></div> <!--[!--><!--]--></div><!--]--></div><!----> <!--[!--><div class="p-4 svelte-fxmp16"><!--[!--><button type="button" class="govuk-button govuk-button--secondary svelte-fxmp16" data-module="govuk-button">Draw an area to explore</button><!--]--></div><!--]--><!----> <details class="govuk-details"><summary class="govuk-details__summary"><span class="govuk-details__summary-text">Use a local file (optional)</span></summary> <div class="govuk-details__text"><label for="zip-file-upload">Use a local zip file:</label> <input accept=".zip" id="file-upload" type="file"/><!----></div></details><!----></div></div></div> <div><div class="header-right"><!----><div id="filter-tooltip" class="svelte-egtftm"></div> <h3 style="margin: 0 0 0 10px; padding-left: 10px">Selected filters</h3> <div class="filters-and-legend-container svelte-egtftm"><div class="drop-zone svelte-egtftm" data-zone="zone2"><!--[--><!--]--></div> <div><p>Categories:</p> <div class="categories-legend svelte-egtftm"><!--[--><!--]--></div></div></div><!----></div></div></div> <div class="container" style="grid-template-columns: 100%;"><div class="absolute -translate-x-0 z-10 h-dvh w-[90%] transform bg-white transition-transform duration-200 ease-in-out md:w-[45%] lg:w-[40%] xl:w-[35%]" id="side-panel"><!--[!--><!--]--> <div class="collapse-filters-div"><button class="collapse-filters-button" aria-expanded="true" aria-label="Close side panel" aria-controls="side-panel"><!--[--><div class="text-gray-700"><svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg></div><!--]--></button></div></div> <div class="map-and-table" style="grid-template-columns: 50% 50%"><div class="slider"><!--[!--><!--]--></div> <div class="map"><!--[1--><div id="map" style="height: calc(100vh - 150px);"><div class="spinner-wrapper svelte-1ps1dlf"><div class="loadingio-spinner-rolling-2by998twmg8 svelte-1ps1dlf"><div class="ldio-yzaezf3dcmj svelte-1ps1dlf"><div class="svelte-1ps1dlf"></div></div></div></div><!----></div><!--]--></div> <div class="table"><div class="govuk-tabs svelte-1dif9ai" data-module="govuk-tabs" data-force-desktop="true"><h2 class="govuk-tabs__title svelte-1dif9ai">Summary</h2> <ul class="govuk-tabs__list svelte-1dif9ai"><!--[--><!----><li class="govuk-tabs__list-item svelte-1dif9ai govuk-tabs__list-item--selected"><a class="govuk-tabs__tab svelte-1dif9ai" href="#table">Results</a></li><!----><!----><li class="govuk-tabs__list-item svelte-1dif9ai"><a class="govuk-tabs__tab svelte-1dif9ai" href="#density">Density</a></li><!----><!--]--></ul> <!--[--><div class="govuk-tabs__panel svelte-1dif9ai" id="table"><!--[--><h2 class="govuk-heading-l svelte-1dif9ai">Results</h2><!--]--> <!--[1--><div class="summaryStats"><p>The total area in England is 13,046,002 ha.</p> <!--[!--><!--]--></div> <!--[!--><!--]--> <!--[!--><p>Select some categories to view the data.</p><!--]--><!----><!--]--></div><div class="govuk-tabs__panel svelte-1dif9ai" id="density"><!--[--><h2 class="govuk-heading-l svelte-1dif9ai">Density</h2><!--]--> <!--[1--><!--[!--><!--]--><!----><!--]--></div><!--]--></div><!----></div></div></div><!----><!----><!----><!--]--> <!--[!--><!--]--><!--]-->
+			
+			<script>
+				{
+					__sveltekit_2asbun = {
+						base: new URL(".", location).pathname.slice(0, -1),
+						assets: "/sveltekit-github-pages"
+					};
+
+					const element = document.currentScript.parentElement;
+
+					Promise.all([
+						import("./_app/immutable/entry/start.CSi9Ebk5.js"),
+						import("./_app/immutable/entry/app.Bv7u7Gz-.js")
+					]).then(([kit, app]) => {
+						kit.start(app, element, {
+							node_ids: [0, 2],
+							data: [null,{type:"data",data:null,uses:{}}],
+							form: null,
+							error: null
+						});
+					});
+				}
+			</script>
+		</div>
+	</body>
+</html>

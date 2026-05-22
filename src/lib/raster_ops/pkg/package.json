@@ -1,0 +1,15 @@
+{
+  "name": "raster_ops",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "raster_ops_bg.wasm",
+    "raster_ops.js",
+    "raster_ops.d.ts"
+  ],
+  "main": "raster_ops.js",
+  "types": "raster_ops.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
