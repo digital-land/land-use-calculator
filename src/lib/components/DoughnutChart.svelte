@@ -287,7 +287,7 @@
               stroke="none"
               stroke-width="0"
               fill={d.data.color}
-              onmouseover={() => (hoveredSegment = d.data.key)}
+              onmousemove={() => (hoveredSegment = d.data.key)}
               onmouseleave={() => (hoveredSegment = null)}
               onclick={() => drillInto(d.data.key)}
               onkeydown={(e) =>
