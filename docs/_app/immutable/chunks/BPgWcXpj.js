@@ -1,0 +1,1 @@
+import"./CWj6FrbW.js";import"./GClNN-Zi.js";import{M as r,ah as d}from"./DwOPbnjg.js";var s=d('<div class="spinner-wrapper svelte-f4erjd"><div class="loadingio-spinner-rolling-2by998twmg8 svelte-f4erjd"><div class="ldio-yzaezf3dcmj svelte-f4erjd"><div class="svelte-f4erjd"></div></div></div></div>');function o(i){var e=s();r(i,e)}export{o as S};

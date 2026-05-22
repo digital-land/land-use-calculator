@@ -1,1 +1,0 @@
-import{f as d,a as l}from"./B2lOp2Ah.js";import"./DT0IPDFe.js";var e=d('<div class="spinner-wrapper svelte-1ps1dlf"><div class="loadingio-spinner-rolling-2by998twmg8 svelte-1ps1dlf"><div class="ldio-yzaezf3dcmj svelte-1ps1dlf"><div class="svelte-1ps1dlf"></div></div></div></div>');function p(s){var i=e();l(s,i)}export{p as S};
