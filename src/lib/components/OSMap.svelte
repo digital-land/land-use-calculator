@@ -23,6 +23,7 @@
   import FullScreen from "ol/control/FullScreen.js";
   import { defaults as defaultControls } from "ol/control/defaults.js";
   import Draw from "ol/interaction/Draw.js";
+  import Modify from "ol/interaction/Modify.js";
   import proj4 from "proj4";
   import { apply, applyStyle } from "ol-mapbox-style";
   import { apiKey, serviceUrl, tiles, CODES } from "$lib/constants";
@@ -37,17 +38,21 @@
   let {
     dataURL,
     densityDataURL,
+    breakdownDataURL,
+    densityMetric,
     bbox,
     selectedAreaName = $bindable(),
     breakdownData,
     blendedIndices,
     seeDensity = $bindable(),
     seeArea = $bindable(),
+    seeBreakdown = $bindable(),
     width,
     height,
     opacity = $bindable(),
     densityArray,
-    customArea = $bindable(),
+    breakdownArray,
+    // customArea = $bindable(),
     customAreaBBox = $bindable(),
     drawnFeature = $bindable(),
     selectedLA = $bindable(),
@@ -64,11 +69,11 @@
     tileIndex,
   } = $props();
 
-  $inspect("tileCodes", tileCodes);
+  // $inspect("breakdownDataURL", breakdownDataURL);
 
   let mapElement: HTMLDivElement;
   let map: Map;
-  let tiffLayer, densityLayer;
+  let tiffLayer, densityLayer, breakdownLayer;
   let osmBaseLayer: TileLayer,
     ordnanceSurveyBaseLayer: VectorTileLayer,
     aerialBaseLayer: TileLayer,
@@ -155,6 +160,7 @@
   $effect(() => {
     console.log("UPDATING marker source");
     if (seeMarker && markerLocation) {
+      map?.removeLayer(markerLayer);
       const newMarkerSource = markerSource;
       markerLayer.setSource(newMarkerSource);
       map?.addLayer(markerLayer);
@@ -216,6 +222,15 @@
     }),
   );
 
+  let breakdownLayerSource = $derived(
+    new ImageStatic({
+      url: breakdownDataURL,
+      imageExtent: bbox,
+      projection: "EPSG:27700",
+      interpolate: false,
+    }),
+  );
+
   onMount(async () => {
     proj4.defs(
       "EPSG:27700",
@@ -267,7 +282,8 @@
     );
 
     const geoJsonVectorSource = new VectorSource({
-      url: "LAD_MAY_2025_UK_BGC_England.geojson",
+      // url: "LAD_MAY_2025_UK_BGC_England.geojson",
+      url: "LPA_APR_2023_England_BGC_V2.geojson",
       format: new GeoJSON({
         dataProjection: "EPSG:4326", // projection of the GeoJSON file
         featureProjection: "EPSG:27700", // projection of the map
@@ -329,6 +345,13 @@
           opacity,
         });
 
+    breakdownLayer = mobile.current
+      ? breakdownDataURL
+      : new ImageLayer({
+          source: breakdownLayerSource,
+          opacity,
+        });
+
     osmBaseLayer = new TileLayer({
       source: new XYZ({
         url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
@@ -349,30 +372,38 @@
     if (drawnFeature) {
       drawSource.addFeature(drawnFeature);
     }
-    let initialLayers = densityLayer
-      ? [
-          currentBaseMap,
-          wktVector,
-          drawLayer,
-          geoJsonVectorLayer,
-          scotlandAndWalesVectorLayer,
-          tiffLayer,
-          densityLayer,
-          // markerLayer,
+    let initialLayers =
+      densityLayer && breakdownLayer
+        ? [
+            currentBaseMap,
+            wktVector,
+            drawLayer,
+            geoJsonVectorLayer,
+            scotlandAndWalesVectorLayer,
+            tiffLayer,
+            densityLayer,
+            breakdownLayer,
+            // markerLayer,
 
-          // wktEngland,
-        ]
-      : [
-          currentBaseMap,
-          wktVector,
-          drawLayer,
-          geoJsonVectorLayer,
-          scotlandAndWalesVectorLayer,
-          tiffLayer,
-          // markerLayer,
+            // wktEngland,
+          ]
+        : [
+            currentBaseMap,
+            wktVector,
+            drawLayer,
+            geoJsonVectorLayer,
+            scotlandAndWalesVectorLayer,
+            tiffLayer,
+            // markerLayer,
 
-          // wktEngland,
-        ];
+            // wktEngland,
+          ];
+
+    // const select = new Select();
+
+    // const modify = new Modify({
+    //   features: select.getFeatures(),
+    // });
 
     // if (densityLayer) {
     map = new Map({
@@ -391,8 +422,13 @@
     });
     if (seeArea) {
       densityLayer?.setVisible(false);
+      breakdownLayer?.setVisible(false);
+    } else if (seeDensity) {
+      tiffLayer?.setVisible(false);
+      breakdownLayer?.setVisible(false);
     } else {
       tiffLayer?.setVisible(false);
+      densityLayer?.setVisible(false);
     }
 
     if (gridType === "hectare") {
@@ -407,6 +443,11 @@
     });
 
     // map.addInteraction(draw);
+
+    const modify = new Modify({ source: drawSource });
+    // const select = new Select();
+    map?.addInteraction(modify);
+    // map?.addInteraction(select);
 
     draw.on("drawend", async function (event) {
       drawnFeature = event.feature;
@@ -458,8 +499,8 @@
         const props = feature.getProperties();
 
         // console.log("Feature clicked:", props, evt.pixel);
-        if (props.LAD25NM) {
-          selectedAreaName = props.LAD25NM;
+        if (props.LAD25NM || props.LPA23NM) {
+          selectedAreaName = props.LAD25NM || props.LPA23NM;
 
           // map.getView().fit(props.geometry?.extent_, { duration: 1000 });
         }
@@ -499,32 +540,54 @@
         }
 
         // Tooltip UI
-        if (isFeature(feature) && feature.get("LAD25NM")) {
+        if (
+          isFeature(feature) &&
+          (feature.get("LAD25NM") || feature.get("LPA23NM"))
+        ) {
           info.style.left = pixel[0] + 15 + "px";
           info.style.top = pixel[1] + 15 + "px";
           info.style.visibility = "visible";
 
           info.innerHTML =
             gridType !== "hectare"
-              ? feature.get("LAD25NM")
-              : "<b>" + feature.get("LAD25NM") + "</b>";
-          // "<br>" +
-          // "Area covered by the current selections: " +
-          // Number(
-          //   breakdownData?.find(
-          //     (d) => d.area_code === feature.get("LAD25CD"),
-          //   )?.selected_area,
-          // ).toLocaleString() +
-          // "ha" +
-          // "<br> (" +
-          // (
-          //   Number(
-          //     breakdownData?.find(
-          //       (d) => d.area_code === feature.get("LAD25CD"),
-          //     )?.selected_area_as_a_proportion_of_total_area,
-          //   ) * 100
-          // ).toFixed(0) +
-          // "%)";
+              ? feature.get("LAD25NM") || feature.get("LPA23NM")
+              : "<b>" +
+                (feature.get("LAD25NM") || feature.get("LPA23NM")) +
+                "</b>" +
+                "<br>" +
+                "Area: " +
+                Number(
+                  breakdownData?.find(
+                    (d) =>
+                      d.area_code ===
+                      (feature.get("LAD25CD") || feature.get("LPA23CD")),
+                  )?.total_area,
+                ).toLocaleString() +
+                "ha" +
+                // "<b>" +
+                // (feature.get("LAD25NM") || feature.get("LPA23NM")) +
+                // "</b>" +
+                "<br>" +
+                "Area covered by the current selections: " +
+                Number(
+                  breakdownData?.find(
+                    (d) =>
+                      d.area_code ===
+                      (feature.get("LAD25CD") || feature.get("LPA23CD")),
+                  )?.selected_area,
+                ).toLocaleString() +
+                "ha" +
+                "<br> (" +
+                (
+                  Number(
+                    breakdownData?.find(
+                      (d) =>
+                        d.area_code ===
+                        (feature.get("LAD25CD") || feature.get("LPA23CD")),
+                    )?.selected_area_as_a_proportion_of_total_area,
+                  ) * 100
+                ).toFixed(0) +
+                "%)";
         } else {
           info.style.visibility = "hidden";
         }
@@ -545,36 +608,29 @@
           coordToIndex(...evt.coordinate, { width, height }),
         )
       ) {
-        // console.log(
-        //   "in blended indices: " +
-        //     coordToIndex(...evt.coordinate, { width, height }) +
-        //     " " +
-        //     densityArray[coordToIndex(...evt.coordinate, { width, height })],
-        //   +width + " " + height,
-        // );
         info.style.left = evt.pixel[0] + 15 + "px";
         info.style.top = evt.pixel[1] + 15 + "px";
         info.style.visibility = "visible";
 
-        info.innerHTML =
-          CODES.find(
-            (d) =>
-              d[0] ===
-              densityArray[coordToIndex(...evt.coordinate, { width, height })],
-          )?.[1] ?? "Unregistered";
-        // densityArray[coordToIndex(...evt.coordinate, { width, height })] +
-        // (densityArray[coordToIndex(...evt.coordinate, { width, height })] ===
-        // 1
-        //   ? " title at this location"
-        //   : " titles at this location");
+        info.innerHTML = seeBreakdown
+          ? (CODES.find(
+              (d) =>
+                d[0] ===
+                breakdownArray[
+                  coordToIndex(...evt.coordinate, { width, height })
+                ],
+            )?.[1]
+              ?.replaceAll(".", " > ")
+              ?.replaceAll("_", " ") ?? "Unregistered")
+          : densityArray[coordToIndex(...evt.coordinate, { width, height })] +
+            (densityArray[
+              coordToIndex(...evt.coordinate, { width, height })
+            ] === 1
+              ? densityMetric == "dwellings"
+                ? " dwelling" + " at this location"
+                : " business address" + " at this location"
+              : " " + densityMetric + " at this location");
       } else {
-        // console.log(
-        //   "NOT in blended indices: " +
-        //     coordToIndex(...evt.coordinate, { width, height }) +
-        //     " " +
-        //     densityArray[coordToIndex(...evt.coordinate, { width, height })],
-        //   +blendedIndices.length,
-        // );
         info.style.visibility = "hidden";
       }
     });
@@ -602,9 +658,15 @@
     if (seeArea) {
       tiffLayer?.setVisible(true);
       densityLayer?.setVisible(false);
-    } else {
+      breakdownLayer?.setVisible(false);
+    } else if (seeDensity) {
       tiffLayer?.setVisible(false);
       densityLayer?.setVisible(true);
+      breakdownLayer?.setVisible(false);
+    } else {
+      tiffLayer?.setVisible(false);
+      densityLayer?.setVisible(false);
+      breakdownLayer?.setVisible(true);
     }
   });
 
@@ -633,6 +695,20 @@
       map?.removeLayer(oldDensityLayer);
       densityLayer = densityDataURL;
       map?.addLayer(densityLayer);
+    }
+  });
+
+  $effect(() => {
+    console.log("UPDATING breakdown source");
+
+    if (!mobile.current) {
+      const newSource = breakdownLayerSource; // Need this line so that Svelte has a dependedncy to track
+      breakdownLayer?.setSource(newSource);
+    } else {
+      const oldBreakdownLayer = breakdownLayer;
+      map?.removeLayer(oldBreakdownLayer);
+      breakdownLayer = breakdownDataURL;
+      map?.addLayer(breakdownLayer);
     }
   });
 

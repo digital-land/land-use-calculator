@@ -1,7 +1,7 @@
 <script>
   import "../app.css";
   import PhaseBanner from "$lib/components/PhaseBanner.svelte";
-    import WarningText from "$lib/components/WarningText.svelte";
+  import WarningText from "$lib/components/WarningText.svelte";
   import {
     Header,
     ServiceNavigation,
@@ -11,7 +11,7 @@
 
   let { children } = $props();
   let currentPath = $derived(page.url.pathname);
-  $inspect(currentPath);
+  // $inspect(currentPath);
 
   let applicationPages = [
     { href: "/", label: "Home" },
@@ -41,7 +41,8 @@
   linkHref={"https://mhclg.sharepoint.com/:x:/s/HousingDiversification/ETTZ0xrT3yZMpeaX1GkOy1oBBqdv1ZFXJHiZK47qCUQMhw?e=FggJfN"}
   linkTarget={"_blank"}
 />
-<WarningText text={"Shortlisted for the Government Geography Awards, 2026 - Knowledge Driven Policy Making Category"}
+<WarningText
+  text={"Shortlisted for the Government Geography Awards, 2026 - Knowledge Driven Policy Making Category"}
 />
 {@render children()}
 <Footer

@@ -22,6 +22,7 @@
     forceTabBehavior = false,
     showDensity,
     showArea,
+    showBreakdown,
   } = $props<{
     title?: string;
     tabs: TabItem[];
@@ -31,6 +32,7 @@
     forceTabBehavior?: boolean;
     showDensity?: () => void;
     showArea?: () => void;
+    showBreakdown?: () => void;
   }>();
 
   // Component state variables
@@ -76,9 +78,13 @@
       history.replaceState({}, "", newUrl);
     }
     console.log(selectedTabId);
-    if (selectedTabId === "density" || selectedTabId === "breakdown") {
+    if (selectedTabId === "density") {
       setTimeout(() => {
         showDensity();
+      }, 100);
+    } else if (selectedTabId === "breakdown") {
+      setTimeout(() => {
+        showBreakdown();
       }, 100);
     } else {
       showArea();

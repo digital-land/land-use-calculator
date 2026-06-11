@@ -1,9 +1,9 @@
 import { parseCSVToObject } from "$lib/utils";
-import { base } from "$app/paths";
+import { asset } from "$app/paths";
 import type { PageServerLoad } from "./$types";
 
 export const load: PageServerLoad = async ({ fetch, url }) => {
-  const response: Response = await fetch(`${base}/output.csv`);
+  const response: Response = await fetch(asset(`/output.csv`));
 
   if (!response.ok) {
     throw new Error("Failed to fetch CSV");

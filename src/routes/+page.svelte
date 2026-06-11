@@ -3,7 +3,7 @@
   import { onMount, tick } from "svelte";
   import { enhance } from "$app/forms";
   import { MediaQuery } from "svelte/reactivity";
-  import { base } from "$app/paths";
+  import { asset, base, resolve } from "$app/paths";
   import ImageLayer from "ol/layer/Image";
   import ImageStatic from "ol/source/ImageStatic";
   import LayerGroup from "ol/layer/Group";
@@ -49,6 +49,7 @@
     tilesForBBox,
     loadIndexedArray,
     loadIndexedArrayUint16,
+    capitaliseFirst,
   } from "$lib/utils";
   import { computeDensityStats } from "$lib/densityStats";
   import {
@@ -79,7 +80,7 @@
   let LAGeoJSON: GeoJSONFeatureCollection | undefined = $state(undefined);
   // $inspect(LAGeoJSON);
   let selectedLA = $state();
-  $inspect(selectedLA);
+  // $inspect(selectedLA);
 
   let gridType: string = $state("hectare");
   // $inspect(gridType);
@@ -139,10 +140,34 @@
   );
 
   let densityArray: Uint16Array = $state(new Uint16Array(0));
+  let densityMetric: string = $state("dwellings");
+  let densityMetricLookup: object = {
+    dwellings: asset(
+      `/data/categorised-land/dwellings-and-businesses/dwelling_counts_100m.bin`,
+    ),
+    // titles: "",
+    "business addresses": asset(
+      `/data/categorised-land/dwellings-and-businesses/commercial_address_counts_100m.bin`,
+    ),
+  };
+  let densityFile: string = $derived(densityMetricLookup[densityMetric]);
+  $effect(() => {
+    done = false;
+    loadIndexedArrayUint16(
+      // `${base}/data/categorised-land/ownership_cats_260520.bin`,
+      // `${base}/data/categorised-land/dwellings-and-businesses/dwelling_counts_100m.bin`,
+      densityFile,
+    ).then((result) => {
+      densityArray = result;
+      done = true;
+    });
+  });
+
   let seeDensity = $state(false);
   // $inspect({ seeDensity });
   let seeArea = $state(true);
   // $inspect({ seeArea });
+  let seeBreakdown = $state(false);
   let seeMarker = $state(false);
 
   let drawing: boolean = $state(false);
@@ -177,7 +202,7 @@
     }
     return LUT;
   });
-  $inspect(DENSITY_LUT);
+  // $inspect(DENSITY_LUT);
 
   type RGB = [number, number, number];
 
@@ -309,13 +334,75 @@
 
     return LUT;
   });
-  $inspect(BREAKDOWN_LUT);
+  // $inspect(BREAKDOWN_LUT);
 
-  let policyLens = $state("England");
+  let breakdownMetric: string = $state("LPA");
+  let breakdownMetricLookup: object = {
+    LPA: {
+      csvUrl: asset(`/data/LPAs/LPA_100m.csv`),
+      baseUrl: `${base}/data/LPAs`,
+      numChunks: 1,
+      chunkUrls: asset(`/data/LPAs/LPA_100m.bin`),
+      LUT: DENSITY_LUT,
+    },
+    // LAD: "",
+    ownership: {
+      csvUrl: asset(`/data/categorised-land/ownership_lookup_fine.csv`),
+      baseUrl: `${base}/data/categorised-land`,
+      numChunks: 1,
+      chunkUrls: asset(`/data/categorised-land/ownership_cat_260518_8am.bin`),
+      LUT: BREAKDOWN_LUT,
+    },
+  };
+
+  let csvUrl = $derived(breakdownMetricLookup[breakdownMetric].csvUrl);
+  let chunkUrls = $derived(breakdownMetricLookup[breakdownMetric].chunkUrls);
+  let numChunks = $derived(breakdownMetricLookup[breakdownMetric].numChunks);
+  let currentLUT: Uint32Array = $derived(
+    breakdownMetricLookup[breakdownMetric].LUT,
+  );
+
+  let breakdownArray: Uint16Array = $state(new Uint16Array(0));
+  // $inspect({ breakdownArray });
+
+  $effect(() => {
+    chunkUrls;
+    blendedIndices;
+    breakdownChartSortValue;
+    let b = breakdownChartSortValue;
+    loadIndexedArrayUint16(chunkUrls).then(async (result) => {
+      breakdownArray = result;
+
+      if (blendedIndices.length > 0) {
+        console.log("creating breakdown canvas");
+        !mobile.current
+          ? await createDensityCanvas(
+              breakdownCanvas,
+              b == "total" ? customArea : blendedIndices,
+              breakdownArray,
+              currentLUT,
+              height,
+              width,
+            ).then((result) => (breakdownDataURL = result))
+          : await createDensityLayerMobile(
+              b === "total" ? customArea : blendedIndices,
+              breakdownArray,
+              currentLUT,
+              bbox,
+              opacity,
+              height,
+              width,
+            ).then((result) => (breakdownDataURL = result));
+        // console.log({ breakdownDataURL });
+      }
+    });
+  });
+
+  let policyLens: string = $state("England");
   if (urlPolicyLens) {
     policyLens = urlPolicyLens;
   }
-  $inspect(policyLens);
+  // $inspect(policyLens);
 
   // let tileCodes = $state(["STNE", "STSW"]);
   // $inspect(tileCodes);
@@ -323,7 +410,7 @@
   // let customArea: Uint32Array = $state();
 
   let drawnFeature: Feature | undefined = $state();
-  $inspect({ drawnFeature });
+  // $inspect({ drawnFeature });
 
   let customAreaGeometry = $derived(drawnFeature?.getGeometry());
   let customAreaBBox: number[] | undefined = $derived(
@@ -336,7 +423,7 @@
       : ["STNE", "STSW"],
   );
 
-  let bbox = $derived(
+  let bbox: [number, number, number, number] = $derived(
     gridType === "hectare"
       ? hectareBbox
       : getBBoxFromTileCodes(tileCodes, gridSize, 5000),
@@ -344,9 +431,17 @@
 
   let width = $derived((bbox[2] - bbox[0]) / gridSize);
   let height = $derived((bbox[3] - bbox[1]) / gridSize);
-  $inspect(bbox, width, height);
+  // $inspect(bbox, width, height);
 
   const format = new GeoJSON();
+  let geojsonString = $derived(
+    drawnFeature
+      ? format.writeFeatures([drawnFeature], {
+          featureProjection: "EPSG:27700",
+          dataProjection: "EPSG:4326",
+        })
+      : "",
+  );
 
   let englandAreaHectare = $state(new Uint32Array(0));
 
@@ -360,7 +455,11 @@
       //   ?.features.find((d) => d.properties.LAD25CD === selectedLA);
 
       drawnFeature = format.readFeatures(
-        LAGeoJSON?.features?.find((d) => d.properties?.LAD25CD === selectedLA),
+        LAGeoJSON?.features?.find(
+          (d) =>
+            d.properties?.LAD25CD === selectedLA ||
+            d.properties?.LPA23CD === selectedLA,
+        ),
         {
           dataProjection: "EPSG:4326",
           featureProjection: "EPSG:27700",
@@ -395,85 +494,6 @@
         : new Uint32Array(0),
   );
 
-  // $effect(() => {
-  //   if (policyLens === "England" && gridType === "hectare") {
-  //     async () => {
-  //       customArea = await loadIndexedArray(
-  //         `${base}/data/categorised-land/ENGLAND_100M_OS_GRID_COMPATIBLE.bin`,
-  //       );
-  //     };
-  //   }
-  // });
-  // $inspect(geoJSONdata);
-
-  // let customArea = $derived(new Uint32Array(geoJSONdata));
-
-  // let customArea = $state();
-
-  // $effect(
-  //   async () => {
-  //     try {
-  //       console.log({ customAreaGeometry });
-  //       const result = customAreaGeometry
-  //         ? geometryToGridHitsScanline(customAreaGeometry, bbox, width, height)
-  //         : gridType === "hectare"
-  //           ? await loadIndexedArray(
-  //               `${base}/data/categorised-land/ENGLAND_100M_OS_GRID_COMPATIBLE.bin`,
-  //             )
-  //           : null;
-  //       // console.log(result);
-  //       customArea = result;
-  //     } catch (e) {
-  //       console.log(e);
-  //     }
-  //   },
-
-  //   // customAreaGeometry
-  //   //   ? geometryToGridHitsScanline(customAreaGeometry, bbox, width, height)
-  //   //   : await loadIndexedArray(
-  //   //       `${base}/data/categorised-land/ENGLAND_100M_OS_GRID_COMPATIBLE.bin`,
-  //   //     ),
-  // );
-
-  // let customArea = $derived(
-  //   customAreaGeometry
-  //     ? geometryToGridHitsScanline(customAreaGeometry, bbox, width, height)
-  //     : null,
-  // );
-  $inspect({ customArea });
-  // let oldCustomArea = customArea;
-  // $effect(async () => {
-  //   if (customArea) {
-  //     if (!arraysEqual(customArea, oldCustomArea)) {
-  //       console.log("updating customArea based on geoJSONdata");
-  //       oldCustomArea = customArea;
-  //       await unpackAndBlendLayers();
-  //     }
-  //   }
-  // });
-
-  // //Not sure this effect ever runs
-  // $effect(() => {
-  //   if (geoJSONdata?.tileCodes.length > 0) {
-  //     const next = geoJSONdata.tileCodes;
-
-  //     // Fix for svelte equality check issue
-  //     if (!arraysEqual(tileCodes, next)) {
-  //       console.log("updating tileCodes based on geoJSONdata");
-  //       tileCodes = next;
-  //     }
-  //   }
-  // });
-
-  // function arraysEqual(a, b) {
-  //   if (a === b) return true;
-  //   if (!a || !b || a.length !== b.length) return false;
-  //   for (let i = 0; i < a.length; i++) {
-  //     if (a[i] !== b[i]) return false;
-  //   }
-  //   return true;
-  // }
-
   let policyLensArea: number | null = $state(
     (13_046_002 * 10_000) / (gridSize * gridSize),
   );
@@ -492,10 +512,13 @@
 
   let densityCanvas: HTMLCanvasElement | undefined = $state();
   let densityDataURL = $state();
-  // $inspect(densityDataURL);
+
+  let breakdownCanvas: HTMLCanvasElement | undefined = $state();
+  let breakdownDataURL = $state();
+  // $inspect({ breakdownDataURL });
 
   let breakdownData = $state(null);
-  $inspect({ breakdownData });
+  // $inspect({ breakdownData });
 
   function categoryKey(areaName: string) {
     const cleaned = areaName ?? ""; /*.replace(/[^a-z0-9]/gi, "");*/
@@ -558,7 +581,7 @@
       }),
   );
 
-  let blendedArrayLength: number = $derived(blendedIndices?.length);
+  let blendedArrayLength: number | null = $derived(blendedIndices?.length);
   // $inspect({blendedArrayLength})
   let selected: string[] = $state([]);
   $inspect({ selected });
@@ -788,7 +811,7 @@
   }
 
   let csvLocation = $derived(
-    `${base}/data/${sourceFolder}/ultimate_land_metadata.csv`,
+    asset(`/data/${sourceFolder}/ultimate_land_metadata.csv`),
   );
 
   let metadataCsv: string = $state();
@@ -796,21 +819,6 @@
 
   $effect(async () => {
     gridType;
-
-    // done = false;
-    // dataURL = null;
-    // // densityArray = null;
-    // uniqueCounts = null;
-    // // customArea = null;
-    // policyLensArea = null;
-    // currentBitArrays = null;
-    // enrichedLayers = [];
-    // lensIndices = null;
-    // blendedIndices = [];
-    // // densityDataURL = null;
-    // breakdownData = null;
-    // uniqueArrays = [];
-    // uniqueIndices = null;
 
     try {
       const response = await fetch(csvLocation);
@@ -839,11 +847,6 @@
           .map((d) => makeFileNameDatasetKey(d.filename));
       }
 
-      // if (customAreaBBox) {
-      //   console.log("setting tileCodes within gridType effect");
-      //   tileCodes = await tilesForBBox(customAreaBBox, tileIndex, 50000);
-      // }
-
       policyLensArea = null;
       blendedArrayLength = null;
       // unpackSelectedLayers();
@@ -853,18 +856,25 @@
       if (selectedTabId === "table") {
         seeArea = true;
         seeDensity = false;
-      } else {
+        seeBreakdown = false;
+      } else if (selectedTabId === "density") {
         seeArea = false;
         seeDensity = true;
+        seeBreakdown = false;
+      } else {
+        seeArea = false;
+        seeDensity = false;
+        seeBreakdown = true;
       }
     }
   });
 
   onMount(async () => {
     densityCanvas = document.createElement("canvas");
+    breakdownCanvas = document.createElement("canvas");
 
     englandAreaHectare = await loadIndexedArray(
-      `${base}/data/categorised-land/ENGLAND_100M_OS_GRID_COMPATIBLE.bin`,
+      asset(`/data/categorised-land/ENGLAND_100M_OS_GRID_COMPATIBLE.bin`),
     );
 
     await init({
@@ -875,7 +885,9 @@
     });
     console.log("✅ WASM initialized");
 
-    const res = await fetch("/LAD_MAY_2025_UK_BGC_England.geojson");
+    // const res = await fetch("/LAD_MAY_2025_UK_BGC_England.geojson");
+    const res = await fetch("/LPA_APR_2023_England_BGC_V2.geojson");
+
     if (!res.ok) {
       console.error("Failed to load GeoJSON");
       return;
@@ -906,10 +918,12 @@
     //   bbox,
     // );
     // densityArray = tiffData.densityArray;
-    densityArray = await loadIndexedArrayUint16(
-      `${base}/data/categorised-land/ownership_cats_260520.bin`,
-    );
-    console.log({ densityArray });
+    // densityArray = await loadIndexedArrayUint16(
+    //   // `${base}/data/categorised-land/ownership_cats_260520.bin`,
+    //   // `${base}/data/categorised-land/dwellings-and-businesses/dwelling_counts_100m.bin`,
+    //   densityFile,
+    // );
+    // console.log({ densityArray });
   });
 
   function prepareToUnpack() {
@@ -918,8 +932,6 @@
         (layer) => makeFileNameDatasetKey(layer?.filename) === d,
       ),
     );
-    // console.log(parseCsv(metadataCsv));
-    // console.log("selected: ", selected, "layers to unpack: ", layersToUnpack);
   }
 
   // function unpackSelectedLayers() {
@@ -1064,93 +1076,16 @@
   //Constants used for getting the LA breakdown
   // const baseUrl = `${base}/data/LAs/chunks/`;
   // const numChunks = 8; // update with actual number of chunks
-  const baseUrl = `${base}/data/categorised-land`;
-  const numChunks = 1; // update with actual number of chunks
+  // const baseUrl = `${base}/data/LPAs`;
+  // const numChunks = 1; // update with actual number of chunks
 
-  const chunkUrls = Array.from(
-    { length: numChunks },
-    // (_, i) => `${baseUrl}chunk_${i}.bin`,
-    // (_, i) => `${baseUrl}/Simply_categorised_land_uint16.bin`,
-    (_, i) => `${baseUrl}/ownership_cats_260520.bin`,
-  );
-
-  // async function getLABreakdown(cRoutes, bitArray) {
-  //   const urls = Array.isArray(cRoutes) ? cRoutes : [cRoutes];
-  //   // const width = 5728;
-
-  //   let accumulatedResult = null;
-  //   let rowOffset = 0;
-
-  //   // Single persistent worker
-  //   const breakdownWorker = new Worker(
-  //     new URL("$lib/workers/breakdownWorker.js", import.meta.url),
-  //     { type: "module" },
-  //   );
-
-  //   const processChunk = (cChunk, aChunk) => {
-  //     return new Promise((resolve, reject) => {
-  //       breakdownWorker.onmessage = (e) => {
-  //         const { json, error } = e.data;
-  //         if (error) reject(new Error(error));
-  //         else if (json) resolve(json);
-  //         else console.log("Worker sent ignored message:", e.data);
-  //       };
-  //       // breakdownWorker.onerror = (err) => reject(err);
-  //       breakdownWorker.onerror = (err) => {
-  //         console.error("Worker error:", err);
-  //         reject(new Error("Worker crashed"));
-  //       };
-  //       // main thread
-  //       const csvUrl = `${base}/data/LAs/lad_may_2025_lookup.csv`;
-
-  //       breakdownWorker.postMessage({
-  //         categoricalArray: cChunk,
-  //         bitArray: aChunk,
-  //         csvUrl,
-  //       });
-  //     });
-  //   };
-
-  //   for (const url of urls) {
-  //     // console.log("Fetching chunk:", url);
-  //     const catBuffer = await fetch(url).then((r) => r.arrayBuffer());
-  //     const evenLength = catBuffer.byteLength & ~1; // drop 1 byte if odd
-  //     const safeBuffer = catBuffer.slice(0, evenLength);
-  //     const cChunk = new Uint16Array(safeBuffer);
-
-  //     const chunkRows = cChunk.length / width;
-  //     const bitStart = rowOffset * width;
-  //     const bitEnd = bitStart + chunkRows * width;
-  //     const aChunk = bitArray.subarray(bitStart, bitEnd);
-
-  //     // console.log("Sending chunk to worker:", cChunk.length, aChunk.length);
-
-  //     const minLength = Math.min(cChunk.length, aChunk.length);
-  //     const cChunkTrimmed = cChunk.subarray(0, minLength);
-  //     const aChunkTrimmed = aChunk.subarray(0, minLength);
-
-  //     const chunkResult = await processChunk(cChunkTrimmed, aChunkTrimmed);
-
-  //     // Accumulate results
-  //     if (!accumulatedResult) {
-  //       accumulatedResult = chunkResult;
-  //     } else {
-  //       for (let i = 0; i < accumulatedResult.length; i++) {
-  //         accumulatedResult[i].selected_area += chunkResult[i].selected_area;
-  //         accumulatedResult[i].total_area = chunkResult[i].total_area; //Don't accumulate total area!
-  //         accumulatedResult[i].selected_area_as_a_proportion_of_total_area +=
-  //           chunkResult[i].selected_area_as_a_proportion_of_total_area;
-  //       }
-  //     }
-
-  //     rowOffset += chunkRows;
-  //   }
-
-  //   breakdownWorker.terminate();
-  //   console.log("All chunks processed, worker terminated");
-
-  //   return { json: accumulatedResult, bitArray };
-  // }
+  // const chunkUrls = Array.from(
+  //   { length: numChunks },
+  //   // (_, i) => `${baseUrl}chunk_${i}.bin`,
+  //   // (_, i) => `${baseUrl}/Simply_categorised_land_uint16.bin`,
+  //   (_, i) => `${baseUrl}/LPA_100m.bin`,
+  //   // (_, i) => `${baseUrl}/ownership_cats_260520.bin`,
+  // );
 
   async function getLABreakdown(cRoutes, bitArray, customArea) {
     const urls = Array.isArray(cRoutes) ? cRoutes : [cRoutes];
@@ -1176,12 +1111,13 @@
           else resolve(json);
         };
         const onError = (err) => reject(new Error("Worker crashed"));
-        console.log(categoricalChunk);
+        // console.log(categoricalChunk);
         breakdownWorker.addEventListener("message", onMessage, { once: true });
         breakdownWorker.addEventListener("error", onError, { once: true });
 
         // const csvUrl = `${base}/data/LAs/lad_may_2025_lookup.csv`;
-        const csvUrl = `${base}/data/categorised-land/ownership_lookup_fine.csv`;
+        // const csvUrl = `${base}/data/categorised-land/ownership_lookup_fine.csv`;
+        // const csvUrl = `${base}/data/LPAs/LPA_100m.csv`;
 
         breakdownWorker.postMessage({
           categoricalArray: categoricalChunk,
@@ -1190,7 +1126,7 @@
           csvUrl,
           numCats: 64465,
           numChunks,
-          BREAKDOWN_LUT,
+          BREAKDOWN_LUT: currentLUT,
         });
       });
 
@@ -1287,7 +1223,7 @@
 
         blendWorker.terminate();
 
-        getBreakdownAndCreateDensityCanvas();
+        // getBreakdownAndCreateDensityCanvas();
 
         mobile.current
           ? (dataURL = await makeAndPaintCanvasFromIndicesMobile())
@@ -1313,20 +1249,21 @@
           densityCanvas,
           b === "total" ? customArea : blendedIndices,
           densityArray,
-          BREAKDOWN_LUT,
+          // BREAKDOWN_LUT,
+          DENSITY_LUT,
           height,
           width,
         )
       : await createDensityLayerMobile(
           b === "total" ? customArea : blendedIndices,
           densityArray,
-          BREAKDOWN_LUT,
+          // BREAKDOWN_LUT,
+          DENSITY_LUT,
           bbox,
           opacity,
           height,
           width,
         );
-    // };
   });
 
   async function getBreakdownAndCreateDensityCanvas() {
@@ -1348,14 +1285,14 @@
             densityCanvas,
             breakdownChartSortValue === "total" ? customArea : blendedIndices,
             densityArray,
-            BREAKDOWN_LUT,
+            DENSITY_LUT,
             height,
             width,
           )
         : await createDensityLayerMobile(
             breakdownChartSortValue === "total" ? customArea : blendedIndices,
             densityArray,
-            BREAKDOWN_LUT,
+            DENSITY_LUT,
             bbox,
             opacity,
             height,
@@ -1363,6 +1300,11 @@
           );
     }
   }
+
+  $effect(() => {
+    if (chunkUrls && blendedIndices && width && height && customArea)
+      getBreakdownAndCreateDensityCanvas();
+  });
 
   function makeAndPaintCanvasFromIndices() {
     console.time("canvas-indices");
@@ -1696,7 +1638,7 @@
           : makeAndPaintCanvasFromIndices();
         // }
 
-        getBreakdownAndCreateDensityCanvas();
+        // getBreakdownAndCreateDensityCanvas();
       };
 
       worker.onerror = (err) => {
@@ -1746,8 +1688,8 @@
     }
   }
 
-  function downloadGeoJSON() {
-    const filename = "data.geojson";
+  function downloadSelectedAreaGeoJSON() {
+    const filename = "selectedArea.geojson";
 
     const geojson = new Blob(
       [
@@ -1776,12 +1718,30 @@
     URL.revokeObjectURL(url);
   }
 
+  function downloadCustomAreaGeoJSON() {
+    const filename = "customArea.geojson";
+
+    const geojson = new Blob([geojsonString], {
+      type: "application/json",
+    });
+
+    const url = URL.createObjectURL(geojson);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+
+    URL.revokeObjectURL(url);
+  }
+
   async function showDensity() {
     console.time("show-density");
     done = false;
     await tick();
     seeDensity = true;
     seeArea = false;
+    seeBreakdown = false;
 
     done = true;
     console.timeEnd("show-density");
@@ -1789,18 +1749,30 @@
 
   const densityStats = $derived(
     gridType === "hectare"
-      ? computeDensityStats(blendedIndices, densityArray, {
-          width,
-          height,
-          colOffset: 0,
-        })
+      ? computeDensityStats(
+          breakdownChartSortValue === "total" ? customArea : blendedIndices,
+          densityArray,
+          {
+            width,
+            height,
+            colOffset: 0,
+          },
+        )
       : null,
   );
 
   function showArea() {
     seeDensity = false;
+    seeBreakdown = false;
     seeArea = true;
     console.log("showing area");
+  }
+
+  function showBreakdown() {
+    seeDensity = false;
+    seeBreakdown = true;
+    seeArea = false;
+    console.log("showing breakdown");
   }
 
   let tableSectionHeight = $state();
@@ -1848,13 +1820,13 @@
     let interim = LAGeoJSON?.features
       .map((d) => d.properties)
       .map((d) => {
-        return { value: d.LAD25CD, text: d.LAD25NM };
+        return { value: d.LAD25CD || d.LPA23CD, text: d.LAD25NM || d.LPA23NM };
       })
       .sort((a, b) => a.text.localeCompare(b.text));
     interim?.unshift({ text: "", value: "" });
     return interim;
   });
-  // $inspect(LAselectOptions);
+  $inspect({ LAselectOptions });
 
   let selectedAreaWording = $derived(
     selectedLA
@@ -1953,7 +1925,7 @@
                 id="svelte-geojson-area-select"
                 name="svelte-geojson-area-select"
                 items={LAselectOptions}
-                label={"Select a local authority:"}
+                label={"Select a local planning authority:"}
                 bind:value={selectedLA}
                 onchange={async () => await unpackAndBlendLayers()}
               />
@@ -2173,16 +2145,22 @@
             <OsMap
               {dataURL}
               {densityDataURL}
+              {breakdownDataURL}
+              {densityMetric}
               {bbox}
               {breakdownData}
-              {blendedIndices}
+              blendedIndices={breakdownChartSortValue === "total"
+                ? customArea
+                : blendedIndices}
               bind:seeDensity
               bind:seeArea
+              bind:seeBreakdown
               {width}
               {height}
               bind:opacity
               {densityArray}
-              bind:customArea
+              {breakdownArray}
+              // bind:customArea
               bind:customAreaBBox
               bind:drawnFeature
               bind:selectedLA
@@ -2220,15 +2198,15 @@
                 label: "Results",
                 content: tableSnippet,
               },
-              // {
-              //   id: "density",
-              //   label: "Density",
-              //   content: densitySnippet,
-              // },
+              {
+                id: "density",
+                label: "Density",
+                content: densitySnippet,
+              },
               {
                 id: "breakdown",
                 label: "Breakdown",
-                content: barChartSnippet,
+                content: breakdownSnippet,
               },
             ]
           : [
@@ -2240,6 +2218,7 @@
             ]}
         {showDensity}
         {showArea}
+        {showBreakdown}
         forceTabBehavior={true}
       />
       <!-- {#snippet namedAreaSnippet()}
@@ -2363,8 +2342,9 @@
 
                     const csvStr = jsonToCsv(
                       breakdownData,
-                      policyLens,
-                      policyLensItems,
+                      // policyLens,
+                      // policyLensItems,
+                      selectedAreaWording,
                       selected,
                       gridType,
                     );
@@ -2388,7 +2368,12 @@
               <Button
                 buttonType="secondary"
                 textContent="Download the selected area shape (.geojson)"
-                onClickFunction={downloadGeoJSON}
+                onClickFunction={downloadSelectedAreaGeoJSON}
+              />
+              <Button
+                buttonType="secondary"
+                textContent="Download the custom area shape (.geojson)"
+                onClickFunction={downloadCustomAreaGeoJSON}
               />
             {:else}
               <Spinner />
@@ -2404,8 +2389,33 @@
         {/if} -->
       {/snippet}
       {#snippet densitySnippet()}
+        <Select
+          id="densitySelect"
+          name="density select"
+          items={[
+            // { value: "titles", text: "titles" },
+            { value: "dwellings", text: "Dwellings" },
+            { value: "business addresses", text: "Business addresses" },
+          ]}
+          label={"Select the dataset"}
+          bind:value={densityMetric}
+        />
+        <Radios
+          legend="View the breakdown by:"
+          legendSize="s"
+          name="density-value"
+          bind:selectedValue={breakdownChartSortValue}
+          small
+          options={[
+            { value: "total", label: "Total area" },
+            {
+              value: "selected",
+              label: "Area covered by the selected categories",
+            },
+          ]}
+        ></Radios>
         {#if blendedIndices.length > 0}
-          <p>Title density for the selected area.</p>
+          <p>{capitaliseFirst(densityMetric)} density for the selected area.</p>
           {#if densityStats && done}
             <div class="font-semibold">
               <b>Selected area</b>
@@ -2417,13 +2427,15 @@
             <div>
               It contains {(+densityStats.stats.sum.toFixed(
                 0,
-              )).toLocaleString()} title deeds
+              )).toLocaleString()}
+              {densityMetric}
             </div>
             <div>
-              Density is {densityStats.stats.mean.toFixed(2)} titles per hectare
+              Density is {densityStats.stats.mean.toFixed(2)}
+              {densityMetric} per hectare
             </div>
             <div>
-              The median hectare's number of titles is {densityStats.stats.median.toFixed(
+              The median hectare's number of {densityMetric} is {densityStats.stats.median.toFixed(
                 0,
               )}
             </div>
@@ -2449,7 +2461,18 @@
           {/if}
         {/if}
       {/snippet}
-      {#snippet barChartSnippet()}
+      {#snippet breakdownSnippet()}
+        <Select
+          id="breakdownSelect"
+          name="breakdown select"
+          items={[
+            // { value: "titles", text: "titles" },
+            { value: "LPA", text: "LPAs" },
+            { value: "ownership", text: "Land ownership" },
+          ]}
+          label={"Select the dataset"}
+          bind:value={breakdownMetric}
+        />
         <Radios
           legend="View the breakdown by:"
           legendSize="s"
@@ -2515,6 +2538,11 @@
     </div>
   </div>
 </div>
+
+<!-- <iframe
+  src="https://www.ons.gov.uk/visualisations/customprofiles/embed/#/?name=&comp=RW5nbGFuZA==&tabs=W3siY29kZSI6InBvcHVsYXRpb25fbXllIiwiZGF0YSI6W3siYXJlYW5tIjoiTXlDdXN0b21BcmVhIiwiY2F0ZWdvcnkiOiJBbGwgQWdlcyIsInZhbHVlIjoxMDAsIm9yaWdpbmFsVmFsdWUiOjMxNSwiY291bnQiOjMxNSwicGVyY2VudGFnZSI6MTAwfSx7ImFyZWFubSI6IkNvbXBhcmlzb25BcmVhIiwiY2F0ZWdvcnkiOiJBbGwgQWdlcyIsInZhbHVlIjoxMDAsIm9yaWdpbmFsVmFsdWUiOjU4NjIwMTAxLCJjb3VudCI6NTg2MjAxMDEsInBlcmNlbnRhZ2UiOjEwMH1dfSx7ImNvZGUiOiJob3VzZWhvbGRzIiwiZGF0YSI6W3siYXJlYW5tIjoiTXlDdXN0b21BcmVhIiwiY2F0ZWdvcnkiOiJOdW1iZXIgb2YgaG91c2Vob2xkcyIsInZhbHVlIjoxMjYsImNvdW50IjoxMjYsIm9yaWdpbmFsVmFsdWUiOjEyNn0seyJhcmVhbm0iOiJDb21wYXJpc29uQXJlYSIsImNhdGVnb3J5IjoiTnVtYmVyIG9mIGhvdXNlaG9sZHMiLCJ2YWx1ZSI6MjM0MzYwODUsImNvdW50IjoyMzQzNjA4NSwib3JpZ2luYWxWYWx1ZSI6MjM0MzYwODV9XX0seyJjb2RlIjoicmVzaWRlbnRfYWdlX215ZSIsImRhdGEiOlt7ImFyZWFubSI6Ik15Q3VzdG9tQXJlYSIsImNhdGVnb3J5IjoiQWdlIDAgLSA0IiwidmFsdWUiOjEuMywib3JpZ2luYWxWYWx1ZSI6NCwiY291bnQiOjQsInBlcmNlbnRhZ2UiOjEuM30seyJhcmVhbm0iOiJNeUN1c3RvbUFyZWEiLCJjYXRlZ29yeSI6IkFnZWQgNS05IiwidmFsdWUiOjQuOCwib3JpZ2luYWxWYWx1ZSI6MTUsImNvdW50IjoxNSwicGVyY2VudGFnZSI6NC44fSx7ImFyZWFubSI6Ik15Q3VzdG9tQXJlYSIsImNhdGVnb3J5IjoiQWdlZCAxMC0xNCIsInZhbHVlIjo1LjEsIm9yaWdpbmFsVmFsdWUiOjE2LCJjb3VudCI6MTYsInBlcmNlbnRhZ2UiOjUuMX0seyJhcmVhbm0iOiJNeUN1c3RvbUFyZWEiLCJjYXRlZ29yeSI6IkFnZWQgMTUtMTkiLCJ2YWx1ZSI6Ny45LCJvcmlnaW5hbFZhbHVlIjoyNSwiY291bnQiOjI1LCJwZXJjZW50YWdlIjo3Ljl9LHsiYXJlYW5tIjoiTXlDdXN0b21BcmVhIiwiY2F0ZWdvcnkiOiJBZ2VkIDIwLTI0IiwidmFsdWUiOjUuMSwib3JpZ2luYWxWYWx1ZSI6MTYsImNvdW50IjoxNiwicGVyY2VudGFnZSI6NS4xfSx7ImFyZWFubSI6Ik15Q3VzdG9tQXJlYSIsImNhdGVnb3J5IjoiQWdlZCAyNS0yOSIsInZhbHVlIjo1LjQsIm9yaWdpbmFsVmFsdWUiOjE3LCJjb3VudCI6MTcsInBlcmNlbnRhZ2UiOjUuNH0seyJhcmVhbm0iOiJNeUN1c3RvbUFyZWEiLCJjYXRlZ29yeSI6IkFnZWQgMzAtMzQiLCJ2YWx1ZSI6Mi45LCJvcmlnaW5hbFZhbHVlIjo5LCJjb3VudCI6OSwicGVyY2VudGFnZSI6Mi45fSx7ImFyZWFubSI6Ik15Q3VzdG9tQXJlYSIsImNhdGVnb3J5IjoiQWdlZCAzNS0zOSIsInZhbHVlIjozLjIsIm9yaWdpbmFsVmFsdWUiOjEwLCJjb3VudCI6MTAsInBlcmNlbnRhZ2UiOjMuMn0seyJhcmVhbm0iOiJNeUN1c3RvbUFyZWEiLCJjYXRlZ29yeSI6IkFnZWQgNDAtNDQiLCJ2YWx1ZSI6NC4xLCJvcmlnaW5hbFZhbHVlIjoxMywiY291bnQiOjEzLCJwZXJjZW50YWdlIjo0LjF9LHsiYXJlYW5tIjoiTXlDdXN0b21BcmVhIiwiY2F0ZWdvcnkiOiJBZ2VkIDQ1LTQ5IiwidmFsdWUiOjkuNSwib3JpZ2luYWxWYWx1ZSI6MzAsImNvdW50IjozMCwicGVyY2VudGFnZSI6OS41fSx7ImFyZWFubSI6Ik15Q3VzdG9tQXJlYSIsImNhdGVnb3J5IjoiQWdlZCA1MC01NCIsInZhbHVlIjoxMS43LCJvcmlnaW5hbFZhbHVlIjozNywiY291bnQiOjM3LCJwZXJjZW50YWdlIjoxMS43fSx7ImFyZWFubSI6Ik15Q3VzdG9tQXJlYSIsImNhdGVnb3J5IjoiQWdlZCA1NS01OSIsInZhbHVlIjoxMi4xLCJvcmlnaW5hbFZhbHVlIjozOCwiY291bnQiOjM4LCJwZXJjZW50YWdlIjoxMi4xfSx7ImFyZWFubSI6Ik15Q3VzdG9tQXJlYSIsImNhdGVnb3J5IjoiQWdlZCA2MC02NCIsInZhbHVlIjo4LjksIm9yaWdpbmFsVmFsdWUiOjI4LCJjb3VudCI6MjgsInBlcmNlbnRhZ2UiOjguOX0seyJhcmVhbm0iOiJNeUN1c3RvbUFyZWEiLCJjYXRlZ29yeSI6IkFnZWQgNjUtNjkiLCJ2YWx1ZSI6NC44LCJvcmlnaW5hbFZhbHVlIjoxNSwiY291bnQiOjE1LCJwZXJjZW50YWdlIjo0Ljh9LHsiYXJlYW5tIjoiTXlDdXN0b21BcmVhIiwiY2F0ZWdvcnkiOiJBZ2VkIDcwLTc0IiwidmFsdWUiOjIuNSwib3JpZ2luYWxWYWx1ZSI6OCwiY291bnQiOjgsInBlcmNlbnRhZ2UiOjIuNX0seyJhcmVhbm0iOiJNeUN1c3RvbUFyZWEiLCJjYXRlZ29yeSI6IkFnZWQgNzUtNzkiLCJ2YWx1ZSI6Niwib3JpZ2luYWxWYWx1ZSI6MTksImNvdW50IjoxOSwicGVyY2VudGFnZSI6Nn0seyJhcmVhbm0iOiJNeUN1c3RvbUFyZWEiLCJjYXRlZ29yeSI6IkFnZWQgODAtODQiLCJ2YWx1ZSI6Mi45LCJvcmlnaW5hbFZhbHVlIjo5LCJjb3VudCI6OSwicGVyY2VudGFnZSI6Mi45fSx7ImFyZWFubSI6Ik15Q3VzdG9tQXJlYSIsImNhdGVnb3J5IjoiQWdlZCA4NSsiLCJ2YWx1ZSI6MS45LCJvcmlnaW5hbFZhbHVlIjo2LCJjb3VudCI6NiwicGVyY2VudGFnZSI6MS45fSx7ImFyZWFubSI6IkNvbXBhcmlzb25BcmVhIiwiY2F0ZWdvcnkiOiJBZ2UgMCAtIDQiLCJ2YWx1ZSI6NS4yLCJvcmlnaW5hbFZhbHVlIjozMDcyMjQzLCJjb3VudCI6MzA3MjI0MywicGVyY2VudGFnZSI6NS4yfSx7ImFyZWFubSI6IkNvbXBhcmlzb25BcmVhIiwiY2F0ZWdvcnkiOiJBZ2VkIDUtOSIsInZhbHVlIjo1LjgsIm9yaWdpbmFsVmFsdWUiOjM0MDE3MjQsImNvdW50IjozNDAxNzI0LCJwZXJjZW50YWdlIjo1Ljh9LHsiYXJlYW5tIjoiQ29tcGFyaXNvbkFyZWEiLCJjYXRlZ29yeSI6IkFnZWQgMTAtMTQiLCJ2YWx1ZSI6Ni4xLCJvcmlnaW5hbFZhbHVlIjozNTgxNzMyLCJjb3VudCI6MzU4MTczMiwicGVyY2VudGFnZSI6Ni4xfSx7ImFyZWFubSI6IkNvbXBhcmlzb25BcmVhIiwiY2F0ZWdvcnkiOiJBZ2VkIDE1LTE5IiwidmFsdWUiOjYsIm9yaWdpbmFsVmFsdWUiOjM1MDkxNTUsImNvdW50IjozNTA5MTU1LCJwZXJjZW50YWdlIjo2fSx7ImFyZWFubSI6IkNvbXBhcmlzb25BcmVhIiwiY2F0ZWdvcnkiOiJBZ2VkIDIwLTI0IiwidmFsdWUiOjYsIm9yaWdpbmFsVmFsdWUiOjM1MjYwMTgsImNvdW50IjozNTI2MDE4LCJwZXJjZW50YWdlIjo2fSx7ImFyZWFubSI6IkNvbXBhcmlzb25BcmVhIiwiY2F0ZWdvcnkiOiJBZ2VkIDI1LTI5IiwidmFsdWUiOjYuNiwib3JpZ2luYWxWYWx1ZSI6Mzg4NTU3MSwiY291bnQiOjM4ODU1NzEsInBlcmNlbnRhZ2UiOjYuNn0seyJhcmVhbm0iOiJDb21wYXJpc29uQXJlYSIsImNhdGVnb3J5IjoiQWdlZCAzMC0zNCIsInZhbHVlIjo3LCJvcmlnaW5hbFZhbHVlIjo0MTAxMTQ0LCJjb3VudCI6NDEwMTE0NCwicGVyY2VudGFnZSI6N30seyJhcmVhbm0iOiJDb21wYXJpc29uQXJlYSIsImNhdGVnb3J5IjoiQWdlZCAzNS0zOSIsInZhbHVlIjo2LjksIm9yaWdpbmFsVmFsdWUiOjQwNzM0NTgsImNvdW50Ijo0MDczNDU4LCJwZXJjZW50YWdlIjo2Ljl9LHsiYXJlYW5tIjoiQ29tcGFyaXNvbkFyZWEiLCJjYXRlZ29yeSI6IkFnZWQgNDAtNDQiLCJ2YWx1ZSI6Ni42LCJvcmlnaW5hbFZhbHVlIjozODU1MjgwLCJjb3VudCI6Mzg1NTI4MCwicGVyY2VudGFnZSI6Ni42fSx7ImFyZWFubSI6IkNvbXBhcmlzb25BcmVhIiwiY2F0ZWdvcnkiOiJBZ2VkIDQ1LTQ5IiwidmFsdWUiOjUuOSwib3JpZ2luYWxWYWx1ZSI6MzQ3OTc2NywiY291bnQiOjM0Nzk3NjcsInBlcmNlbnRhZ2UiOjUuOX0seyJhcmVhbm0iOiJDb21wYXJpc29uQXJlYSIsImNhdGVnb3J5IjoiQWdlZCA1MC01NCIsInZhbHVlIjo2LjQsIm9yaWdpbmFsVmFsdWUiOjM3Mjg3OTgsImNvdW50IjozNzI4Nzk4LCJwZXJjZW50YWdlIjo2LjR9LHsiYXJlYW5tIjoiQ29tcGFyaXNvbkFyZWEiLCJjYXRlZ29yeSI6IkFnZWQgNTUtNTkiLCJ2YWx1ZSI6Ni42LCJvcmlnaW5hbFZhbHVlIjozODYxMzQwLCJjb3VudCI6Mzg2MTM0MCwicGVyY2VudGFnZSI6Ni42fSx7ImFyZWFubSI6IkNvbXBhcmlzb25BcmVhIiwiY2F0ZWdvcnkiOiJBZ2VkIDYwLTY0IiwidmFsdWUiOjYuMSwib3JpZ2luYWxWYWx1ZSI6MzU2Mjc3OSwiY291bnQiOjM1NjI3NzksInBlcmNlbnRhZ2UiOjYuMX0seyJhcmVhbm0iOiJDb21wYXJpc29uQXJlYSIsImNhdGVnb3J5IjoiQWdlZCA2NS02OSIsInZhbHVlIjo1LCJvcmlnaW5hbFZhbHVlIjoyOTUxNjQyLCJjb3VudCI6Mjk1MTY0MiwicGVyY2VudGFnZSI6NX0seyJhcmVhbm0iOiJDb21wYXJpc29uQXJlYSIsImNhdGVnb3J5IjoiQWdlZCA3MC03NCIsInZhbHVlIjo0LjQsIm9yaWdpbmFsVmFsdWUiOjI1NjgzMDgsImNvdW50IjoyNTY4MzA4LCJwZXJjZW50YWdlIjo0LjR9LHsiYXJlYW5tIjoiQ29tcGFyaXNvbkFyZWEiLCJjYXRlZ29yeSI6IkFnZWQgNzUtNzkiLCJ2YWx1ZSI6NC4yLCJvcmlnaW5hbFZhbHVlIjoyNDMzOTk1LCJjb3VudCI6MjQzMzk5NSwicGVyY2VudGFnZSI6NC4yfSx7ImFyZWFubSI6IkNvbXBhcmlzb25BcmVhIiwiY2F0ZWdvcnkiOiJBZ2VkIDgwLTg0IiwidmFsdWUiOjIuNiwib3JpZ2luYWxWYWx1ZSI6MTU0MzEzNSwiY291bnQiOjE1NDMxMzUsInBlcmNlbnRhZ2UiOjIuNn0seyJhcmVhbm0iOiJDb21wYXJpc29uQXJlYSIsImNhdGVnb3J5IjoiQWdlZCA4NSsiLCJ2YWx1ZSI6Mi41LCJvcmlnaW5hbFZhbHVlIjoxNDg0MDEyLCJjb3VudCI6MTQ4NDAxMiwicGVyY2VudGFnZSI6Mi41fV19LHsiY29kZSI6InNleF9teWUiLCJkYXRhIjpbeyJhcmVhbm0iOiJNeUN1c3RvbUFyZWEiLCJjYXRlZ29yeSI6IkZlbWFsZSIsInZhbHVlIjo1MS40LCJvcmlnaW5hbFZhbHVlIjoxNjIsImNvdW50IjoxNjIsInBlcmNlbnRhZ2UiOjUxLjR9LHsiYXJlYW5tIjoiTXlDdXN0b21BcmVhIiwiY2F0ZWdvcnkiOiJNYWxlIiwidmFsdWUiOjQ4LjYsIm9yaWdpbmFsVmFsdWUiOjE1MywiY291bnQiOjE1MywicGVyY2VudGFnZSI6NDguNn0seyJhcmVhbm0iOiJDb21wYXJpc29uQXJlYSIsImNhdGVnb3J5IjoiRmVtYWxlIiwidmFsdWUiOjUxLCJvcmlnaW5hbFZhbHVlIjoyOTg5NTc2MiwiY291bnQiOjI5ODk1NzYyLCJwZXJjZW50YWdlIjo1MX0seyJhcmVhbm0iOiJDb21wYXJpc29uQXJlYSIsImNhdGVnb3J5IjoiTWFsZSIsInZhbHVlIjo0OSwib3JpZ2luYWxWYWx1ZSI6Mjg3MjQzMzksImNvdW50IjoyODcyNDMzOSwicGVyY2VudGFnZSI6NDl9XX0seyJjb2RlIjoibGVnYWxfcGFydG5lcnNoaXBfc3RhdHVzIiwiZGF0YSI6W3siYXJlYW5tIjoiTXlDdXN0b21BcmVhIiwiY2F0ZWdvcnkiOiJOZXZlciBtYXJyaWVkIGFuZCBuZXZlciByZWdpc3RlcmVkIGEgY2l2aWwgcGFydG5lcnNoaXAiLCJ2YWx1ZSI6MjQuNSwiY291bnQiOjY2LCJwZXJjZW50YWdlIjoyNC41LCJvcmlnaW5hbFZhbHVlIjoyNC41fSx7ImFyZWFubSI6Ik15Q3VzdG9tQXJlYSIsImNhdGVnb3J5IjoiTWFycmllZCBvciBpbiBhIHJlZ2lzdGVyZWQgY2l2aWwgcGFydG5lcnNoaXAiLCJ2YWx1ZSI6NTYuMSwiY291bnQiOjE1MSwicGVyY2VudGFnZSI6NTYuMSwib3JpZ2luYWxWYWx1ZSI6NTYuMX0seyJhcmVhbm0iOiJNeUN1c3RvbUFyZWEiLCJjYXRlZ29yeSI6IlNlcGFyYXRlZCwgYnV0IHN0aWxsIGxlZ2FsbHkgbWFycmllZCBvciBzdGlsbCBsZWdhbGx5IGluIGEgY2l2aWwgcGFydG5lcnNoaXAiLCJ2YWx1ZSI6MS45LCJjb3VudCI6NSwicGVyY2VudGFnZSI6MS45LCJvcmlnaW5hbFZhbHVlIjoxLjl9LHsiYXJlYW5tIjoiTXlDdXN0b21BcmVhIiwiY2F0ZWdvcnkiOiJEaXZvcmNlZCBvciBjaXZpbCBwYXJ0bmVyc2hpcCBkaXNzb2x2ZWQiLCJ2YWx1ZSI6MTEuOSwiY291bnQiOjMyLCJwZXJjZW50YWdlIjoxMS45LCJvcmlnaW5hbFZhbHVlIjoxMS45fSx7ImFyZWFubSI6Ik15Q3VzdG9tQXJlYSIsImNhdGVnb3J5IjoiV2lkb3dlZCBvciBzdXJ2aXZpbmcgY2l2aWwgcGFydG5lcnNoaXAgcGFydG5lciIsInZhbHVlIjo1LjYsImNvdW50IjoxNSwicGVyY2VudGFnZSI6NS42LCJvcmlnaW5hbFZhbHVlIjo1LjZ9LHsiYXJlYW5tIjoiQ29tcGFyaXNvbkFyZWEiLCJjYXRlZ29yeSI6Ik5ldmVyIG1hcnJpZWQgYW5kIG5ldmVyIHJlZ2lzdGVyZWQgYSBjaXZpbCBwYXJ0bmVyc2hpcCIsInZhbHVlIjozNy45LCJjb3VudCI6MTc0NTAxMjIsInBlcmNlbnRhZ2UiOjM3LjksIm9yaWdpbmFsVmFsdWUiOjM3Ljl9LHsiYXJlYW5tIjoiQ29tcGFyaXNvbkFyZWEiLCJjYXRlZ29yeSI6Ik1hcnJpZWQgb3IgaW4gYSByZWdpc3RlcmVkIGNpdmlsIHBhcnRuZXJzaGlwIiwidmFsdWUiOjQ0LjcsImNvdW50IjoyMDU2MTY0MiwicGVyY2VudGFnZSI6NDQuNywib3JpZ2luYWxWYWx1ZSI6NDQuN30seyJhcmVhbm0iOiJDb21wYXJpc29uQXJlYSIsImNhdGVnb3J5IjoiU2VwYXJhdGVkLCBidXQgc3RpbGwgbGVnYWxseSBtYXJyaWVkIG9yIHN0aWxsIGxlZ2FsbHkgaW4gYSBjaXZpbCBwYXJ0bmVyc2hpcCIsInZhbHVlIjoyLjIsImNvdW50IjoxMDMzNTE4LCJwZXJjZW50YWdlIjoyLjIsIm9yaWdpbmFsVmFsdWUiOjIuMn0seyJhcmVhbm0iOiJDb21wYXJpc29uQXJlYSIsImNhdGVnb3J5IjoiRGl2b3JjZWQgb3IgY2l2aWwgcGFydG5lcnNoaXAgZGlzc29sdmVkIiwidmFsdWUiOjkuMSwiY291bnQiOjQxNzE2MzksInBlcmNlbnRhZ2UiOjkuMSwib3JpZ2luYWxWYWx1ZSI6OS4xfSx7ImFyZWFubSI6IkNvbXBhcmlzb25BcmVhIiwiY2F0ZWdvcnkiOiJXaWRvd2VkIG9yIHN1cnZpdmluZyBjaXZpbCBwYXJ0bmVyc2hpcCBwYXJ0bmVyIiwidmFsdWUiOjYuMSwiY291bnQiOjI3OTAwMzYsInBlcmNlbnRhZ2UiOjYuMSwib3JpZ2luYWxWYWx1ZSI6Ni4xfV19LHsiY29kZSI6ImNvdW50cnlfb2ZfYmlydGgiLCJkYXRhIjpbeyJhcmVhbm0iOiJNeUN1c3RvbUFyZWEiLCJjYXRlZ29yeSI6IkJvcm4gaW4gdGhlIFVLIiwidmFsdWUiOjk2LCJjb3VudCI6MzA4LCJwZXJjZW50YWdlIjo5Niwib3JpZ2luYWxWYWx1ZSI6OTZ9LHsiYXJlYW5tIjoiTXlDdXN0b21BcmVhIiwiY2F0ZWdvcnkiOiJCb3JuIG91dHNpZGUgdGhlIFVLIiwidmFsdWUiOjQsImNvdW50IjoxMywicGVyY2VudGFnZSI6NCwib3JpZ2luYWxWYWx1ZSI6NH0seyJhcmVhbm0iOiJDb21wYXJpc29uQXJlYSIsImNhdGVnb3J5IjoiQm9ybiBpbiB0aGUgVUsiLCJ2YWx1ZSI6ODIuNiwiY291bnQiOjQ2Njg3NTA2LCJwZXJjZW50YWdlIjo4Mi42LCJvcmlnaW5hbFZhbHVlIjo4Mi42fSx7ImFyZWFubSI6IkNvbXBhcmlzb25BcmVhIiwiY2F0ZWdvcnkiOiJCb3JuIG91dHNpZGUgdGhlIFVLIiwidmFsdWUiOjE3LjQsImNvdW50Ijo5ODAyNTQzLCJwZXJjZW50YWdlIjoxNy40LCJvcmlnaW5hbFZhbHVlIjoxNy40fV19LHsiY29kZSI6InBhc3Nwb3J0c19hbGwiLCJkYXRhIjpbeyJhcmVhbm0iOiJNeUN1c3RvbUFyZWEiLCJjYXRlZ29yeSI6IlVLIHBhc3Nwb3J0IiwidmFsdWUiOjg5LjcsImNvdW50IjoyODgsInBlcmNlbnRhZ2UiOjg5LjcsIm9yaWdpbmFsVmFsdWUiOjg5Ljd9LHsiYXJlYW5tIjoiTXlDdXN0b21BcmVhIiwiY2F0ZWdvcnkiOiJOb24tVUsgcGFzc3BvcnQiLCJ2YWx1ZSI6MS45LCJjb3VudCI6NiwicGVyY2VudGFnZSI6MS45LCJvcmlnaW5hbFZhbHVlIjoxLjl9LHsiYXJlYW5tIjoiTXlDdXN0b21BcmVhIiwiY2F0ZWdvcnkiOiJObyBwYXNzcG9ydCBoZWxkIiwidmFsdWUiOjguNCwiY291bnQiOjI3LCJwZXJjZW50YWdlIjo4LjQsIm9yaWdpbmFsVmFsdWUiOjguNH0seyJhcmVhbm0iOiJDb21wYXJpc29uQXJlYSIsImNhdGVnb3J5IjoiVUsgcGFzc3BvcnQiLCJ2YWx1ZSI6NzYuNiwiY291bnQiOjQzMjg4Njg2LCJwZXJjZW50YWdlIjo3Ni42LCJvcmlnaW5hbFZhbHVlIjo3Ni42fSx7ImFyZWFubSI6IkNvbXBhcmlzb25BcmVhIiwiY2F0ZWdvcnkiOiJOb24tVUsgcGFzc3BvcnQiLCJ2YWx1ZSI6MTAuMiwiY291bnQiOjU3NjQ4NTgsInBlcmNlbnRhZ2UiOjEwLjIsIm9yaWdpbmFsVmFsdWUiOjEwLjJ9LHsiYXJlYW5tIjoiQ29tcGFyaXNvbkFyZWEiLCJjYXRlZ29yeSI6Ik5vIHBhc3Nwb3J0IGhlbGQiLCJ2YWx1ZSI6MTMuMiwiY291bnQiOjc0MzY1MDMsInBlcmNlbnRhZ2UiOjEzLjIsIm9yaWdpbmFsVmFsdWUiOjEzLjJ9XX0seyJjb2RlIjoicmVzaWRlbmNlX2xlbmd0aCIsImRhdGEiOlt7ImFyZWFubSI6Ik15Q3VzdG9tQXJlYSIsImNhdGVnb3J5IjoiQm9ybiBpbiB0aGUgVUsiLCJ2YWx1ZSI6OTYsImNvdW50IjozMDgsInBlcmNlbnRhZ2UiOjk2LCJvcmlnaW5hbFZhbHVlIjo5Nn0seyJhcmVhbm0iOiJNeUN1c3RvbUFyZWEiLCJjYXRlZ29yeSI6IjEwIHllYXJzIG9yIG1vcmUiLCJ2YWx1ZSI6My43LCJjb3VudCI6MTIsInBlcmNlbnRhZ2UiOjMuNywib3JpZ2luYWxWYWx1ZSI6My43fSx7ImFyZWFubSI6Ik15Q3VzdG9tQXJlYSIsImNhdGVnb3J5IjoiNSB5ZWFycyBvciBtb3JlLCBidXQgbGVzcyB0aGFuIDEwIHllYXJzIiwidmFsdWUiOjAsImNvdW50IjowLCJwZXJjZW50YWdlIjowLCJvcmlnaW5hbFZhbHVlIjowfSx7ImFyZWFubSI6Ik15Q3VzdG9tQXJlYSIsImNhdGVnb3J5IjoiMiB5ZWFycyBvciBtb3JlLCBidXQgbGVzcyB0aGFuIDUgeWVhcnMiLCJ2YWx1ZSI6MCwiY291bnQiOjAsInBlcmNlbnRhZ2UiOjAsIm9yaWdpbmFsVmFsdWUiOjB9LHsiYXJlYW5tIjoiTXlDdXN0b21BcmVhIiwiY2F0ZWdvcnkiOiJMZXNzIHRoYW4gMiB5ZWFycyIsInZhbHVlIjowLjMsImNvdW50IjoxLCJwZXJjZW50YWdlIjowLjMsIm9yaWdpbmFsVmFsdWUiOjAuM30seyJhcmVhbm0iOiJDb21wYXJpc29uQXJlYSIsImNhdGVnb3J5IjoiQm9ybiBpbiB0aGUgVUsiLCJ2YWx1ZSI6ODIuNiwiY291bnQiOjQ2Njg3NTA2LCJwZXJjZW50YWdlIjo4Mi42LCJvcmlnaW5hbFZhbHVlIjo4Mi42fSx7ImFyZWFubSI6IkNvbXBhcmlzb25BcmVhIiwiY2F0ZWdvcnkiOiIxMCB5ZWFycyBvciBtb3JlIiwidmFsdWUiOjEwLjEsImNvdW50Ijo1NzA4NzYwLCJwZXJjZW50YWdlIjoxMC4xLCJvcmlnaW5hbFZhbHVlIjoxMC4xfSx7ImFyZWFubSI6IkNvbXBhcmlzb25BcmVhIiwiY2F0ZWdvcnkiOiI1IHllYXJzIG9yIG1vcmUsIGJ1dCBsZXNzIHRoYW4gMTAgeWVhcnMiLCJ2YWx1ZSI6MywiY291bnQiOjE2OTk5MzgsInBlcmNlbnRhZ2UiOjMsIm9yaWdpbmFsVmFsdWUiOjN9LHsiYXJlYW5tIjoiQ29tcGFyaXNvbkFyZWEiLCJjYXRlZ29yeSI6IjIgeWVhcnMgb3IgbW9yZSwgYnV0IGxlc3MgdGhhbiA1IHllYXJzIiwidmFsdWUiOjIuMywiY291bnQiOjEyOTUzOTAsInBlcmNlbnRhZ2UiOjIuMywib3JpZ2luYWxWYWx1ZSI6Mi4zfSx7ImFyZWFubSI6IkNvbXBhcmlzb25BcmVhIiwiY2F0ZWdvcnkiOiJMZXNzIHRoYW4gMiB5ZWFycyIsInZhbHVlIjoxLjksImNvdW50IjoxMDk4NDU0LCJwZXJjZW50YWdlIjoxLjksIm9yaWdpbmFsVmFsdWUiOjEuOX1dfSx7ImNvZGUiOiJoaF9zaXplIiwiZGF0YSI6W3siYXJlYW5tIjoiTXlDdXN0b21BcmVhIiwiY2F0ZWdvcnkiOiIxIHBlcnNvbiBpbiBob3VzZWhvbGQiLCJ2YWx1ZSI6MTcuMywiY291bnQiOjIyLCJwZXJjZW50YWdlIjoxNy4zLCJvcmlnaW5hbFZhbHVlIjoxNy4zfSx7ImFyZWFubSI6Ik15Q3VzdG9tQXJlYSIsImNhdGVnb3J5IjoiMiBwZW9wbGUgaW4gaG91c2Vob2xkIiwidmFsdWUiOjM4LjYsImNvdW50Ijo0OSwicGVyY2VudGFnZSI6MzguNiwib3JpZ2luYWxWYWx1ZSI6MzguNn0seyJhcmVhbm0iOiJNeUN1c3RvbUFyZWEiLCJjYXRlZ29yeSI6IjMgcGVvcGxlIGluIGhvdXNlaG9sZCIsInZhbHVlIjoyMiwiY291bnQiOjI4LCJwZXJjZW50YWdlIjoyMiwib3JpZ2luYWxWYWx1ZSI6MjJ9LHsiYXJlYW5tIjoiTXlDdXN0b21BcmVhIiwiY2F0ZWdvcnkiOiI0IG9yIG1vcmUgcGVvcGxlIGluIGhvdXNlaG9sZCIsInZhbHVlIjoyMiwiY291bnQiOjI4LCJwZXJjZW50YWdlIjoyMiwib3JpZ2luYWxWYWx1ZSI6MjJ9LHsiYXJlYW5tIjoiQ29tcGFyaXNvbkFyZWEiLCJjYXRlZ29yeSI6IjEgcGVyc29uIGluIGhvdXNlaG9sZCIsInZhbHVlIjozMC4xLCJjb3VudCI6NzA1MjIzMiwicGVyY2VudGFnZSI6MzAuMSwib3JpZ2luYWxWYWx1ZSI6MzAuMX0seyJhcmVhbm0iOiJDb21wYXJpc29uQXJlYSIsImNhdGVnb3J5IjoiMiBwZW9wbGUgaW4gaG91c2Vob2xkIiwidmFsdWUiOjM0LCJjb3VudCI6Nzk3ODQ5NywicGVyY2VudGFnZSI6MzQsIm9yaWdpbmFsVmFsdWUiOjM0fSx7ImFyZWFubSI6IkNvbXBhcmlzb25BcmVhIiwiY2F0ZWdvcnkiOiIzIHBlb3BsZSBpbiBob3VzZWhvbGQiLCJ2YWx1ZSI6MTYsImNvdW50IjozNzQyODg3LCJwZXJjZW50YWdlIjoxNiwib3JpZ2luYWxWYWx1ZSI6MTZ9LHsiYXJlYW5tIjoiQ29tcGFyaXNvbkFyZWEiLCJjYXRlZ29yeSI6IjQgb3IgbW9yZSBwZW9wbGUgaW4gaG91c2Vob2xkIiwidmFsdWUiOjE5LjksImNvdW50Ijo0NjYyNDc0LCJwZXJjZW50YWdlIjoxOS45LCJvcmlnaW5hbFZhbHVlIjoxOS45fV19LHsiY29kZSI6ImhoX2ZhbWlseV9jb21wb3NpdGlvbiIsImRhdGEiOlt7ImFyZWFubSI6Ik15Q3VzdG9tQXJlYSIsImNhdGVnb3J5IjoiT25lLXBlcnNvbiBob3VzZWhvbGQiLCJ2YWx1ZSI6MTcuMywiY291bnQiOjIyLCJwZXJjZW50YWdlIjoxNy4zLCJvcmlnaW5hbFZhbHVlIjoxNy4zfSx7ImFyZWFubSI6Ik15Q3VzdG9tQXJlYSIsImNhdGVnb3J5IjoiU2luZ2xlIGZhbWlseSBob3VzZWhvbGQiLCJ2YWx1ZSI6NzUuNiwiY291bnQiOjk2LCJwZXJjZW50YWdlIjo3NS42LCJvcmlnaW5hbFZhbHVlIjo3NS42fSx7ImFyZWFubSI6Ik15Q3VzdG9tQXJlYSIsImNhdGVnb3J5IjoiT3RoZXIgaG91c2Vob2xkIHR5cGVzIiwidmFsdWUiOjcuMSwiY291bnQiOjksInBlcmNlbnRhZ2UiOjcuMSwib3JpZ2luYWxWYWx1ZSI6Ny4xfSx7ImFyZWFubSI6IkNvbXBhcmlzb25BcmVhIiwiY2F0ZWdvcnkiOiJPbmUtcGVyc29uIGhvdXNlaG9sZCIsInZhbHVlIjozMC4xLCJjb3VudCI6NzA1MjIyOSwicGVyY2VudGFnZSI6MzAuMSwib3JpZ2luYWxWYWx1ZSI6MzAuMX0seyJhcmVhbm0iOiJDb21wYXJpc29uQXJlYSIsImNhdGVnb3J5IjoiU2luZ2xlIGZhbWlseSBob3VzZWhvbGQiLCJ2YWx1ZSI6NjMsImNvdW50IjoxNDc2MjkyMywicGVyY2VudGFnZSI6NjMsIm9yaWdpbmFsVmFsdWUiOjYzfSx7ImFyZWFubSI6IkNvbXBhcmlzb25BcmVhIiwiY2F0ZWdvcnkiOiJPdGhlciBob3VzZWhvbGQgdHlwZXMiLCJ2YWx1ZSI6Ni45LCJjb3VudCI6MTYyMDkzNCwicGVyY2VudGFnZSI6Ni45LCJvcmlnaW5hbFZhbHVlIjo2Ljl9XX0seyJjb2RlIjoiaGhfZGVwcml2YXRpb24iLCJkYXRhIjpbeyJhcmVhbm0iOiJNeUN1c3RvbUFyZWEiLCJjYXRlZ29yeSI6IkhvdXNlaG9sZCBpcyBub3QgZGVwcml2ZWQgaW4gYW55IGRpbWVuc2lvbiIsInZhbHVlIjo2My41LCJjb3VudCI6ODAsInBlcmNlbnRhZ2UiOjYzLjUsIm9yaWdpbmFsVmFsdWUiOjYzLjV9LHsiYXJlYW5tIjoiTXlDdXN0b21BcmVhIiwiY2F0ZWdvcnkiOiJIb3VzZWhvbGQgaXMgZGVwcml2ZWQgaW4gb25lIGRpbWVuc2lvbiIsInZhbHVlIjoyOC42LCJjb3VudCI6MzYsInBlcmNlbnRhZ2UiOjI4LjYsIm9yaWdpbmFsVmFsdWUiOjI4LjZ9LHsiYXJlYW5tIjoiTXlDdXN0b21BcmVhIiwiY2F0ZWdvcnkiOiJIb3VzZWhvbGQgaXMgZGVwcml2ZWQgaW4gdHdvIGRpbWVuc2lvbnMiLCJ2YWx1ZSI6Ny4xLCJjb3VudCI6OSwicGVyY2VudGFnZSI6Ny4xLCJvcmlnaW5hbFZhbHVlIjo3LjF9LHsiYXJlYW5tIjoiTXlDdXN0b21BcmVhIiwiY2F0ZWdvcnkiOiJIb3VzZWhvbGQgaXMgZGVwcml2ZWQgaW4gdGhyZWUgZGltZW5zaW9ucyIsInZhbHVlIjowLjgsImNvdW50IjoxLCJwZXJjZW50YWdlIjowLjgsIm9yaWdpbmFsVmFsdWUiOjAuOH0seyJhcmVhbm0iOiJNeUN1c3RvbUFyZWEiLCJjYXRlZ29yeSI6IkhvdXNlaG9sZCBpcyBkZXByaXZlZCBpbiBmb3VyIGRpbWVuc2lvbnMiLCJ2YWx1ZSI6MCwiY291bnQiOjAsInBlcmNlbnRhZ2UiOjAsIm9yaWdpbmFsVmFsdWUiOjB9LHsiYXJlYW5tIjoiQ29tcGFyaXNvbkFyZWEiLCJjYXRlZ29yeSI6IkhvdXNlaG9sZCBpcyBub3QgZGVwcml2ZWQgaW4gYW55IGRpbWVuc2lvbiIsInZhbHVlIjo0OC40LCJjb3VudCI6MTEzNDk3MzcsInBlcmNlbnRhZ2UiOjQ4LjQsIm9yaWdpbmFsVmFsdWUiOjQ4LjR9LHsiYXJlYW5tIjoiQ29tcGFyaXNvbkFyZWEiLCJjYXRlZ29yeSI6IkhvdXNlaG9sZCBpcyBkZXByaXZlZCBpbiBvbmUgZGltZW5zaW9uIiwidmFsdWUiOjMzLjUsImNvdW50Ijo3ODQyNjkxLCJwZXJjZW50YWdlIjozMy41LCJvcmlnaW5hbFZhbHVlIjozMy41fSx7ImFyZWFubSI6IkNvbXBhcmlzb25BcmVhIiwiY2F0ZWdvcnkiOiJIb3VzZWhvbGQgaXMgZGVwcml2ZWQgaW4gdHdvIGRpbWVuc2lvbnMiLCJ2YWx1ZSI6MTQuMiwiY291bnQiOjMzMjA1ODQsInBlcmNlbnRhZ2UiOjE0LjIsIm9yaWdpbmFsVmFsdWUiOjE0LjJ9LHsiYXJlYW5tIjoiQ29tcGFyaXNvbkFyZWEiLCJjYXRlZ29yeSI6IkhvdXNlaG9sZCBpcyBkZXByaXZlZCBpbiB0aHJlZSBkaW1lbnNpb25zIiwidmFsdWUiOjMuNywiY291bnQiOjg2ODEwNCwicGVyY2VudGFnZSI6My43LCJvcmlnaW5hbFZhbHVlIjozLjd9LHsiYXJlYW5tIjoiQ29tcGFyaXNvbkFyZWEiLCJjYXRlZ29yeSI6IkhvdXNlaG9sZCBpcyBkZXByaXZlZCBpbiBmb3VyIGRpbWVuc2lvbnMiLCJ2YWx1ZSI6MC4yLCJjb3VudCI6NTQ5NzAsInBlcmNlbnRhZ2UiOjAuMiwib3JpZ2luYWxWYWx1ZSI6MC4yfV19LHsiY29kZSI6ImV0aG5pY19ncm91cF90YiIsImRhdGEiOlt7ImFyZWFubSI6Ik15Q3VzdG9tQXJlYSIsImNhdGVnb3J5IjoiQXNpYW4sIEFzaWFuIEJyaXRpc2ggb3IgQXNpYW4gV2Vsc2giLCJ2YWx1ZSI6NC4xLCJjb3VudCI6MTMsInBlcmNlbnRhZ2UiOjQuMSwib3JpZ2luYWxWYWx1ZSI6NC4xfSx7ImFyZWFubSI6Ik15Q3VzdG9tQXJlYSIsImNhdGVnb3J5IjoiQmxhY2ssIEJsYWNrIEJyaXRpc2gsIEJsYWNrIFdlbHNoLCBDYXJpYmJlYW4gb3IgQWZyaWNhbiIsInZhbHVlIjowLjMsImNvdW50IjoxLCJwZXJjZW50YWdlIjowLjMsIm9yaWdpbmFsVmFsdWUiOjAuM30seyJhcmVhbm0iOiJNeUN1c3RvbUFyZWEiLCJjYXRlZ29yeSI6Ik1peGVkIG9yIE11bHRpcGxlIGV0aG5pYyBncm91cHMiLCJ2YWx1ZSI6My40LCJjb3VudCI6MTEsInBlcmNlbnRhZ2UiOjMuNCwib3JpZ2luYWxWYWx1ZSI6My40fSx7ImFyZWFubSI6Ik15Q3VzdG9tQXJlYSIsImNhdGVnb3J5IjoiV2hpdGUiLCJ2YWx1ZSI6OTIuMiwiY291bnQiOjI5NCwicGVyY2VudGFnZSI6OTIuMiwib3JpZ2luYWxWYWx1ZSI6OTIuMn0seyJhcmVhbm0iOiJNeUN1c3RvbUFyZWEiLCJjYXRlZ29yeSI6Ik90aGVyIGV0aG5pYyBncm91cCIsInZhbHVlIjowLCJjb3VudCI6MCwicGVyY2VudGFnZSI6MCwib3JpZ2luYWxWYWx1ZSI6MH0seyJhcmVhbm0iOiJDb21wYXJpc29uQXJlYSIsImNhdGVnb3J5IjoiQXNpYW4sIEFzaWFuIEJyaXRpc2ggb3IgQXNpYW4gV2Vsc2giLCJ2YWx1ZSI6OS42LCJjb3VudCI6NTQyNjM5MiwicGVyY2VudGFnZSI6OS42LCJvcmlnaW5hbFZhbHVlIjo5LjZ9LHsiYXJlYW5tIjoiQ29tcGFyaXNvbkFyZWEiLCJjYXRlZ29yeSI6IkJsYWNrLCBCbGFjayBCcml0aXNoLCBCbGFjayBXZWxzaCwgQ2FyaWJiZWFuIG9yIEFmcmljYW4iLCJ2YWx1ZSI6NC4yLCJjb3VudCI6MjM4MTcyNCwicGVyY2VudGFnZSI6NC4yLCJvcmlnaW5hbFZhbHVlIjo0LjJ9LHsiYXJlYW5tIjoiQ29tcGFyaXNvbkFyZWEiLCJjYXRlZ29yeSI6Ik1peGVkIG9yIE11bHRpcGxlIGV0aG5pYyBncm91cHMiLCJ2YWx1ZSI6MywiY291bnQiOjE2NjkzNzgsInBlcmNlbnRhZ2UiOjMsIm9yaWdpbmFsVmFsdWUiOjN9LHsiYXJlYW5tIjoiQ29tcGFyaXNvbkFyZWEiLCJjYXRlZ29yeSI6IldoaXRlIiwidmFsdWUiOjgxLCJjb3VudCI6NDU3ODM0MDEsInBlcmNlbnRhZ2UiOjgxLCJvcmlnaW5hbFZhbHVlIjo4MX0seyJhcmVhbm0iOiJDb21wYXJpc29uQXJlYSIsImNhdGVnb3J5IjoiT3RoZXIgZXRobmljIGdyb3VwIiwidmFsdWUiOjIuMiwiY291bnQiOjEyMjkxNTMsInBlcmNlbnRhZ2UiOjIuMiwib3JpZ2luYWxWYWx1ZSI6Mi4yfV19LHsiY29kZSI6InJlbGlnaW9uX3RiIiwiZGF0YSI6W3siYXJlYW5tIjoiTXlDdXN0b21BcmVhIiwiY2F0ZWdvcnkiOiJObyByZWxpZ2lvbiIsInZhbHVlIjo0NC41LCJjb3VudCI6MTQzLCJwZXJjZW50YWdlIjo0NC41LCJvcmlnaW5hbFZhbHVlIjo0NC41fSx7ImFyZWFubSI6Ik15Q3VzdG9tQXJlYSIsImNhdGVnb3J5IjoiQ2hyaXN0aWFuIiwidmFsdWUiOjQ0LjksImNvdW50IjoxNDQsInBlcmNlbnRhZ2UiOjQ0LjksIm9yaWdpbmFsVmFsdWUiOjQ0Ljl9LHsiYXJlYW5tIjoiTXlDdXN0b21BcmVhIiwiY2F0ZWdvcnkiOiJCdWRkaGlzdCIsInZhbHVlIjowLjYsImNvdW50IjoyLCJwZXJjZW50YWdlIjowLjYsIm9yaWdpbmFsVmFsdWUiOjAuNn0seyJhcmVhbm0iOiJNeUN1c3RvbUFyZWEiLCJjYXRlZ29yeSI6IkhpbmR1IiwidmFsdWUiOjAsImNvdW50IjowLCJwZXJjZW50YWdlIjowLCJvcmlnaW5hbFZhbHVlIjowfSx7ImFyZWFubSI6Ik15Q3VzdG9tQXJlYSIsImNhdGVnb3J5IjoiSmV3aXNoIiwidmFsdWUiOjAsImNvdW50IjowLCJwZXJjZW50YWdlIjowLCJvcmlnaW5hbFZhbHVlIjowfSx7ImFyZWFubSI6Ik15Q3VzdG9tQXJlYSIsImNhdGVnb3J5IjoiTXVzbGltIiwidmFsdWUiOjIuNSwiY291bnQiOjgsInBlcmNlbnRhZ2UiOjIuNSwib3JpZ2luYWxWYWx1ZSI6Mi41fSx7ImFyZWFubSI6Ik15Q3VzdG9tQXJlYSIsImNhdGVnb3J5IjoiU2lraCIsInZhbHVlIjoxLjksImNvdW50Ijo2LCJwZXJjZW50YWdlIjoxLjksIm9yaWdpbmFsVmFsdWUiOjEuOX0seyJhcmVhbm0iOiJNeUN1c3RvbUFyZWEiLCJjYXRlZ29yeSI6Ik90aGVyIHJlbGlnaW9uIiwidmFsdWUiOjAuNiwiY291bnQiOjIsInBlcmNlbnRhZ2UiOjAuNiwib3JpZ2luYWxWYWx1ZSI6MC42fSx7ImFyZWFubSI6Ik15Q3VzdG9tQXJlYSIsImNhdGVnb3J5IjoiTm90IGFuc3dlcmVkIiwidmFsdWUiOjUsImNvdW50IjoxNiwicGVyY2VudGFnZSI6NSwib3JpZ2luYWxWYWx1ZSI6NX0seyJhcmVhbm0iOiJDb21wYXJpc29uQXJlYSIsImNhdGVnb3J5IjoiTm8gcmVsaWdpb24iLCJ2YWx1ZSI6MzYuNywiY291bnQiOjIwNzE1NjY0LCJwZXJjZW50YWdlIjozNi43LCJvcmlnaW5hbFZhbHVlIjozNi43fSx7ImFyZWFubSI6IkNvbXBhcmlzb25BcmVhIiwiY2F0ZWdvcnkiOiJDaHJpc3RpYW4iLCJ2YWx1ZSI6NDYuMywiY291bnQiOjI2MTY3ODk5LCJwZXJjZW50YWdlIjo0Ni4zLCJvcmlnaW5hbFZhbHVlIjo0Ni4zfSx7ImFyZWFubSI6IkNvbXBhcmlzb25BcmVhIiwiY2F0ZWdvcnkiOiJCdWRkaGlzdCIsInZhbHVlIjowLjUsImNvdW50IjoyNjI0MzMsInBlcmNlbnRhZ2UiOjAuNSwib3JpZ2luYWxWYWx1ZSI6MC41fSx7ImFyZWFubSI6IkNvbXBhcmlzb25BcmVhIiwiY2F0ZWdvcnkiOiJIaW5kdSIsInZhbHVlIjoxLjgsImNvdW50IjoxMDIwNTMzLCJwZXJjZW50YWdlIjoxLjgsIm9yaWdpbmFsVmFsdWUiOjEuOH0seyJhcmVhbm0iOiJDb21wYXJpc29uQXJlYSIsImNhdGVnb3J5IjoiSmV3aXNoIiwidmFsdWUiOjAuNSwiY291bnQiOjI2OTI4MywicGVyY2VudGFnZSI6MC41LCJvcmlnaW5hbFZhbHVlIjowLjV9LHsiYXJlYW5tIjoiQ29tcGFyaXNvbkFyZWEiLCJjYXRlZ29yeSI6Ik11c2xpbSIsInZhbHVlIjo2LjcsImNvdW50IjozODAxMTg2LCJwZXJjZW50YWdlIjo2LjcsIm9yaWdpbmFsVmFsdWUiOjYuN30seyJhcmVhbm0iOiJDb21wYXJpc29uQXJlYSIsImNhdGVnb3J5IjoiU2lraCIsInZhbHVlIjowLjksImNvdW50Ijo1MjAwOTIsInBlcmNlbnRhZ2UiOjAuOSwib3JpZ2luYWxWYWx1ZSI6MC45fSx7ImFyZWFubSI6IkNvbXBhcmlzb25BcmVhIiwiY2F0ZWdvcnkiOiJPdGhlciByZWxpZ2lvbiIsInZhbHVlIjowLjYsImNvdW50IjozMzI0MTAsInBlcmNlbnRhZ2UiOjAuNiwib3JpZ2luYWxWYWx1ZSI6MC42fSx7ImFyZWFubSI6IkNvbXBhcmlzb25BcmVhIiwiY2F0ZWdvcnkiOiJOb3QgYW5zd2VyZWQiLCJ2YWx1ZSI6NiwiY291bnQiOjM0MDA1NDgsInBlcmNlbnRhZ2UiOjYsIm9yaWdpbmFsVmFsdWUiOjZ9XX0seyJjb2RlIjoiZGlzYWJpbGl0eSIsImRhdGEiOlt7ImFyZWFubSI6Ik15Q3VzdG9tQXJlYSIsImNhdGVnb3J5IjoiRGlzYWJsZWQgdW5kZXIgdGhlIEVxdWFsaXR5IEFjdCIsInZhbHVlIjoxMS4yLCJjb3VudCI6MzYsInBlcmNlbnRhZ2UiOjExLjIsIm9yaWdpbmFsVmFsdWUiOjExLjJ9LHsiYXJlYW5tIjoiTXlDdXN0b21BcmVhIiwiY2F0ZWdvcnkiOiJOb3QgZGlzYWJsZWQgdW5kZXIgdGhlIEVxdWFsaXR5IEFjdCIsInZhbHVlIjo4OC44LCJjb3VudCI6Mjg0LCJwZXJjZW50YWdlIjo4OC44LCJvcmlnaW5hbFZhbHVlIjo4OC44fSx7ImFyZWFubSI6IkNvbXBhcmlzb25BcmVhIiwiY2F0ZWdvcnkiOiJEaXNhYmxlZCB1bmRlciB0aGUgRXF1YWxpdHkgQWN0IiwidmFsdWUiOjE3LjMsImNvdW50Ijo5Nzc0NTEwLCJwZXJjZW50YWdlIjoxNy4zLCJvcmlnaW5hbFZhbHVlIjoxNy4zfSx7ImFyZWFubSI6IkNvbXBhcmlzb25BcmVhIiwiY2F0ZWdvcnkiOiJOb3QgZGlzYWJsZWQgdW5kZXIgdGhlIEVxdWFsaXR5IEFjdCIsInZhbHVlIjo4Mi43LCJjb3VudCI6NDY3MTU1MzgsInBlcmNlbnRhZ2UiOjgyLjcsIm9yaWdpbmFsVmFsdWUiOjgyLjd9XX1d&poly=eyJ0eXBlIjoiUG9seWdvbiIsImNvb3JkaW5hdGVzIjpbW1stMC4yNDA5LDUyLjE4OThdLFstMC4yNDI0LDUyLjE5MDVdLFstMC4yNDI4LDUyLjE5MDldLFstMC4yNDQ0LDUyLjE5MTVdLFstMC4yNDYyLDUyLjE5MTldLFstMC4yNDY5LDUyLjE5MjZdLFstMC4yNDc4LDUyLjE5MjldLFstMC4yNDkzLDUyLjE5NDZdLFstMC4yNTE3LDUyLjE5NTZdLFstMC4yNTIyLDUyLjE5NjFdLFstMC4yNTIsNTIuMTk2NV0sWy0wLjI1MjksNTIuMTk3Ml0sWy0wLjI1MzUsNTIuMTk4Ml0sWy0wLjI1NDUsNTIuMTk5NF0sWy0wLjI1NDgsNTIuMjAxNF0sWy0wLjI1NTIsNTIuMjAxMV0sWy0wLjI1NTUsNTIuMjAxMl0sWy0wLjI1NjcsNTIuMjAyOV0sWy0wLjI2MDYsNTIuMjAzNl0sWy0wLjI2MDcsNTIuMjAzOV0sWy0wLjI2MTIsNTIuMjA0MV0sWy0wLjI2MDUsNTIuMjA1NF0sWy0wLjI2MjIsNTIuMjA1NF0sWy0wLjI2MjMsNTIuMjA1Nl0sWy0wLjI2NCw1Mi4yMDU3XSxbLTAuMjY2NCw1Mi4yMDIyXSxbLTAuMjcwMSw1Mi4yMDI3XSxbLTAuMjY5OCw1Mi4yMDMxXSxbLTAuMjczLDUyLjIwNDFdLFstMC4yNzQ3LDUyLjIwMTRdLFstMC4yNzcyLDUyLjJdLFstMC4yNzg3LDUyLjE5OTZdLFstMC4yODQxLDUyLjE5OTRdLFstMC4yODY0LDUyLjE5OV0sWy0wLjI4OTYsNTIuMTk4XSxbLTAuMjkyLDUyLjE5NjddLFstMC4yOTMsNTIuMTk1Ml0sWy0wLjI5MjYsNTIuMTk0N10sWy0wLjI5MDksNTIuMTk0N10sWy0wLjI5MDEsNTIuMTk0Ml0sWy0wLjI4OSw1Mi4xOTE2XSxbLTAuMjg4OSw1Mi4xOTExXSxbLTAuMjg5Miw1Mi4xOTAxXSxbLTAuMjkyLDUyLjE4NTRdLFstMC4yOTMsNTIuMTg0Ml0sWy0wLjI5MzgsNTIuMTgyOF0sWy0wLjI5NDUsNTIuMTgyM10sWy0wLjI5NjMsNTIuMTgxN10sWy0wLjI5NzcsNTIuMTgxXSxbLTAuMzAwNCw1Mi4xNzkxXSxbLTAuMzAxNCw1Mi4xNzgyXSxbLTAuMzAxOSw1Mi4xNzczXSxbLTAuMzAyMyw1Mi4xNzU3XSxbLTAuMzAyMyw1Mi4xNzMxXSxbLTAuMzAyOCw1Mi4xNzI4XSxbLTAuMzAzMyw1Mi4xNzIxXSxbLTAuMzAxOCw1Mi4xNzEzXSxbLTAuMzAwMiw1Mi4xNzA5XSxbLTAuMzAwNCw1Mi4xNjkyXSxbLTAuMyw1Mi4xNjQxXSxbLTAuMzAwNSw1Mi4xNjA5XSxbLTAuMzAwNSw1Mi4xNTg5XSxbLTAuMzAwMiw1Mi4xNTgxXSxbLTAuMzAwOCw1Mi4xNTc0XSxbLTAuMzAxLDUyLjE1NjhdLFstMC4zMDA3LDUyLjE0MzddLFstMC4yODgyLDUyLjE0NTZdLFstMC4yODgzLDUyLjE0NTldLFstMC4yODIsNTIuMTQ2NF0sWy0wLjI4MTQsNTIuMTQ2M10sWy0wLjI4MTcsNTIuMTQ0Ml0sWy0wLjI4Miw1Mi4xMzg5XSxbLTAuMjc4Miw1Mi4xMzk0XSxbLTAuMjc4Miw1Mi4xMzkzXSxbLTAuMjc5NCw1Mi4xMzY5XSxbLTAuMjgyMSw1Mi4xMzY1XSxbLTAuMjgyMyw1Mi4xMzMzXSxbLTAuMjgxLDUyLjEzMzZdLFstMC4yODA4LDUyLjEzMzRdLFstMC4yNzkzLDUyLjEzNDFdLFstMC4yNzksNTIuMTMzOV0sWy0wLjI3NzgsNTIuMTMzN10sWy0wLjI3Nyw1Mi4xMzMyXSxbLTAuMjc2OCw1Mi4xMzI5XSxbLTAuMjc3Miw1Mi4xMzI0XSxbLTAuMjc4LDUyLjEzMjRdLFstMC4yNzg5LDUyLjEzMThdLFstMC4yNzkzLDUyLjEzMjFdLFstMC4yODA2LDUyLjEzMThdLFstMC4yODE3LDUyLjEzMThdLFstMC4yODE3LDUyLjEyOTddLFstMC4yNzg4LDUyLjEyOTddLFstMC4yNzY5LDUyLjEzMDJdLFstMC4yNzU4LDUyLjEzMDJdLFstMC4yNzQ4LDUyLjEzMDFdLFstMC4yNzI2LDUyLjEyOTRdLFstMC4yNzA4LDUyLjEyOTFdLFstMC4yNzA4LDUyLjEyODldLFstMC4yNzE3LDUyLjEyODldLFstMC4yNzI0LDUyLjEyODddLFstMC4yNzQ2LDUyLjEyNjhdLFstMC4yNzk0LDUyLjEyNTFdLFstMC4yNzYxLDUyLjEyNF0sWy0wLjI3NDMsNTIuMTIzMV0sWy0wLjI3MzEsNTIuMTIyN10sWy0wLjI2NzYsNTIuMTIzNF0sWy0wLjI2MTUsNTIuMTIyNV0sWy0wLjI2MTYsNTIuMTI0N10sWy0wLjI0NjQsNTIuMTM0M10sWy0wLjI0NjMsNTIuMTM0NV0sWy0wLjI0NjgsNTIuMTM0OF0sWy0wLjI0NTMsNTIuMTM2M10sWy0wLjI0MzYsNTIuMTM1XSxbLTAuMjQxLDUyLjEzNjVdLFstMC4yNDA3LDUyLjEzNjVdLFstMC4yMzUyLDUyLjEzNDNdLFstMC4yMzUxLDUyLjEzNDRdLFstMC4yMzQ5LDUyLjEzNTFdLFstMC4yMzUxLDUyLjEzNjJdLFstMC4yMzQ5LDUyLjEzNjddLFstMC4yMzM2LDUyLjEzODldLFstMC4yMzI2LDUyLjEzOThdLFstMC4yMzQ3LDUyLjE0MTFdLFstMC4yMzU2LDUyLjE0MjJdLFstMC4yMzcxLDUyLjE0MzFdLFstMC4yMzk2LDUyLjE0NF0sWy0wLjI0MDEsNTIuMTQzNV0sWy0wLjI0MTUsNTIuMTQzOV0sWy0wLjI0MTYsNTIuMTQ0XSxbLTAuMjQxMiw1Mi4xNDQ1XSxbLTAuMjQ0OCw1Mi4xNDU3XSxbLTAuMjQ1OCw1Mi4xNDU0XSxbLTAuMjQ1LDUyLjE0NTFdLFstMC4yNDQ0LDUyLjE0NDVdLFstMC4yNDUyLDUyLjE0MzRdLFstMC4yNDU3LDUyLjE0MzFdLFstMC4yNDc4LDUyLjE0MzldLFstMC4yNDg0LDUyLjE0MzRdLFstMC4yNDgyLDUyLjE0MzNdLFstMC4yNDgzLDUyLjE0MzFdLFstMC4yNDg3LDUyLjE0MzFdLFstMC4yNDksNTIuMTQyN10sWy0wLjI1MDYsNTIuMTQzMl0sWy0wLjI1MDIsNTIuMTQzOF0sWy0wLjI0OTYsNTIuMTQzN10sWy0wLjI0ODgsNTIuMTQ0Nl0sWy0wLjI0ODEsNTIuMTQ0NF0sWy0wLjI0ODYsNTIuMTQ0Nl0sWy0wLjI0OCw1Mi4xNDUxXSxbLTAuMjQ4Miw1Mi4xNDUxXSxbLTAuMjQ3NSw1Mi4xNDZdLFstMC4yNDcyLDUyLjE0Nl0sWy0wLjI0NjYsNTIuMTQ2NF0sWy0wLjI0NTksNTIuMTQ2XSxbLTAuMjQ0OCw1Mi4xNDY2XSxbLTAuMjQ1Miw1Mi4xNDY4XSxbLTAuMjQ1LDUyLjE0NjldLFstMC4yNDUzLDUyLjE0NzFdLFstMC4yNDQ1LDUyLjE0NzddLFstMC4yNDMzLDUyLjE0NzJdLFstMC4yNDIxLDUyLjE0NzhdLFstMC4yNDE1LDUyLjE0NzJdLFstMC4yMzkzLDUyLjE0NjJdLFstMC4yMzg2LDUyLjE0NjldLFstMC4yMzYyLDUyLjE0ODZdLFstMC4yMzA2LDUyLjE0NjVdLFstMC4yMjczLDUyLjE0ODFdLFstMC4yMjQ5LDUyLjE0OThdLFstMC4yMjM3LDUyLjE1MTRdLFstMC4yMjI3LDUyLjE1MzFdLFstMC4yMjE3LDUyLjE1NF0sWy0wLjIyMDEsNTIuMTU2Ml0sWy0wLjIyNjksNTIuMTU4N10sWy0wLjIyNjQsNTIuMTU5NV0sWy0wLjIyNjYsNTIuMTU5Nl0sWy0wLjIyNTEsNTIuMTYwNl0sWy0wLjIxODQsNTIuMTU4OV0sWy0wLjIxOTUsNTIuMTU4XSxbLTAuMjE4Nyw1Mi4xNTc3XSxbLTAuMjE3NCw1Mi4xNTg2XSxbLTAuMjEzOCw1Mi4xNTk3XSxbLTAuMjExMyw1Mi4xNjExXSxbLTAuMjEwNCw1Mi4xNjEzXSxbLTAuMjExMSw1Mi4xNjE5XSxbLTAuMjA4Nyw1Mi4xNjI2XSxbLTAuMjA4OCw1Mi4xNjI3XSxbLTAuMjA3LDUyLjE2M10sWy0wLjIwNjUsNTIuMTYyMl0sWy0wLjIwMzcsNTIuMTYyOF0sWy0wLjIwMjMsNTIuMTYzNl0sWy0wLjE5ODMsNTIuMTY0OF0sWy0wLjE5NTEsNTIuMTY2Nl0sWy0wLjE5MjksNTIuMTY2Ml0sWy0wLjE5MTMsNTIuMTY3NF0sWy0wLjE5MDcsNTIuMTY4NV0sWy0wLjE5MTEsNTIuMTY4Nl0sWy0wLjE5MDcsNTIuMTY5Ml0sWy0wLjE4OTksNTIuMTY4OV0sWy0wLjE4OTEsNTIuMTY5NF0sWy0wLjE4OTksNTIuMTcwM10sWy0wLjE5LDUyLjE3MTddLFstMC4xOTAyLDUyLjE3MTddLFstMC4xOTEzLDUyLjE3MzVdLFstMC4xOTEyLDUyLjE3NDZdLFstMC4xODk3LDUyLjE3NThdLFstMC4xODU4LDUyLjE3NzddLFstMC4xODQ5LDUyLjE3NzldLFstMC4xODQ3LDUyLjE3ODJdLFstMC4xODUxLDUyLjE3ODNdLFstMC4xODUsNTIuMTc4NV0sWy0wLjE4NDQsNTIuMTc4N10sWy0wLjE4NDYsNTIuMTc5NF0sWy0wLjE4NTcsNTIuMTgwN10sWy0wLjE4NjEsNTIuMTgyNl0sWy0wLjE4NTUsNTIuMTg0MV0sWy0wLjE4ODUsNTIuMTg0MV0sWy0wLjE5MzUsNTIuMTg1M10sWy0wLjE5ODksNTIuMTg2MV0sWy0wLjIwMTUsNTIuMTg2XSxbLTAuMjA0Nyw1Mi4xODYxXSxbLTAuMjA4OSw1Mi4xODU1XSxbLTAuMjA5NSw1Mi4xODVdLFstMC4yMSw1Mi4xODQ5XSxbLTAuMjA5OSw1Mi4xODQ3XSxbLTAuMjA5LDUyLjE4NDhdLFstMC4yMDc5LDUyLjE3OTldLFstMC4yMTU2LDUyLjE3ODhdLFstMC4yMTgxLDUyLjE4MzZdLFstMC4yMTkzLDUyLjE4MzhdLFstMC4yMjYsNTIuMTg0XSxbLTAuMjMxNSw1Mi4xODQ4XSxbLTAuMjMxNSw1Mi4xODUyXSxbLTAuMjM2NCw1Mi4xODY5XSxbLTAuMjM3NSw1Mi4xODc2XSxbLTAuMjM4Miw1Mi4xODg1XSxbLTAuMjQwOSw1Mi4xODk4XV0sW1stMC4yODQxLDUyLjE3MDZdLFstMC4yODQyLDUyLjE3MTFdLFstMC4yODI4LDUyLjE3MTRdLFstMC4yODI5LDUyLjE3MDZdLFstMC4yODQxLDUyLjE3MDZdXSxbWy0wLjI4NTksNTIuMTcxN10sWy0wLjI4NDYsNTIuMTcxOV0sWy0wLjI4NDQsNTIuMTcxM10sWy0wLjI4NTcsNTIuMTcxMl0sWy0wLjI4NTksNTIuMTcxN11dLFtbLTAuMjg2MSw1Mi4xNzA2XSxbLTAuMjg2MSw1Mi4xNzAyXSxbLTAuMjg2OCw1Mi4xNzAxXSxbLTAuMjg3Miw1Mi4xNzAxXSxbLTAuMjg3Miw1Mi4xNzA0XSxbLTAuMjg3Niw1Mi4xNzA1XSxbLTAuMjg4Miw1Mi4xNzA0XSxbLTAuMjg4Miw1Mi4xNzAxXSxbLTAuMjk0OSw1Mi4xNzAzXSxbLTAuMjk0OSw1Mi4xNzAxXSxbLTAuMjk2NSw1Mi4xN10sWy0wLjI5NjcsNTIuMTY5OF0sWy0wLjI5NzMsNTIuMTddLFstMC4yOTgsNTIuMTcwOF0sWy0wLjI5OCw1Mi4xNzExXSxbLTAuMjk1Myw1Mi4xNzEzXSxbLTAuMjk1Myw1Mi4xNzE1XSxbLTAuMjk0LDUyLjE3MTddLFstMC4yOTM5LDUyLjE3MV0sWy0wLjI5MjMsNTIuMTcxMV0sWy0wLjI5MTMsNTIuMTcxXSxbLTAuMjkxMyw1Mi4xNzA3XSxbLTAuMjkwNSw1Mi4xNzA3XSxbLTAuMjkwNiw1Mi4xNzEzXSxbLTAuMjkwNSw1Mi4xNzEzXSxbLTAuMjg4Niw1Mi4xNzExXSxbLTAuMjg4Niw1Mi4xNzA4XSxbLTAuMjg4LDUyLjE3MDddLFstMC4yODYyLDUyLjE3MV0sWy0wLjI4NjEsNTIuMTcwNl1dXX0=&showMap=true&version=NA=="
+  style="width: 100%; height: 600px; border: none;"
+/> -->
 
 <style>
   .or {

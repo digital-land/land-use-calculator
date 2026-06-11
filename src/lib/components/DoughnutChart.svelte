@@ -5,7 +5,7 @@
 
   let { data, title }: { data: DoughnutData[]; title: "selected" | "total" } =
     $props();
-  console.log("doughnut data: ", data);
+  // console.log("doughnut data: ", data);
 
   interface DonutSlice {
     key: string; // aggregation key (prefix), e.g. "UK_corporate.public_sector"
@@ -186,7 +186,7 @@
     if (!canDrillInto(sliceKey, depth, cuts)) return;
     focusKey = sliceKey;
     depth = depth + 1;
-    console.log(focusKey, depth);
+    // console.log(focusKey, depth);
   }
 
   // function drillUp() {
@@ -233,19 +233,19 @@
     console.log("drillUp ->", { depth, focusKey });
   }
 
-  $inspect(slices, cuts);
+  // $inspect(slices, cuts);
 
   let width = $state(0);
   const height = 440;
   let hoveredSegment = $state(null);
-  $inspect(hoveredSegment);
+  // $inspect(hoveredSegment);
 
   const pieGenerator = pie().value((d: DoughnutData) => d[title]);
   let pieData = $derived(pieGenerator(slices));
   let currentTotal = $derived(
     pieData.reduce((acc, curr) => acc + curr.value, 0),
   );
-  $inspect(pieData);
+  // $inspect(pieData);
 
   const arcGenerator = arc()
     .innerRadius((0.5 * height) / 2.4)
@@ -276,7 +276,7 @@
           {#each pieData
             .filter((d) => d.value > 0)
             .sort((a, b) => b.value - a.value) as d, i}
-            {console.log(d)}
+            <!-- {console.log(d)} -->
             <path
               class={i}
               pointer-events={"all"}

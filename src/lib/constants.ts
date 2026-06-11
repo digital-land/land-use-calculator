@@ -177,7 +177,9 @@ export interface settingsObject {
   sourceFolder: string;
 }
 
-export const hectareBbox: number[] = [50000, 0, 700000, 700000];
+export const hectareBbox: [number, number, number, number] = [
+  50000, 0, 700000, 700000,
+];
 // export const hectareBbox: number[] = [82768, 5339, 655568, 657439];
 
 export const hectareSettings: settingsObject = {

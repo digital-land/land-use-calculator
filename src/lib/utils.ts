@@ -8,7 +8,6 @@ import LayerGroup from "ol/layer/Group";
 import ImageCanvasSource from "ol/source/ImageCanvas.js";
 // import { width, height, gridSize, bbox } from "./constants";
 import { tiles as tileMetadata, hectareBbox } from "./constants";
-import type { Snippet } from "svelte";
 
 export const tileIndex = Object.fromEntries(
   tileMetadata.map((t) => [t.code, t]),
@@ -58,6 +57,10 @@ export async function loadIndexedArrayUint16(url) {
   } catch {
     return new Uint16Array(0); // network errors too
   }
+}
+
+export function capitaliseFirst(str: string): string {
+  return str?.[0] ? str[0].toUpperCase() + str.slice(1) : "";
 }
 
 export interface DataLayerItem {
@@ -210,10 +213,11 @@ export function makeFileNameReadable(
   filename: string,
   gridType: string = "hectare",
 ): string {
+  // console.log(filename);
   // return filename.replace(".bin", "").replace(".tif", "").replaceAll("_", " ");
 
   return filename
-    .split("_")
+    ?.split("_")
     [gridType === "hectare" ? 2 : 1]?.replace(
       /([A-Z])/g,
       (match) => ` ${match}`,
@@ -385,122 +389,6 @@ export function indexToCoord(
   // const y = originY + row * (-cellSize);
   return { x, y };
 }
-
-// export function geometryToGridHits(geometry, bbox, width, height) {
-//   console.log("starting the geometryToGridHits function");
-//   const polyExtent = geometry.getExtent();
-
-//   const cellWidth = (bbox[2] - bbox[0]) / width;
-//   const cellHeight = (bbox[3] - bbox[1]) / height;
-
-//   const colMin = Math.max(0, Math.floor((polyExtent[0] - bbox[0]) / cellWidth));
-//   const colMax = Math.min(
-//     width - 1,
-//     Math.ceil((polyExtent[2] - bbox[0]) / cellWidth),
-//   );
-
-//   const rowMin = Math.max(
-//     0,
-//     Math.floor((polyExtent[1] - bbox[1]) / cellHeight),
-//   );
-//   const rowMax = Math.min(
-//     width - 1,
-//     Math.ceil((polyExtent[3] - bbox[1]) / cellHeight),
-//   );
-
-//   const hits = [];
-
-//   function coordToGridIndex(x, y) {
-//     const col = Math.floor((x - bbox[0]) / cellWidth);
-//     const row = Math.floor((bbox[3] - y) / cellHeight);
-
-//     if (col < 0 || col >= width || row < 0 || row >= height) {
-//       return null;
-//     }
-
-//     return row * width + col;
-//   }
-
-//   // for (let row = rowMin; row <= rowMax; row++) {
-//   //   for (let col = colMin; col <= colMax; col++) {
-//   //     const center = [
-//   //       bbox[0] + (col + 0.5) * cellWidth,
-//   //       bbox[1] + (row + 0.5) * cellHeight,
-//   //     ];
-
-//   //     if (geometry.intersectsCoordinate(center)) {
-//   //       const index = coordToGridIndex(center[0], center[1]);
-//   //       if (index !== null) hits.push(index);
-//   //     }
-//   //   }
-//   // }
-
-//   const center = [0, 0];
-//   const cellExtent = [0, 0, 0, 0];
-
-//   const xCenters = new Float64Array(width);
-//   const yCenters = new Float64Array(height);
-
-//   for (let col = 0; col < width; col++) {
-//     xCenters[col] = bbox[0] + (col + 0.5) * cellWidth;
-//   }
-
-//   for (let row = 0; row < height; row++) {
-//     yCenters[row] = bbox[1] + (row + 0.5) * cellHeight;
-//   }
-
-//   const xEdges = new Float64Array(width + 1);
-//   const yEdges = new Float64Array(height + 1);
-
-//   for (let i = 0; i <= width; i++) {
-//     xEdges[i] = bbox[0] + i * cellWidth;
-//   }
-
-//   for (let i = 0; i <= height; i++) {
-//     yEdges[i] = bbox[1] + i * cellHeight;
-//   }
-
-//   console.time("hits-loop");
-//   for (let row = rowMin; row <= rowMax; row++) {
-//     for (let col = colMin; col <= colMax; col++) {
-//       // const cellExtent = [
-//       //   bbox[0] + col * cellWidth,
-//       //   bbox[1] + row * cellHeight,
-//       //   bbox[0] + (col + 1) * cellWidth,
-//       //   bbox[1] + (row + 1) * cellHeight,
-//       // ];
-
-//       // cellExtent[0] = bbox[0] + col * cellWidth;
-//       // cellExtent[1] = bbox[1] + row * cellHeight;
-//       // cellExtent[2] = bbox[0] + (col + 1) * cellWidth;
-//       // cellExtent[3] = bbox[1] + (row + 1) * cellHeight;
-
-//       cellExtent[0] = xEdges[col];
-//       cellExtent[2] = xEdges[col + 1];
-//       cellExtent[1] = yEdges[row];
-//       cellExtent[3] = yEdges[row + 1];
-
-//       if (geometry.intersectsExtent(cellExtent)) {
-//         // const center = [
-//         //   bbox[0] + (col + 0.5) * cellWidth,
-//         //   bbox[1] + (row + 0.5) * cellHeight,
-//         // ];
-
-//         center[0] = xCenters[col];
-//         center[1] = yCenters[row];
-
-//         if (geometry.intersectsCoordinate(center)) {
-//           // hits.push(row * width + col);
-//           const index = coordToGridIndex(center[0], center[1]);
-//           if (index !== null) hits.push(index);
-//         }
-//       }
-//     }
-//   }
-//   console.timeEnd("hits-loop");
-//   console.log(hits);
-//   return hits;
-// }
 
 export function geometryToGridHitsScanline(geometry, bbox, width, height) {
   const hits = [];
@@ -726,7 +614,7 @@ export function createGroupLayer(
 export async function createDensityCanvas(
   densityCanvas: HTMLCanvasElement | undefined,
   blendedIndices: Uint32Array,
-  densityArray,
+  densityArray: Uint16Array,
   DENSITY_LUT: Uint32Array,
   height: number,
   width: number,
@@ -882,18 +770,6 @@ export function indicesToBinaryMask(bin, width, height) {
   }
   return out;
 }
-// export function countOccurrences(uint8Array: Uint8Array): object {
-//   const counts = {};
-//   for (let i = 0; i < uint8Array.length; i++) {
-//     const value = uint8Array[i];
-//     if (counts[value] === undefined) {
-//       counts[value] = 1;
-//     } else {
-//       counts[value]++;
-//     }
-//   }
-//   return counts;
-// }
 
 export function getTheInverse(
   englandUint32Array: Uint32Array,
@@ -934,59 +810,17 @@ export const originY = hectareBbox[1];
 export const cellSize = 100; // meters per cell/hectare
 export const fillOpacity = 0.5;
 
-// export async function joinTiles(
-//   base: string,
-//   width: number,
-//   gridSize: number,
-//   sourceFolder: string,
-//   // tileCodes: object,
-//   grid10mVariables: object,
-// ) {
-//   // console.log(base, width, gridSize, sourceFolder, tileCodes, grid10mVariables);
-//   return new Promise((resolve, reject) => {
-//     console.time("tileWorker");
-
-//     const tilerWorker = new Worker(
-//       new URL("$lib/workers/tilerWorker.js", import.meta.url),
-//       { type: "module" },
-//     );
-
-//     tilerWorker.onerror = (err) => {
-//       console.error("Worker error:", err);
-//       tilerWorker.terminate();
-//       reject(err); // Reject the promise on worker error
-//     };
-
-//     tilerWorker.postMessage({
-//       base,
-//       grid10mVariables, // send urls and relative positions
-//       // tileCodes,
-//       width,
-//       gridSize,
-//       sourceFolder,
-//     });
-
-//     tilerWorker.onmessage = (e) => {
-//       if (e.data.error) {
-//         console.warn(e.data.error);
-//         tilerWorker.terminate();
-//         reject(e.data.error); // Reject the promise on error
-//         return;
-//       }
-//       console.timeEnd("tileWorker");
-//       // tilerWorker.terminate();
-//       resolve(e.data); // Resolve the promise with the worker's result
-//     };
-//   });
-// }
-
 export function buildTileFilename(tileCode, varName, meta) {
   const { grid_size, data_type, datum, data_structure, date } = meta;
 
   return `${tileCode}_${grid_size}_${varName}_${data_type}_${datum}_${data_structure}_${date}.bin`;
 }
 
-export function getBBoxFromTileCodes(tileCodes, gridSize, tileWidth) {
+export function getBBoxFromTileCodes(
+  tileCodes,
+  gridSize,
+  tileWidth,
+): [number, number, number, number] {
   let minEast = Math.min(...tileCodes.map((d) => tileIndex[d].east));
   let minNorth = Math.min(...tileCodes.map((d) => tileIndex[d].north));
   let maxEast = Math.max(...tileCodes.map((d) => tileIndex[d].east));
