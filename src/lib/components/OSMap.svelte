@@ -3,6 +3,7 @@
   import { onMount } from "svelte";
   import { register } from "ol/proj/proj4";
   import { Map, View } from "ol";
+  import Control from "ol/control/Control.js";
   import {
     Tile as TileLayer,
     VectorTile as VectorTileLayer,
@@ -32,7 +33,7 @@
     // createGroupLayer,
     // type MapGroup,
     // geometryToGridHitsScanline,
-    tilesForBBox,
+    // tilesForBBox,
   } from "$lib/utils";
 
   let {
@@ -44,16 +45,16 @@
     selectedAreaName = $bindable(),
     breakdownData,
     blendedIndices,
-    seeDensity = $bindable(),
-    seeArea = $bindable(),
-    seeBreakdown = $bindable(),
+    seeDensity,
+    seeArea,
+    seeBreakdown,
     width,
     height,
     opacity = $bindable(),
     densityArray,
     breakdownArray,
     // customArea = $bindable(),
-    customAreaBBox = $bindable(),
+    customAreaBBox,
     drawnFeature = $bindable(),
     selectedLA = $bindable(),
     policyLens = $bindable(),
@@ -201,6 +202,7 @@
   });
 
   let draw: Draw = $state();
+  let modify: Modify = $state();
 
   //Makes sense on desktop but nonsense on mobile - when dataURL is a LayerGroup
   let tiffLayerSource = $derived(
@@ -399,15 +401,16 @@
             // wktEngland,
           ];
 
-    // const select = new Select();
-
-    // const modify = new Modify({
-    //   features: select.getFeatures(),
-    // });
+    const modifyGeoJsonButton =
+      document?.getElementById("modifyGeoJson") ?? undefined;
+    const modifyShapeControl = new Control({ element: modifyGeoJsonButton });
 
     // if (densityLayer) {
     map = new Map({
-      controls: defaultControls().extend([new FullScreen()]),
+      controls: defaultControls().extend([
+        new FullScreen(),
+        modifyShapeControl,
+      ]),
       target: mapElement,
       layers: initialLayers,
       view: new View({
@@ -444,40 +447,16 @@
 
     // map.addInteraction(draw);
 
-    const modify = new Modify({ source: drawSource });
-    // const select = new Select();
-    map?.addInteraction(modify);
-    // map?.addInteraction(select);
+    modify = new Modify({ source: drawSource });
 
     draw.on("drawend", async function (event) {
       drawnFeature = event.feature;
 
       selectedLA = null;
-      // const geometry = event.feature.getGeometry();
-      // customAreaBBox = geometry.getExtent();
 
-      // const drawnData = geometryToGridHitsScanline(
-      //   geometry,
-      //   bbox,
-      //   width,
-      //   height,
-      // );
-      // tileCodes = await tilesForBBox(
-      //   drawnFeature.getGeometry().getExtent(),
-      //   tileIndex,
-      //   50000,
-      // );
-      // tileCodes = drawnData.tileCodes;
-      // customArea = drawnData.customArea;
-      // console.log(tileCodes);
       policyLens = "customArea";
 
-      if (usingGeoTiff) {
-        unpackZippedLayers();
-      } else {
-        await unpackAndBlendLayers();
-      }
-
+      map.removeInteraction(draw);
       drawing = false;
     });
 
@@ -723,10 +702,55 @@
     map?.getLayers().insertAt(0, basemapLookup[value]);
     currentBaseMap = basemapLookup[value];
   }
+
+  let shapeModifiable: boolean = $state(false);
+  // $inspect(shapeModifiable);
+
+  function makeShapeModifiable() {
+    map?.addInteraction(modify);
+    shapeModifiable = true;
+  }
+
+  async function useModifiedShape() {
+    shapeModifiable = false;
+    map?.removeInteraction(modify);
+
+    const cloned = drawSource.getFeatures()[0].clone();
+    // console.log(cloned);
+    drawnFeature = cloned;
+    selectedLA = null;
+  }
 </script>
 
 <div bind:this={mapElement} class="map-container" tabindex="0">
   <div id="info"></div>
+  {#if drawnFeature}
+    <div id="modifyGeoJson" class="ol-unselectable ol-control">
+      <button
+        onclick={() =>
+          !shapeModifiable ? makeShapeModifiable() : useModifiedShape()}
+        type="button"
+        aria-pressed={shapeModifiable}
+        role="switch"
+        aria-checked={shapeModifiable}
+      >
+        <svg
+          viewBox="0 0 32 32"
+          xmlns="http://www.w3.org/2000/svg"
+          focusable="false"
+          // class="ons-svg-icon ons-svg-icon--m svelte-6cb5el"
+          fill="currentColor"
+          ><!----><path
+            d="M28.83 6.17a4 4 0 0 0-6.302.845L19 6.053a4 4 0 1 0-7.549 1.793L7.21 11.665a4.01 4.01 0 0 0-5.039.506 4 4 0 0 0 5.361 5.927l8.75 6.42a4 4 0 1 0 5.947-1.837l3.423-9.699q.172.015.345.016a4 4 0 0 0 2.829-6.828zM13.58 4.584a2 2 0 1 1-.433 2.18 2 2 0 0 1 .438-2.18zm-10 11.831a2 2 0 1 1 2.826-2.83 2 2 0 0 1-2.826 2.83m17.831 11a2 2 0 1 1-2.829-2.828 2 2 0 0 1 2.83 2.828m-1.069-5.398a4 4 0 0 0-2.874.886l-8.75-6.42a4.02 4.02 0 0 0-.168-3.332l4.244-3.818a4 4 0 0 0 5.683-1.352L22 8.945a4 4 0 0 0 1.765 3.375zm7.07-11.604a2 2 0 1 1-2.825-2.828 2 2 0 1 1 2.83 2.829z"
+          ></path><!----></svg
+        ><span class="hidden-button-text"
+          >{!shapeModifiable
+            ? "Edit the shape"
+            : "Finish editing the shape"}</span
+        ></button
+      >
+    </div>
+  {/if}
   <div class="basemap-picker-control ol-control">
     <label for="basemap-picker">Select base map:</label>
     <select
@@ -787,5 +811,85 @@
 
   .basemap-picker-control select {
     background: rgba(255, 255, 255, 0.5);
+  }
+
+  #modifyGeoJson {
+    top: 65px;
+    /* left: 0.5em; */
+    --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+      "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+      "Liberation Mono", "Courier New", monospace;
+    --color-gray-50: oklch(98.5% 0.002 247.839);
+    --color-gray-400: oklch(70.7% 0.022 261.325);
+    --color-gray-700: oklch(37.3% 0.034 259.733);
+    --color-black: #000;
+    --color-white: #fff;
+    --spacing: 0.25rem;
+    --text-xl: 1.25rem;
+    --text-xl--line-height: calc(1.75 / 1.25);
+    --text-2xl: 1.5rem;
+    --text-2xl--line-height: calc(2 / 1.5);
+    --font-weight-bold: 700;
+    --radius-sm: 0.25rem;
+    --radius-md: 0.375rem;
+    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+    --default-transition-duration: 150ms;
+    --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    --default-font-family: var(--font-sans);
+    --default-mono-font-family: var(--font-mono);
+    --tw-duration: 200ms;
+    --tw-ease: var(--ease-in-out);
+    --ol-background-color: white;
+    --ol-accent-background-color: #f5f5f5;
+    --ol-subtle-background-color: rgba(128, 128, 128, 0.25);
+    --ol-partial-background-color: rgba(255, 255, 255, 0.75);
+    --ol-foreground-color: #333333;
+    --ol-subtle-foreground-color: #666666;
+    --ol-brand-color: #00aaff;
+    --govuk-frontend-version: "5.11.1";
+    --govuk-breakpoint-mobile: 20rem;
+    --govuk-frontend-breakpoint-mobile: var(--govuk-breakpoint-mobile);
+    --govuk-breakpoint-tablet: 40.0625rem;
+    --govuk-frontend-breakpoint-tablet: var(--govuk-breakpoint-tablet);
+    --govuk-breakpoint-desktop: 48.0625rem;
+    --govuk-frontend-breakpoint-desktop: var(--govuk-breakpoint-desktop);
+    --mapWidth: 50%;
+    --tw-translate-x: 0%;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    pointer-events: auto;
+    display: block;
+    margin: 1px;
+    padding: 0;
+    color: var(--ol-subtle-foreground-color);
+    font-weight: bold;
+    text-decoration: none;
+    font-size: inherit;
+    text-align: center;
+    height: 1.375em;
+    width: 1.375em;
+    line-height: 0.4em;
+    background-color: var(--ol-background-color);
+    border: none;
+    min-height: 24px;
+    min-width: 24px;
+    border-radius: 2px 2px 0 0;
+  }
+  .ol-touch #modifyGeoJson {
+    top: 80px;
+  }
+
+  .hidden-button-text {
+    border: 0;
+    clip: rect(0 0 0 0);
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    padding: 0;
+    position: absolute;
+    user-select: none;
+    width: 1px;
+    font-size: 0.875rem;
   }
 </style>

@@ -41,7 +41,7 @@
   }
   let chartContainerWidth: number = $state(0);
   let chartWidth = $derived(Math.min(chartContainerWidth, 700));
-  $inspect(chartWidth);
+  // $inspect(chartWidth);
 </script>
 
 <div bind:clientWidth={chartContainerWidth}>

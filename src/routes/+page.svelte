@@ -1,6 +1,6 @@
 <script lang="ts">
   import init from "$lib/raster_ops/pkg/raster_ops"; // categorical_matrix, // unpack_bitmask, // categorical_count_masked, // binary_buffer, // binary_and_unpack_simd,
-  import { onMount, tick } from "svelte";
+  import { onMount, tick, untrack } from "svelte";
   import { enhance } from "$app/forms";
   import { MediaQuery } from "svelte/reactivity";
   import { asset, base, resolve } from "$app/paths";
@@ -106,7 +106,7 @@
   // let pageLayout = $state("grid-template-columns: 23% 40% 37%");
   // let currentMousePosition = $state();
   // let hoveredArea = $state();
-  let showFilters = $state(true);
+  let showFilters: boolean = $state(true);
   let mapSize: number = $state(50);
   // $inspect(mapSize);
   let sidePanelWidth: number = $state(250);
@@ -123,7 +123,7 @@
     );
   });
 
-  let done = $state(false);
+  let done: boolean = $state(false);
   // $inspect({ done });
 
   let dataURL: string | LayerGroup | null = $state(null);
@@ -163,22 +163,22 @@
     });
   });
 
-  let seeDensity = $state(false);
+  let seeDensity: boolean = $state(false);
   // $inspect({ seeDensity });
-  let seeArea = $state(true);
+  let seeArea: boolean = $state(true);
   // $inspect({ seeArea });
-  let seeBreakdown = $state(false);
-  let seeMarker = $state(false);
+  let seeBreakdown: boolean = $state(false);
+  let seeMarker: boolean = $state(false);
 
   let drawing: boolean = $state(false);
   let opacity: number = $state(0.8);
 
-  let uniqueCounts = $state(new Uint32Array(0));
+  let uniqueCounts: Uint32Array = $state(new Uint32Array(0));
   // $inspect({ uniqueCounts });
 
   let usingGeoTiff: boolean = $state(false);
 
-  const DENSITY_LUT = $derived.by(() => {
+  const DENSITY_LUT: Uint32Array = $derived.by(() => {
     const LUT = new Uint32Array(65536);
     for (let i = 0; i < 65536; i++) {
       // const normalized = normalizeDensity(i);
@@ -296,7 +296,7 @@
     other: { fixed: [180, 180, 180] },
   };
 
-  const BREAKDOWN_LUT = $derived.by(() => {
+  const BREAKDOWN_LUT: Uint32Array = $derived.by(() => {
     const LUT = new Uint32Array(65536);
 
     // default: transparent
@@ -366,10 +366,11 @@
   // $inspect({ breakdownArray });
 
   $effect(() => {
-    chunkUrls;
+    breakdownMetric;
     blendedIndices;
-    breakdownChartSortValue;
+    // breakdownChartSortValue;
     let b = breakdownChartSortValue;
+    done = false;
     loadIndexedArrayUint16(chunkUrls).then(async (result) => {
       breakdownArray = result;
 
@@ -383,7 +384,10 @@
               currentLUT,
               height,
               width,
-            ).then((result) => (breakdownDataURL = result))
+            ).then((result) => {
+              breakdownDataURL = result;
+              done = true;
+            })
           : await createDensityLayerMobile(
               b === "total" ? customArea : blendedIndices,
               breakdownArray,
@@ -392,7 +396,10 @@
               opacity,
               height,
               width,
-            ).then((result) => (breakdownDataURL = result));
+            ).then((result) => {
+              breakdownDataURL = result;
+              done = true;
+            });
         // console.log({ breakdownDataURL });
       }
     });
@@ -410,9 +417,10 @@
   // let customArea: Uint32Array = $state();
 
   let drawnFeature: Feature | undefined = $state();
-  // $inspect({ drawnFeature });
+  $inspect({ drawnFeature });
 
   let customAreaGeometry = $derived(drawnFeature?.getGeometry());
+  $inspect({ customAreaGeometry });
   let customAreaBBox: number[] | undefined = $derived(
     customAreaGeometry?.getExtent(),
   );
@@ -442,6 +450,7 @@
         })
       : "",
   );
+  // $inspect({ geojsonString });
 
   let englandAreaHectare = $state(new Uint32Array(0));
 
@@ -493,6 +502,24 @@
         ? englandAreaHectare
         : new Uint32Array(0),
   );
+  $inspect({ customArea });
+
+  async function onCustomAreaChange(customArea: Uint32Array) {
+    console.log("effect changing customArea");
+    if (usingGeoTiff) {
+      unpackZippedLayers();
+    } else {
+      await unpackAndBlendLayers();
+    }
+  }
+
+  $effect(() => {
+    const area = customArea;
+
+    untrack(() => {
+      void onCustomAreaChange(area);
+    });
+  });
 
   let policyLensArea: number | null = $state(
     (13_046_002 * 10_000) / (gridSize * gridSize),
@@ -542,7 +569,7 @@
       }, {});
   }
   let breakdownChartSortValue: string = $state("total");
-  $inspect(breakdownChartSortValue);
+  // $inspect(breakdownChartSortValue);
   let summaryByCategory = $derived(
     Object.entries(summariseByCategory(breakdownData)).sort((a, b) => {
       if (breakdownChartSortValue === "total") {
@@ -703,14 +730,16 @@
           .indexOf(selectedRestriction)
       : undefined,
   );
-  // $inspect({ selectedRestrictionIndex });
+  $inspect({ selectedRestrictionIndex });
 
   let uniqueArrays: Uint32Array[] = $state([]);
   // $inspect({ uniqueArrays });
   let uniqueIndices = $derived(
-    selectedRestrictionIndex ? uniqueArrays[selectedRestrictionIndex] : [],
+    selectedRestrictionIndex !== undefined
+      ? uniqueArrays[selectedRestrictionIndex]
+      : [],
   );
-  // $inspect({ uniqueIndices });
+  $inspect({ uniqueIndices });
 
   // let csvFile = $state();
   let zipFile: FileList | undefined = $state();
@@ -1239,32 +1268,32 @@
   //   breakdownChartSortValue === "total" ? customArea : blendedIndices,
   // );
 
-  $effect(async () => {
-    const b = breakdownChartSortValue;
-    console.log("outer effecting", b);
-    // async () => {
-    console.log("inner effecting", b);
-    densityDataURL = !mobile.current
-      ? await createDensityCanvas(
-          densityCanvas,
-          b === "total" ? customArea : blendedIndices,
-          densityArray,
-          // BREAKDOWN_LUT,
-          DENSITY_LUT,
-          height,
-          width,
-        )
-      : await createDensityLayerMobile(
-          b === "total" ? customArea : blendedIndices,
-          densityArray,
-          // BREAKDOWN_LUT,
-          DENSITY_LUT,
-          bbox,
-          opacity,
-          height,
-          width,
-        );
-  });
+  // $effect(async () => {
+  //   const b = breakdownChartSortValue;
+  //   // console.log("outer effecting", b);
+  //   // async () => {
+  //   // console.log("inner effecting", b);
+  //   densityDataURL = !mobile.current
+  //     ? await createDensityCanvas(
+  //         densityCanvas,
+  //         b === "total" ? customArea : blendedIndices,
+  //         densityArray,
+  //         // BREAKDOWN_LUT,
+  //         DENSITY_LUT,
+  //         height,
+  //         width,
+  //       )
+  //     : await createDensityLayerMobile(
+  //         b === "total" ? customArea : blendedIndices,
+  //         densityArray,
+  //         // BREAKDOWN_LUT,
+  //         DENSITY_LUT,
+  //         bbox,
+  //         opacity,
+  //         height,
+  //         width,
+  //       );
+  // });
 
   async function getBreakdownAndCreateDensityCanvas() {
     if (gridType === "hectare") {
@@ -1302,7 +1331,7 @@
   }
 
   $effect(() => {
-    if (chunkUrls && blendedIndices && width && height && customArea)
+    if (breakdownChartSortValue && blendedIndices && customArea)
       getBreakdownAndCreateDensityCanvas();
   });
 
@@ -1871,8 +1900,8 @@
                 bind:value={policyLens}
                 label={"Select area to explore"}
                 onchange={async () => {
-                  customAreaBBox = undefined;
-                  customArea = null;
+                  // customAreaBBox = undefined;
+                  // customArea = null;
                   drawnFeature = undefined;
                   Object.keys(tiffArrayBuffersFromZip).length > 0
                     ? unpackZippedLayers()
@@ -2152,16 +2181,16 @@
               blendedIndices={breakdownChartSortValue === "total"
                 ? customArea
                 : blendedIndices}
-              bind:seeDensity
-              bind:seeArea
-              bind:seeBreakdown
+              {seeDensity}
+              {seeArea}
+              {seeBreakdown}
               {width}
               {height}
               bind:opacity
               {densityArray}
               {breakdownArray}
               // bind:customArea
-              bind:customAreaBBox
+              {customAreaBBox}
               bind:drawnFeature
               bind:selectedLA
               bind:policyLens
@@ -2551,6 +2580,11 @@
   }
 
   :global(.ol-zoom) {
+    left: var(--zoom-control-position);
+    transition: left 0.1s ease;
+  }
+
+  :global(#modifyGeoJson) {
     left: var(--zoom-control-position);
     transition: left 0.1s ease;
   }

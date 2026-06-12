@@ -470,7 +470,7 @@ export function geometryToGridHitsScanline(geometry, bbox, width, height) {
       }
     }
   }
-  console.log("customArea in geomToGridHits: ", hits);
+  // console.log("customArea in geomToGridHits: ", hits);
   return hits;
 }
 
