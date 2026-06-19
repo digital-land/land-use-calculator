@@ -10,11 +10,8 @@
     colourScale = undefined,
     sortState = $bindable({ column: "unique", order: "descending" }),
     selectedRestriction = $bindable(),
-    makeAndPaintCanvasFromIndices,
-    makeAndPaintCanvasFromIndicesMobile,
-    dataURL = $bindable(),
     mobile,
-  } = $props<{ metaData: TableMetadata }>();
+  } = $props<{ caption: string; metaData: TableMetadata }>();
   //   $inspect(sortState);
   let localCopyOfData = $state([...data]);
   let openInsets = $state(data.map((d) => false));
@@ -126,12 +123,6 @@
   }
 
   const colorKey = Object.entries({ Good: 1, Ok: 0.5, Bad: 0 });
-
-  async function updateCanvas() {
-    mobile.current
-      ? (dataURL = await makeAndPaintCanvasFromIndicesMobile())
-      : makeAndPaintCanvasFromIndices();
-  }
 </script>
 
 <div class="p-4">
@@ -192,7 +183,6 @@
               selectedRestriction === row.name
                 ? (selectedRestriction = undefined)
                 : (selectedRestriction = row.name);
-              updateCanvas();
             }}
             onkeydown={(e) => {
               //   console.log(e.code);
@@ -200,7 +190,6 @@
                 selectedRestriction === row.name
                   ? (selectedRestriction = undefined)
                   : (selectedRestriction = row.name);
-                updateCanvas();
               }
             }}
             tabindex="0"

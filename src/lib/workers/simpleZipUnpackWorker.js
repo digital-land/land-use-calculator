@@ -1,26 +1,26 @@
 import { fromArrayBuffer } from "geotiff";
-import { indicesToBinaryMask } from "$lib/utils";
+import { indicesToBinaryMask, binaryMaskToIndices } from "$lib/utils";
 
-function indicesOfOnes(src) {
-  // First pass: count
-  let count = 0;
-  for (let i = 0; i < src.length; i++) {
-    if (src[i] === 1) count++;
-  }
+// function indicesOfOnes(src) {
+//   // First pass: count
+//   let count = 0;
+//   for (let i = 0; i < src.length; i++) {
+//     if (src[i] === 1) count++;
+//   }
 
-  // Allocate result
-  const result = new Uint32Array(count);
+//   // Allocate result
+//   const result = new Uint32Array(count);
 
-  // Second pass: fill indices
-  let j = 0;
-  for (let i = 0; i < src.length; i++) {
-    if (src[i] === 1) {
-      result[j++] = i;
-    }
-  }
+//   // Second pass: fill indices
+//   let j = 0;
+//   for (let i = 0; i < src.length; i++) {
+//     if (src[i] === 1) {
+//       result[j++] = i;
+//     }
+//   }
 
-  return result;
-}
+//   return result;
+// }
 
 self.onmessage = async function (e) {
   const { layersToUnpack, policyLensLayerToUnpack, customArea, width, height } =
@@ -118,7 +118,7 @@ self.onmessage = async function (e) {
           }
         }
 
-        const indices = indicesOfOnes(result);
+        const indices = binaryMaskToIndices(result);
 
         // bitLayers.push(result);
 
@@ -140,7 +140,10 @@ self.onmessage = async function (e) {
         // height,
         // bbox,
         policyLensArea: lensLayer?.area ?? 13046002,
-        lensIndices: lensLayer?.data,
+        // lensIndices: lensLayer?.data,
+        lensIndices: lensLayer
+          ? binaryMaskToIndices(lensLayer.data)
+          : undefined,
       },
       enrichedRasterLayers.map((layer) => layer.data.buffer),
     );

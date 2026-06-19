@@ -7,6 +7,7 @@
 
   let {
     gridType,
+    usingGeoTiff,
     startingPosition,
     selectedSubLayers,
     selected = $bindable(),
@@ -15,6 +16,7 @@
     openPanelAndScrollToMap,
   }: {
     gridType: string;
+    usingGeoTiff: boolean;
     startingPosition: DataLayerItem[];
     selectedSubLayers: object;
     selected: string[];
@@ -36,7 +38,7 @@
       if (found) {
         all[id] = {
           id: makeFileNameDatasetKey(found.filename),
-          title: makeFileNameReadable(found.filename, gridType),
+          title: makeFileNameReadable(found.filename, gridType, usingGeoTiff),
           category: found.tier,
           color: categoryToColor[found.tier],
           subLayers: selectedSubLayers[found.filename],

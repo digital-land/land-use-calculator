@@ -88,6 +88,12 @@ export type DoughnutData = {
   total: number;
 };
 
+export type EnrichedLayer = {
+  filename: string;
+  area: number;
+  data: Uint32Array;
+};
+
 function normaliseRow(row: RawDataLayerRow): DataLayerItem {
   const levelNum = Number(row.Level);
 
@@ -212,9 +218,14 @@ export function jsonToCsv(
 export function makeFileNameReadable(
   filename: string,
   gridType: string = "hectare",
+  usingGeoTiff: boolean,
 ): string {
   // console.log(filename);
-  // return filename.replace(".bin", "").replace(".tif", "").replaceAll("_", " ");
+  if (usingGeoTiff)
+    return filename
+      .replace(".bin", "")
+      .replace(".tif", "")
+      .replaceAll("_", " ");
 
   return filename
     ?.split("_")
@@ -837,4 +848,22 @@ export function getBBoxFromTileCodes(
     maxEast + gridSize * tileWidth,
     maxNorth + gridSize * tileWidth,
   ];
+}
+
+export function binaryMaskToIndices(src: ArrayLike<number>): Uint32Array {
+  let count = 0;
+  for (let i = 0; i < src.length; i++) {
+    if (src[i]) count++;
+  }
+
+  const result = new Uint32Array(count);
+
+  let j = 0;
+  for (let i = 0; i < src.length; i++) {
+    if (src[i]) {
+      result[j++] = i;
+    }
+  }
+
+  return result;
 }

@@ -30,7 +30,7 @@
     jsonToCsv,
     makeFileNameReadable,
     makeFileNameDatasetKey,
-    loadDensityTiff,
+    // loadDensityTiff,
     // computeStats,
     // countOccurrences,
     convertPixelsToHectares,
@@ -55,7 +55,7 @@
   import {
     colors,
     // mhclgPaletteRGB,
-    shortCategoricalColorPaletteRgb,
+    // shortCategoricalColorPaletteRgb,
     hectareBbox,
     hectareSettings,
     tenMetreSettings,
@@ -71,15 +71,26 @@
   import { indicesToGeoJSON } from "$lib/downloadGeoJSON";
   import type { PageData, PageProps } from "./$types";
   import type { Feature } from "ol";
-  import type { DataLayerItem } from "$lib/utils";
-  import type { DoughnutData } from "$lib/utils";
+  // import type { DataLayerItem } from "$lib/utils";
+  import type { DataLayerItem, DoughnutData, EnrichedLayer } from "$lib/utils";
 
-  let selectedTabId: string | undefined = $state();
+  let analysisRunId = 0;
+  let breakdownRunId = 0;
+  let densityRunId = 0;
+  let bootstrapRunId = 0;
+  let breakdownSummaryRunId = 0;
+  let breakdownArrayLoadRunId = 0;
+  let breakdownOverlayRunId = 0;
+
+  type VisualTab = "table" | "density" | "breakdown";
+  // let activeVisualTab = $state<VisualTab>("density");
+
+  let selectedTabId = $state<VisualTab>("table");
   // $inspect({ selectedTabId });
 
   let LAGeoJSON: GeoJSONFeatureCollection | undefined = $state(undefined);
   // $inspect(LAGeoJSON);
-  let selectedLA = $state();
+  let selectedLA: string | undefined = $state();
   // $inspect(selectedLA);
 
   let gridType: string = $state("hectare");
@@ -99,7 +110,7 @@
     urlSelected,
     urlPolicyLens,
     ...rest
-  } = data;
+  } = $derived(data);
 
   // let grid10mVariables = data.grid10mVariables;
   const mobile = new MediaQuery("max-width: 600px");
@@ -140,8 +151,8 @@
   );
 
   let densityArray: Uint16Array = $state(new Uint16Array(0));
-  let densityMetric: string = $state("dwellings");
-  let densityMetricLookup: object = {
+
+  const densityMetricLookup = {
     dwellings: asset(
       `/data/categorised-land/dwellings-and-businesses/dwelling_counts_100m.bin`,
     ),
@@ -150,7 +161,13 @@
       `/data/categorised-land/dwellings-and-businesses/commercial_address_counts_100m.bin`,
     ),
   };
+
+  type DensityMetric = keyof typeof densityMetricLookup;
+
+  let densityMetric = $state<DensityMetric>("dwellings");
+
   let densityFile: string = $derived(densityMetricLookup[densityMetric]);
+
   $effect(() => {
     done = false;
     loadIndexedArrayUint16(
@@ -336,8 +353,7 @@
   });
   // $inspect(BREAKDOWN_LUT);
 
-  let breakdownMetric: string = $state("LPA");
-  let breakdownMetricLookup: object = {
+  const breakdownMetricLookup = {
     LPA: {
       csvUrl: asset(`/data/LPAs/LPA_100m.csv`),
       baseUrl: `${base}/data/LPAs`,
@@ -355,6 +371,10 @@
     },
   };
 
+  type BreakdownMetric = keyof typeof breakdownMetricLookup;
+
+  let breakdownMetric = $state<BreakdownMetric>("LPA");
+
   let csvUrl = $derived(breakdownMetricLookup[breakdownMetric].csvUrl);
   let chunkUrls = $derived(breakdownMetricLookup[breakdownMetric].chunkUrls);
   let numChunks = $derived(breakdownMetricLookup[breakdownMetric].numChunks);
@@ -365,43 +385,191 @@
   let breakdownArray: Uint16Array = $state(new Uint16Array(0));
   // $inspect({ breakdownArray });
 
-  $effect(() => {
-    breakdownMetric;
-    blendedIndices;
-    // breakdownChartSortValue;
-    let b = breakdownChartSortValue;
-    done = false;
-    loadIndexedArrayUint16(chunkUrls).then(async (result) => {
-      breakdownArray = result;
+  // $effect(() => {
+  //   breakdownMetric;
+  //   blendedIndices;
 
-      if (blendedIndices.length > 0) {
-        console.log("creating breakdown canvas");
-        !mobile.current
-          ? await createDensityCanvas(
-              breakdownCanvas,
-              b == "total" ? customArea : blendedIndices,
-              breakdownArray,
-              currentLUT,
-              height,
-              width,
-            ).then((result) => {
-              breakdownDataURL = result;
-              done = true;
-            })
-          : await createDensityLayerMobile(
-              b === "total" ? customArea : blendedIndices,
-              breakdownArray,
-              currentLUT,
-              bbox,
-              opacity,
-              height,
-              width,
-            ).then((result) => {
-              breakdownDataURL = result;
-              done = true;
-            });
-        // console.log({ breakdownDataURL });
+  //   let b = breakdownChartSortValue;
+  //   done = false;
+  //   loadIndexedArrayUint16(chunkUrls).then(async (result) => {
+  //     breakdownArray = result;
+
+  //     if (blendedIndices.length > 0) {
+  //       console.log("creating breakdown canvas");
+  //       !mobile.current
+  //         ? await createDensityCanvas(
+  //             breakdownCanvas,
+  //             b == "total" ? customArea : blendedIndices,
+  //             breakdownArray,
+  //             currentLUT,
+  //             height,
+  //             width,
+  //           ).then((result) => {
+  //             breakdownDataURL = result;
+  //             done = true;
+  //           })
+  //         : await createDensityLayerMobile(
+  //             b === "total" ? customArea : blendedIndices,
+  //             breakdownArray,
+  //             currentLUT,
+  //             bbox,
+  //             opacity,
+  //             height,
+  //             width,
+  //           ).then((result) => {
+  //             breakdownDataURL = result;
+  //             done = true;
+  //           });
+  //       // console.log({ breakdownDataURL });
+  //     }
+  //   });
+  // });
+
+  async function refreshBreakdownArray(args: {
+    runId: number;
+    chunkUrls: string | string[];
+  }) {
+    const { runId, chunkUrls } = args;
+
+    try {
+      const result = await loadIndexedArrayUint16(chunkUrls);
+
+      if (runId !== breakdownArrayLoadRunId) return;
+
+      breakdownArray = result;
+    } catch (err) {
+      if (runId === breakdownArrayLoadRunId) {
+        console.error("Failed to load breakdown array:", err);
       }
+    }
+  }
+
+  $effect(() => {
+    const chunkUrlsSnapshot = chunkUrls;
+    const runId = ++breakdownArrayLoadRunId;
+
+    void refreshBreakdownArray({
+      runId,
+      chunkUrls: chunkUrlsSnapshot,
+    });
+  });
+
+  async function refreshBreakdownOverlay(args: {
+    runId: number;
+    breakdownArray: Uint16Array;
+    blendedIndices: Uint32Array;
+    customArea: Uint32Array;
+    breakdownChartSortValue: string;
+    currentLUT: Uint32Array;
+    width: number;
+    height: number;
+    bbox: [number, number, number, number];
+    opacity: number;
+    mobileCurrent: boolean;
+  }) {
+    const {
+      runId,
+      breakdownArray,
+      blendedIndices,
+      customArea,
+      breakdownChartSortValue,
+      currentLUT,
+      width,
+      height,
+      bbox,
+      opacity,
+      mobileCurrent,
+    } = args;
+
+    if (!breakdownArray?.length) {
+      if (runId === breakdownOverlayRunId) {
+        breakdownDataURL = null;
+        done = true;
+      }
+      return;
+    }
+
+    if (!width || !height) {
+      if (runId === breakdownOverlayRunId) {
+        breakdownDataURL = null;
+        done = true;
+      }
+      return;
+    }
+
+    const activeIndices =
+      breakdownChartSortValue === "total" ? customArea : blendedIndices;
+
+    if (!activeIndices?.length) {
+      if (runId === breakdownOverlayRunId) {
+        breakdownDataURL = null;
+        done = true;
+      }
+      return;
+    }
+
+    try {
+      const result = !mobileCurrent
+        ? await createDensityCanvas(
+            breakdownCanvas,
+            activeIndices,
+            breakdownArray,
+            currentLUT,
+            height,
+            width,
+          )
+        : await createDensityLayerMobile(
+            activeIndices,
+            breakdownArray,
+            currentLUT,
+            bbox,
+            opacity,
+            height,
+            width,
+          );
+
+      if (runId !== breakdownOverlayRunId) return;
+
+      breakdownDataURL = result;
+      done = true;
+    } catch (err) {
+      if (runId === breakdownOverlayRunId) {
+        console.error("Failed to create breakdown overlay:", err);
+        done = true;
+      }
+    }
+  }
+
+  $effect(() => {
+    const selectedTabIdSnapshot = selectedTabId;
+    if (selectedTabIdSnapshot !== "breakdown") return;
+
+    const breakdownArraySnapshot = breakdownArray;
+    const blendedIndicesSnapshot = blendedIndices;
+    const customAreaSnapshot = customArea;
+    const sortValueSnapshot = breakdownChartSortValue;
+    const currentLUTSnapshot = currentLUT;
+    const widthSnapshot = width;
+    const heightSnapshot = height;
+    const bboxSnapshot = bbox;
+    const opacitySnapshot = opacity;
+    const mobileCurrentSnapshot = mobile.current;
+
+    const runId = ++breakdownOverlayRunId;
+    done = false;
+
+    void refreshBreakdownOverlay({
+      runId,
+      breakdownArray: breakdownArraySnapshot,
+      blendedIndices: blendedIndicesSnapshot,
+      customArea: customAreaSnapshot,
+      breakdownChartSortValue: sortValueSnapshot,
+      currentLUT: currentLUTSnapshot,
+      width: widthSnapshot,
+      height: heightSnapshot,
+      bbox: bboxSnapshot,
+      opacity: opacitySnapshot,
+      mobileCurrent: mobileCurrentSnapshot,
     });
   });
 
@@ -526,12 +694,12 @@
   );
   // $inspect(policyLensArea);
 
-  let currentBitArrays = $state();
+  let currentBitArrays: Uint32Array[] = $state([]);
   // $inspect({ currentBitArrays });
 
-  let enrichedLayers = $state([]);
+  let enrichedLayers: EnrichedLayer[] = $state([]);
   // $inspect(enrichedLayers);
-  let lensIndices = $state();
+  let lensIndices: Uint32Array = $state(new Uint32Array(0));
   // $inspect({ lensIndices });
 
   let blendedIndices: Uint32Array = $state(new Uint32Array(0));
@@ -544,8 +712,17 @@
   let breakdownDataURL = $state();
   // $inspect({ breakdownDataURL });
 
-  let breakdownData = $state(null);
-  // $inspect({ breakdownData });
+  type BreakdownDatum = {
+    area_code: string;
+    area_name: string;
+    selected_area: number;
+    total_area: number;
+    selected_area_as_a_proportion_of_total_area: number;
+    color: string;
+  };
+
+  let breakdownData: BreakdownDatum[] = $state([]);
+  $inspect({ breakdownData });
 
   function categoryKey(areaName: string) {
     const cleaned = areaName ?? ""; /*.replace(/[^a-z0-9]/gi, "");*/
@@ -553,7 +730,7 @@
     return cleaned;
   }
 
-  function summariseByCategory(data) {
+  function summariseByCategory(data: BreakdownDatum[]) {
     return (data ?? [])
       .filter((d) => (d.area_code ?? "").startsWith("E"))
       .reduce((acc, d) => {
@@ -613,22 +790,44 @@
   let selected: string[] = $state([]);
   $inspect({ selected });
 
+  // let tableData = $derived(
+  //   selected?.map((layer, i) => {
+  //     return {
+  //       name: makeFileNameReadable(layer, gridType, usingGeoTiff),
+  //       area:
+  //         typeof enrichedLayers?.find(
+  //           (d) => makeFileNameDatasetKey(d.filename) == layer,
+  //         )?.area === "number"
+  //           ? convertPixelsToHectares(
+  //               enrichedLayers?.find(
+  //                 (d) => makeFileNameDatasetKey(d.filename) == layer,
+  //               )?.area,
+  //               gridSize,
+  //             )
+  //           : 0,
+  //       unique:
+  //         uniqueCounts && uniqueCounts[i]
+  //           ? convertPixelsToHectares(uniqueCounts[i], gridSize)
+  //           : 0,
+  //       subLayers: selectedSubLayers?.[layer],
+  //     };
+  //   }),
+  // );
+
   let tableData = $derived(
     selected?.map((layer, i) => {
+      if (enrichedLayers?.length === 0) return;
+      const matchedLayer = enrichedLayers.find(
+        (d) => makeFileNameDatasetKey(d.filename) === layer,
+      );
+
       return {
-        name: makeFileNameReadable(layer, gridType),
-        area: enrichedLayers?.find(
-          (d) => makeFileNameDatasetKey(d.filename) == layer,
-        )?.area
-          ? convertPixelsToHectares(
-              enrichedLayers?.find(
-                (d) => makeFileNameDatasetKey(d.filename) == layer,
-              )?.area,
-              gridSize,
-            )
+        name: makeFileNameReadable(layer, gridType, usingGeoTiff),
+        area: matchedLayer
+          ? convertPixelsToHectares(matchedLayer.area, gridSize)
           : 0,
         unique:
-          uniqueCounts && uniqueCounts[i]
+          uniqueCounts?.[i] !== undefined
             ? convertPixelsToHectares(uniqueCounts[i], gridSize)
             : 0,
         subLayers: selectedSubLayers?.[layer],
@@ -684,7 +883,9 @@
                   label: layer.dataLayer,
                   exclusive: layer.level == 2 ? true : false,
                   checked: layer.initiallyChecked,
-                  parentCheckBoxName: section.replaceAll(" ", "_") + ".bin",
+                  parentCheckBoxName:
+                    section.replaceAll(" ", "_") +
+                    (usingGeoTiff ? ".tif" : ".bin"),
                   section: category,
                 };
               }),
@@ -696,7 +897,7 @@
       };
     }),
   );
-  // $inspect({ filterSections });
+  $inspect({ filterSections });
 
   let selectedSubLayers: object = $derived.by(() => {
     const subLayersToInclude =
@@ -707,8 +908,9 @@
       const value = startingPosition
         ?.filter(
           (d) =>
-            (d.tier == makeFileNameReadable(sel, gridType) ||
-              d.category == makeFileNameReadable(sel, gridType)) &&
+            (d.tier == makeFileNameReadable(sel, gridType, usingGeoTiff) ||
+              d.category ==
+                makeFileNameReadable(sel, gridType, usingGeoTiff)) &&
             d.dataLayer !== "All data layers",
         )
         .map((d) => d.dataLayer);
@@ -722,15 +924,15 @@
   // let uniqueArray = $state([]);
 
   let selectedRestriction: string | undefined = $state();
-  // $inspect({ selectedRestriction });
+  $inspect({ selectedRestriction });
   let selectedRestrictionIndex: number | undefined = $derived(
     selectedRestriction
       ? selected
-          ?.map((d) => makeFileNameReadable(d, gridType))
+          ?.map((d) => makeFileNameReadable(d, gridType, usingGeoTiff))
           .indexOf(selectedRestriction)
       : undefined,
   );
-  $inspect({ selectedRestrictionIndex });
+  // $inspect({ selectedRestrictionIndex });
 
   let uniqueArrays: Uint32Array[] = $state([]);
   // $inspect({ uniqueArrays });
@@ -741,28 +943,45 @@
   );
   $inspect({ uniqueIndices });
 
+  async function updateCanvas() {
+    if (!blendedIndices?.length) return;
+    mobile.current
+      ? (dataURL = await makeAndPaintCanvasFromIndicesMobile())
+      : makeAndPaintCanvasFromIndices();
+  }
+
+  $effect(() => {
+    // When selectedRestriction changes update the map,
+    // but don't update each time any of the reactive values read within updateCanvas changes
+    selectedRestriction;
+    untrack(() => {
+      updateCanvas();
+    });
+  });
+
   // let csvFile = $state();
   let zipFile: FileList | undefined = $state();
+  // $inspect(zipFile);
   // let geoJSONFile: FileList = $state();
   // $inspect(geoJSONFile);
-  let uploadedGeoJSON: GeoJSON = $state();
+  let uploadedGeoJSON: GeoJSON | undefined = $state();
   // $inspect(uploadedGeoJSON);
 
   let tiffArrayBuffersFromZip = $state({});
 
   let layersToUnpack = $state();
-  // $inspect({ layersToUnpack });
+  $inspect({ layersToUnpack });
 
-  async function handleFileUpload(event) {
-    URL.revokeObjectURL(dataURL);
+  async function handleFileUpload() {
+    if (typeof dataURL === "string") URL.revokeObjectURL(dataURL);
     dataURL = null;
-    selected = null;
+    selected = [];
     usingGeoTiff = true;
 
-    const file = event.target.files[0];
-    if (!file) return;
+    // const file: FileList | null = event?.target?.files[0];
+    if (!zipFile) return;
 
-    const zip = await JSZip.loadAsync(file);
+    const zip = await JSZip.loadAsync(zipFile[0]);
     for (const filename in zip.files) {
       const zipEntry = zip.files[filename];
 
@@ -793,7 +1012,7 @@
     }
     if (startingPosition) {
       selected = startingPosition
-        .filter((d) => d.initiallyChecked === "y")
+        .filter((d) => d.initiallyChecked)
         .map((d) => makeFileNameDatasetKey(d.filename));
       if (selected.length > 0) {
         unpackZippedLayers();
@@ -1022,84 +1241,194 @@
   //   });
   // }
 
-  function unpackZippedLayers() {
+  // function unpackZippedLayers() {
+  //   prepareToUnpack();
+  //   if (typeof dataURL === "string") URL.revokeObjectURL(dataURL);
+  //   dataURL = null;
+
+  //   const simpleZipWorker = new Worker(
+  //     new URL("$lib/workers/simpleZipUnpackWorker.js", import.meta.url),
+  //     { type: "module" },
+  //   );
+
+  //   simpleZipWorker.onmessage = (e) => {
+  //     if (e.data.error) {
+  //       console.warn(e.data.error);
+  //       return;
+  //     }
+
+  //     // console.log("Processed data:", e.data);
+
+  //     enrichedLayers = e.data.rasterLayers;
+  //     policyLensArea = e.data.policyLensArea;
+  //     lensIndices = e.data.lensIndices;
+
+  //     blendLayers();
+  //     simpleZipWorker.terminate();
+  //   };
+
+  //   const layersWithBuffers = layersToUnpack
+  //     .map((layer) => {
+  //       const buffer = tiffArrayBuffersFromZip[layer.filename];
+
+  //       if (!buffer) {
+  //         console.warn("Missing buffer for:", layer.filename);
+  //         return null;
+  //       }
+
+  //       return {
+  //         filename: layer.filename,
+  //         arrayBuffer: buffer,
+  //       };
+  //     })
+  //     .filter(Boolean);
+
+  //   let policyLensLayerToUnpack = parseCsv(metadataCsv).find(
+  //     (layer) => layer.filename === policyLens.replace(".bin", ".tif"),
+  //   );
+
+  //   let clonedPolicyLensLayerToUnpack;
+
+  //   if (policyLensLayerToUnpack) {
+  //     policyLensLayerToUnpack.arrayBuffer =
+  //       tiffArrayBuffersFromZip[policyLens.replace(".bin", ".tif")];
+  //     clonedPolicyLensLayerToUnpack = structuredClone(policyLensLayerToUnpack);
+  //     // console.log(policyLensLayerToUnpack, clonedPolicyLensLayerToUnpack);
+  //   }
+
+  //   simpleZipWorker.onerror = (e) => {
+  //     console.error("Worker error:", e);
+  //   };
+
+  //   const transferables = layersWithBuffers.map((l) => l.arrayBuffer);
+
+  //   if (clonedPolicyLensLayerToUnpack?.arrayBuffer) {
+  //     transferables.push(clonedPolicyLensLayerToUnpack.arrayBuffer);
+  //   }
+
+  //   simpleZipWorker.postMessage(
+  //     {
+  //       layersToUnpack: layersWithBuffers,
+  //       policyLensLayerToUnpack:
+  //         policyLens == "customArea"
+  //           ? "customArea"
+  //           : (clonedPolicyLensLayerToUnpack ?? "England"),
+  //       customArea: new Uint32Array(customArea ? customArea : []).buffer,
+  //       width,
+  //       height,
+  //     },
+  //     // transferables,
+  //   );
+  // }
+
+  async function unpackZippedLayers() {
+    const runId = ++analysisRunId;
+
     prepareToUnpack();
     URL.revokeObjectURL(dataURL);
     dataURL = null;
 
-    const simpleZipWorker = new Worker(
+    const worker = new Worker(
       new URL("$lib/workers/simpleZipUnpackWorker.js", import.meta.url),
       { type: "module" },
     );
 
-    simpleZipWorker.onmessage = (e) => {
-      if (e.data.error) {
-        console.warn(e.data.error);
-        return;
-      }
-
-      // console.log("Processed data:", e.data);
-
-      enrichedLayers = e.data.rasterLayers;
-      policyLensArea = e.data.policyLensArea;
-      lensIndices = e.data.lensIndices;
-
-      blendLayers();
-      simpleZipWorker.terminate();
-    };
-
-    const layersWithBuffers = layersToUnpack
-      .map((layer) => {
-        const buffer = tiffArrayBuffersFromZip[layer.filename];
-
-        if (!buffer) {
-          console.warn("Missing buffer for:", layer.filename);
-          return null;
+    return new Promise((resolve, reject) => {
+      worker.onmessage = async (e) => {
+        if (runId !== analysisRunId) {
+          worker.terminate();
+          resolve(false);
+          return;
         }
 
-        return {
-          filename: layer.filename,
-          arrayBuffer: buffer,
-        };
-      })
-      .filter(Boolean);
+        if (e.data.error) {
+          worker.terminate();
+          reject(new Error(e.data.error));
+          return;
+        }
 
-    let policyLensLayerToUnpack = parseCsv(metadataCsv).find(
-      (layer) => layer.filename === policyLens.replace(".bin", ".tif"),
-    );
+        enrichedLayers = e.data.rasterLayers;
+        policyLensArea = e.data.policyLensArea;
+        lensIndices = e.data.lensIndices
+          ? new Uint32Array(e.data.lensIndices)
+          : null;
 
-    let clonedPolicyLensLayerToUnpack;
+        if (runId !== analysisRunId) {
+          worker.terminate();
+          resolve(false);
+          return;
+        }
 
-    if (policyLensLayerToUnpack) {
-      policyLensLayerToUnpack.arrayBuffer =
-        tiffArrayBuffersFromZip[policyLens.replace(".bin", ".tif")];
-      clonedPolicyLensLayerToUnpack = structuredClone(policyLensLayerToUnpack);
-      // console.log(policyLensLayerToUnpack, clonedPolicyLensLayerToUnpack);
-    }
+        worker.terminate();
 
-    simpleZipWorker.onerror = (e) => {
-      console.error("Worker error:", e);
-    };
+        // follow-on work must also be guarded
+        if (runId === analysisRunId) {
+          blendLayers();
+        }
 
-    const transferables = layersWithBuffers.map((l) => l.arrayBuffer);
+        resolve(true);
+      };
 
-    if (clonedPolicyLensLayerToUnpack?.arrayBuffer) {
-      transferables.push(clonedPolicyLensLayerToUnpack.arrayBuffer);
-    }
+      worker.onerror = (err) => {
+        worker.terminate();
+        reject(err);
+      };
 
-    simpleZipWorker.postMessage(
-      {
-        layersToUnpack: layersWithBuffers,
-        policyLensLayerToUnpack:
-          policyLens == "customArea"
-            ? "customArea"
-            : (clonedPolicyLensLayerToUnpack ?? "England"),
-        customArea: new Uint32Array(customArea ? customArea : []).buffer,
-        width,
-        height,
-      },
-      // transferables,
-    );
+      const layersWithBuffers = layersToUnpack
+        .map((layer) => {
+          const buffer = tiffArrayBuffersFromZip[layer.filename];
+
+          if (!buffer) {
+            console.warn("Missing buffer for:", layer.filename);
+            return null;
+          }
+
+          return {
+            filename: layer.filename,
+            arrayBuffer: buffer,
+          };
+        })
+        .filter(Boolean);
+
+      let policyLensLayerToUnpack = parseCsv(metadataCsv).find(
+        (layer) => layer.filename === policyLens.replace(".bin", ".tif"),
+      );
+
+      let clonedPolicyLensLayerToUnpack;
+
+      if (policyLensLayerToUnpack) {
+        policyLensLayerToUnpack.arrayBuffer =
+          tiffArrayBuffersFromZip[policyLens.replace(".bin", ".tif")];
+        clonedPolicyLensLayerToUnpack = structuredClone(
+          policyLensLayerToUnpack,
+        );
+        // console.log(policyLensLayerToUnpack, clonedPolicyLensLayerToUnpack);
+      }
+
+      // simpleZipWorker.onerror = (e) => {
+      //   console.error("Worker error:", e);
+      // };
+
+      const transferables = layersWithBuffers.map((l) => l.arrayBuffer);
+
+      if (clonedPolicyLensLayerToUnpack?.arrayBuffer) {
+        transferables.push(clonedPolicyLensLayerToUnpack.arrayBuffer);
+      }
+
+      worker.postMessage(
+        {
+          layersToUnpack: layersWithBuffers,
+          policyLensLayerToUnpack:
+            policyLens == "customArea"
+              ? "customArea"
+              : (clonedPolicyLensLayerToUnpack ?? "England"),
+          customArea: new Uint32Array(customArea ? customArea : []).buffer,
+          width,
+          height,
+        },
+        // transferables,
+      );
+    });
   }
 
   //Constants used for getting the LA breakdown
@@ -1295,31 +1624,282 @@
   //       );
   // });
 
-  async function getBreakdownAndCreateDensityCanvas() {
-    if (gridType === "hectare") {
-      getLABreakdown(
+  // async function getBreakdownAndCreateDensityCanvas() {
+  //   if (gridType === "hectare") {
+  //     getLABreakdown(
+  //       chunkUrls,
+  //       indicesToBinaryMask(blendedIndices, width, height),
+  //       customArea,
+  //     )
+  //       .then((result) => {
+  //         breakdownData = result.json;
+  //         // console.log("done breaking down: ", breakdownData);
+  //       })
+  //       .catch((err) => {
+  //         console.error("Breakdown failed:", err);
+  //       });
+  //     densityDataURL = !mobile.current
+  //       ? await createDensityCanvas(
+  //           densityCanvas,
+  //           breakdownChartSortValue === "total" ? customArea : blendedIndices,
+  //           densityArray,
+  //           DENSITY_LUT,
+  //           height,
+  //           width,
+  //         )
+  //       : await createDensityLayerMobile(
+  //           breakdownChartSortValue === "total" ? customArea : blendedIndices,
+  //           densityArray,
+  //           DENSITY_LUT,
+  //           bbox,
+  //           opacity,
+  //           height,
+  //           width,
+  //         );
+  //   }
+  // }
+
+  // async function getBreakdownAndCreateDensityCanvas(args: {
+  //   runId: number;
+  //   gridType: string;
+  //   chunkUrls: string | string[];
+  //   blendedIndices: Uint32Array;
+  //   customArea: Uint32Array;
+  //   width: number;
+  //   height: number;
+  //   densityArray: Uint16Array;
+  //   DENSITY_LUT: Uint32Array;
+  //   breakdownChartSortValue: string;
+  //   mobileCurrent: boolean;
+  //   bbox: [number, number, number, number];
+  //   opacity: number;
+  // }) {
+  //   const {
+  //     runId,
+  //     gridType,
+  //     chunkUrls,
+  //     blendedIndices,
+  //     customArea,
+  //     width,
+  //     height,
+  //     densityArray,
+  //     DENSITY_LUT,
+  //     breakdownChartSortValue,
+  //     mobileCurrent,
+  //     bbox,
+  //     opacity,
+  //   } = args;
+
+  //   if (gridType !== "hectare") return;
+  //   if (!width || !height) return;
+  //   if (!densityArray?.length) return;
+  //   if (!customArea?.length) return;
+
+  //   const activeIndices =
+  //     breakdownChartSortValue === "total" ? customArea : blendedIndices;
+
+  //   // If the chosen active area is empty, clear outputs only if this is still current
+  //   if (!activeIndices?.length) {
+  //     if (runId === breakdownSummaryRunId) {
+  //       breakdownData = [];
+  //       densityDataURL = null;
+  //     }
+  //     return;
+  //   }
+
+  //   try {
+  //     const selectionMask = indicesToBinaryMask(blendedIndices, width, height);
+
+  //     const breakdownResult = await getLABreakdown(
+  //       chunkUrls,
+  //       selectionMask,
+  //       customArea,
+  //     );
+
+  //     if (runId !== breakdownSummaryRunId) return;
+
+  //     breakdownData = breakdownResult.json;
+
+  //     const densityResult = !mobileCurrent
+  //       ? await createDensityCanvas(
+  //           densityCanvas,
+  //           activeIndices,
+  //           densityArray,
+  //           DENSITY_LUT,
+  //           height,
+  //           width,
+  //         )
+  //       : await createDensityLayerMobile(
+  //           activeIndices,
+  //           densityArray,
+  //           DENSITY_LUT,
+  //           bbox,
+  //           opacity,
+  //           height,
+  //           width,
+  //         );
+
+  //     if (runId !== breakdownSummaryRunId) return;
+
+  //     densityDataURL = densityResult;
+  //   } catch (err) {
+  //     if (runId === breakdownSummaryRunId) {
+  //       console.error("Breakdown/density refresh failed:", err);
+  //     }
+  //   }
+  // }
+
+  // $effect(() => {
+  //   if (breakdownChartSortValue && blendedIndices.length && customArea.length)
+  //     getBreakdownAndCreateDensityCanvas();
+  // });
+
+  // $effect(() => {
+  //   const gridTypeSnapshot = gridType;
+  //   const chunkUrlsSnapshot = chunkUrls;
+  //   const blendedIndicesSnapshot = blendedIndices;
+  //   const customAreaSnapshot = customArea;
+  //   const widthSnapshot = width;
+  //   const heightSnapshot = height;
+  //   const densityArraySnapshot = densityArray;
+  //   const densityLUTSnapshot = DENSITY_LUT;
+  //   const sortValueSnapshot = breakdownChartSortValue;
+  //   const mobileCurrentSnapshot = mobile.current;
+  //   const bboxSnapshot = bbox;
+  //   const opacitySnapshot = opacity;
+
+  //   const runId = ++breakdownSummaryRunId;
+
+  //   void getBreakdownAndCreateDensityCanvas({
+  //     runId,
+  //     gridType: gridTypeSnapshot,
+  //     chunkUrls: chunkUrlsSnapshot,
+  //     blendedIndices: blendedIndicesSnapshot,
+  //     customArea: customAreaSnapshot,
+  //     width: widthSnapshot,
+  //     height: heightSnapshot,
+  //     densityArray: densityArraySnapshot,
+  //     DENSITY_LUT: densityLUTSnapshot,
+  //     breakdownChartSortValue: sortValueSnapshot,
+  //     mobileCurrent: mobileCurrentSnapshot,
+  //     bbox: bboxSnapshot,
+  //     opacity: opacitySnapshot,
+  //   });
+  // });
+
+  async function refreshBreakdownSummary(args: {
+    runId: number;
+    gridType: string;
+    chunkUrls: string | string[];
+    blendedIndices: Uint32Array;
+    customArea: Uint32Array;
+    width: number;
+    height: number;
+  }) {
+    const {
+      runId,
+      gridType,
+      chunkUrls,
+      blendedIndices,
+      customArea,
+      width,
+      height,
+    } = args;
+    console.log({ runId });
+    if (gridType !== "hectare") return;
+    if (!width || !height) return;
+
+    // No area of interest -> no breakdown
+    if (!customArea?.length) {
+      if (runId === breakdownRunId) {
+        breakdownData = [];
+      }
+      return;
+    }
+
+    // No filtered cells -> empty breakdown
+    if (!blendedIndices?.length) {
+      if (runId === breakdownRunId) {
+        breakdownData = [];
+      }
+      return;
+    }
+
+    try {
+      const selectionMask = indicesToBinaryMask(blendedIndices, width, height);
+
+      const breakdownResult = await getLABreakdown(
         chunkUrls,
-        indicesToBinaryMask(blendedIndices, width, height),
+        selectionMask,
         customArea,
-      )
-        .then((result) => {
-          breakdownData = result.json;
-          // console.log("done breaking down: ", breakdownData);
-        })
-        .catch((err) => {
-          console.error("Breakdown failed:", err);
-        });
-      densityDataURL = !mobile.current
+      );
+
+      if (runId !== breakdownRunId) return;
+
+      breakdownData = breakdownResult.json;
+    } catch (err) {
+      if (runId === breakdownRunId) {
+        console.error("Breakdown refresh failed:", err);
+      }
+    }
+  }
+
+  async function refreshDensityVisual(args: {
+    runId: number;
+    gridType: string;
+    blendedIndices: Uint32Array;
+    customArea: Uint32Array;
+    width: number;
+    height: number;
+    densityArray: Uint16Array;
+    DENSITY_LUT: Uint32Array;
+    breakdownChartSortValue: string;
+    mobileCurrent: boolean;
+    bbox: [number, number, number, number];
+    opacity: number;
+  }) {
+    const {
+      runId,
+      gridType,
+      blendedIndices,
+      customArea,
+      width,
+      height,
+      densityArray,
+      DENSITY_LUT,
+      breakdownChartSortValue,
+      mobileCurrent,
+      bbox,
+      opacity,
+    } = args;
+
+    if (gridType !== "hectare") return;
+    if (!width || !height) return;
+    if (!densityArray?.length) return;
+    if (!customArea?.length) return;
+
+    const activeIndices =
+      breakdownChartSortValue === "total" ? customArea : blendedIndices;
+
+    if (!activeIndices?.length) {
+      if (runId === densityRunId) {
+        densityDataURL = null;
+      }
+      return;
+    }
+
+    try {
+      const densityResult = !mobileCurrent
         ? await createDensityCanvas(
             densityCanvas,
-            breakdownChartSortValue === "total" ? customArea : blendedIndices,
+            activeIndices,
             densityArray,
             DENSITY_LUT,
             height,
             width,
           )
         : await createDensityLayerMobile(
-            breakdownChartSortValue === "total" ? customArea : blendedIndices,
+            activeIndices,
             densityArray,
             DENSITY_LUT,
             bbox,
@@ -1327,15 +1907,74 @@
             height,
             width,
           );
+
+      if (runId !== densityRunId) return;
+
+      densityDataURL = densityResult;
+    } catch (err) {
+      if (runId === densityRunId) {
+        console.error("Density refresh failed:", err);
+      }
     }
   }
 
   $effect(() => {
-    if (breakdownChartSortValue && blendedIndices && customArea)
-      getBreakdownAndCreateDensityCanvas();
+    const gridTypeSnapshot = gridType;
+    const chunkUrlsSnapshot = chunkUrls;
+    const blendedIndicesSnapshot = blendedIndices;
+    const customAreaSnapshot = customArea;
+    const widthSnapshot = width;
+    const heightSnapshot = height;
+
+    const runId = ++breakdownRunId;
+
+    void refreshBreakdownSummary({
+      runId,
+      gridType: gridTypeSnapshot,
+      chunkUrls: chunkUrlsSnapshot,
+      blendedIndices: blendedIndicesSnapshot,
+      customArea: customAreaSnapshot,
+      width: widthSnapshot,
+      height: heightSnapshot,
+    });
+  });
+
+  $effect(() => {
+    const selectedTabIdSnapshot = selectedTabId;
+    if (selectedTabIdSnapshot !== "density") return;
+
+    const gridTypeSnapshot = gridType;
+    const blendedIndicesSnapshot = blendedIndices;
+    const customAreaSnapshot = customArea;
+    const widthSnapshot = width;
+    const heightSnapshot = height;
+    const densityArraySnapshot = densityArray;
+    const densityLUTSnapshot = DENSITY_LUT;
+    const sortValueSnapshot = breakdownChartSortValue;
+    const mobileCurrentSnapshot = mobile.current;
+    const bboxSnapshot = bbox;
+    const opacitySnapshot = opacity;
+
+    const runId = ++densityRunId;
+
+    void refreshDensityVisual({
+      runId,
+      gridType: gridTypeSnapshot,
+      blendedIndices: blendedIndicesSnapshot,
+      customArea: customAreaSnapshot,
+      width: widthSnapshot,
+      height: heightSnapshot,
+      densityArray: densityArraySnapshot,
+      DENSITY_LUT: densityLUTSnapshot,
+      breakdownChartSortValue: sortValueSnapshot,
+      mobileCurrent: mobileCurrentSnapshot,
+      bbox: bboxSnapshot,
+      opacity: opacitySnapshot,
+    });
   });
 
   function makeAndPaintCanvasFromIndices() {
+    if (!blendedIndices?.length) return;
     console.time("canvas-indices");
     done = false;
 
@@ -1350,7 +1989,10 @@
     const pixelCount = imageData.data.length / 4;
     const mask = new Uint8Array(pixelCount);
 
-    const areaIndices = currentBitArrays[selectedRestrictionIndex];
+    const areaIndices =
+      selectedRestrictionIndex !== undefined
+        ? currentBitArrays[selectedRestrictionIndex]
+        : undefined;
     // blendedIndices, lensIndices, areaIndices, uniqueIndices
     // are Uint32Arrays of indices where value === 1
 
@@ -1409,7 +2051,10 @@
     // --- Build FULL mask once (critical for performance) ---
     const mask = new Uint8Array(pixelCount);
 
-    const areaIndices = currentBitArrays[selectedRestrictionIndex];
+    const areaIndices =
+      selectedRestrictionIndex !== undefined
+        ? currentBitArrays[selectedRestrictionIndex]
+        : undefined;
 
     if (blendedIndices) {
       for (let i = 0; i < blendedIndices.length; i++) {
@@ -1593,7 +2238,115 @@
     console.log("\n" + grid.join("\n"));
   }
 
+  // async function unpackAndBlendLayers() {
+  //   done = false;
+  //   URL.revokeObjectURL(dataURL);
+  //   dataURL = null;
+  //   prepareToUnpack();
+
+  //   const worker = new Worker(
+  //     new URL("$lib/workers/pipelineWorker.js", import.meta.url),
+  //     { type: "module" },
+  //   );
+
+  //   return new Promise((resolve, reject) => {
+  //     worker.onmessage = async (e) => {
+  //       if (e.data.error) {
+  //         console.error("Worker error:", e.data);
+  //         reject(new Error(e.data.error));
+  //         worker.terminate();
+  //         return;
+  //       }
+  //       console.log("worker message: ", e.data);
+  //       // Final buffers from worker
+  //       enrichedLayers = e.data.rasterLayers;
+  //       currentBitArrays = e.data.rasterLayers.map(
+  //         (l) => new Uint32Array(l.data.buffer),
+  //       );
+  //       blendedArrayLength = e.data.blendedArrayLength;
+  //       policyLensArea = e.data.policyLensArea;
+  //       lensIndices = new Uint32Array(e.data.lensIndices);
+  //       blendedIndices = new Uint32Array(e.data.blendedIndices);
+  //       uniqueCounts = new Uint32Array(e.data.uniqueCounts);
+  //       uniqueArrays = e.data.uniqueArrays.map(
+  //         (buf: ArrayBuffer) => new Uint32Array(buf),
+  //       );
+  //       // if (e.data.bbox) {
+  //       //   bbox = e.data.bbox;
+  //       // }
+  //       // canvasWidth = e.data.canvasWidth;
+  //       if (e.data.canvasWidth) {
+  //         width = e.data.canvasWidth;
+  //       }
+  //       // canvasHeight = e.data.canvasHeight;
+  //       if (e.data.canvasHeight) {
+  //         height = e.data.canvasHeight;
+  //       }
+  //       const debug = e.data.debug;
+  //       const tileIndex = e.data.tileIndex;
+
+  //       // debug.layers.forEach((layer) => {
+  //       //   console.group(`Layer: ${layer.layer}`);
+  //       //   console.log("Expected:", layer.expected.length);
+  //       //   console.log("Loaded:", layer.loaded.length);
+  //       //   console.log("Missing:", layer.missing.length);
+  //       //   console.log("Missing tiles:", layer.missing);
+  //       //   console.groupEnd();
+  //       //   console.log(`Grid for ${layer.layer}`);
+  //       //   renderTileGrid(layer, tileIndex);
+  //       // });
+
+  //       // const signature = debug.layers
+  //       //   .map((l) => l.loaded.sort().join(","))
+  //       //   .join("|");
+
+  //       // console.log("Run signature:", signature);
+
+  //       worker.terminate();
+  //       done = true;
+  //       resolve(true);
+
+  //       // if (gridType === "hectare") {
+  //       mobile.current
+  //         ? (dataURL = await makeAndPaintCanvasFromIndicesMobile())
+  //         : makeAndPaintCanvasFromIndices();
+  //       // }
+
+  //       // getBreakdownAndCreateDensityCanvas();
+  //     };
+
+  //     worker.onerror = (err) => {
+  //       console.error("Worker failed", err);
+  //       worker.terminate();
+  //       reject(err);
+  //     };
+
+  //     // Prepare transferable data
+  //     const safeLayers = layersToUnpack?.map((l) => ({ filename: l.filename }));
+  //     // const customAreaBuffer = customArea ? customArea.buffer : null;
+
+  //     worker.postMessage(
+  //       {
+  //         layersToUnpack: safeLayers,
+  //         base,
+  //         policyLens,
+  //         customArea: new Uint32Array(customArea ? customArea : []).buffer,
+  //         settingsObject:
+  //           gridType === "hectare" ? hectareSettings : tenMetreSettings,
+  //         grid10mVariables,
+  //         transformToGlobal: gridType === "hectare" ? false : true,
+  //         tileCodes: [...tileCodes],
+  //       },
+  //       // customAreaBuffer ? [customAreaBuffer] : [],
+  //     );
+  //   });
+  // }
+
+  // console.log({ grid10mVariables });
+
   async function unpackAndBlendLayers() {
+    const runId = ++analysisRunId;
+
     done = false;
     URL.revokeObjectURL(dataURL);
     dataURL = null;
@@ -1606,34 +2359,38 @@
 
     return new Promise((resolve, reject) => {
       worker.onmessage = async (e) => {
-        if (e.data.error) {
-          console.error("Worker error:", e.data);
-          reject(new Error(e.data.error));
+        if (runId !== analysisRunId) {
           worker.terminate();
+          resolve(false); // stale run ignored
           return;
         }
-        console.log("worker message: ", e.data);
-        // Final buffers from worker
+
+        if (e.data.error) {
+          console.error("Worker error:", e.data);
+          worker.terminate();
+          reject(new Error(e.data.error));
+          return;
+        }
+
         enrichedLayers = e.data.rasterLayers;
+        // console.log({ enrichedLayers });
         currentBitArrays = e.data.rasterLayers.map(
           (l) => new Uint32Array(l.data.buffer),
         );
         blendedArrayLength = e.data.blendedArrayLength;
         policyLensArea = e.data.policyLensArea;
-        lensIndices = new Uint32Array(e.data.lensIndices);
+        lensIndices = e.data.lensIndices
+          ? new Uint32Array(e.data.lensIndices)
+          : null;
         blendedIndices = new Uint32Array(e.data.blendedIndices);
         uniqueCounts = new Uint32Array(e.data.uniqueCounts);
         uniqueArrays = e.data.uniqueArrays.map(
           (buf: ArrayBuffer) => new Uint32Array(buf),
         );
-        // if (e.data.bbox) {
-        //   bbox = e.data.bbox;
-        // }
-        // canvasWidth = e.data.canvasWidth;
+
         if (e.data.canvasWidth) {
           width = e.data.canvasWidth;
         }
-        // canvasHeight = e.data.canvasHeight;
         if (e.data.canvasHeight) {
           height = e.data.canvasHeight;
         }
@@ -1658,46 +2415,46 @@
         // console.log("Run signature:", signature);
 
         worker.terminate();
+
+        if (runId !== analysisRunId) {
+          resolve(false);
+          return;
+        }
+
         done = true;
         resolve(true);
 
-        // if (gridType === "hectare") {
-        mobile.current
-          ? (dataURL = await makeAndPaintCanvasFromIndicesMobile())
-          : makeAndPaintCanvasFromIndices();
-        // }
-
-        // getBreakdownAndCreateDensityCanvas();
+        if (mobile.current) {
+          const rendered = await makeAndPaintCanvasFromIndicesMobile();
+          if (runId === analysisRunId) dataURL = rendered;
+        } else {
+          makeAndPaintCanvasFromIndices();
+        }
       };
 
       worker.onerror = (err) => {
-        console.error("Worker failed", err);
+        if (runId === analysisRunId) {
+          console.error("Worker failed", err);
+        }
         worker.terminate();
         reject(err);
       };
 
-      // Prepare transferable data
       const safeLayers = layersToUnpack?.map((l) => ({ filename: l.filename }));
-      // const customAreaBuffer = customArea ? customArea.buffer : null;
 
-      worker.postMessage(
-        {
-          layersToUnpack: safeLayers,
-          base,
-          policyLens,
-          customArea: new Uint32Array(customArea ? customArea : []).buffer,
-          settingsObject:
-            gridType === "hectare" ? hectareSettings : tenMetreSettings,
-          grid10mVariables,
-          transformToGlobal: gridType === "hectare" ? false : true,
-          tileCodes: [...tileCodes],
-        },
-        // customAreaBuffer ? [customAreaBuffer] : [],
-      );
+      worker.postMessage({
+        layersToUnpack: safeLayers,
+        base,
+        policyLens,
+        customArea: new Uint32Array(customArea ? customArea : []).buffer,
+        settingsObject:
+          gridType === "hectare" ? hectareSettings : tenMetreSettings,
+        grid10mVariables,
+        transformToGlobal: gridType === "hectare" ? false : true,
+        tileCodes: [...tileCodes],
+      });
     });
   }
-
-  // console.log({ grid10mVariables });
 
   function downloadUint32Array() {
     const filename = "data.bin";
@@ -1861,7 +2618,7 @@
     selectedLA
       ? LAselectOptions.find((d) => d.value === selectedLA)["text"]
       : (policyLensItems.find((d) => d.value == policyLens)?.sentenceText ??
-          '"' + makeFileNameReadable(policyLens, gridType) + '"'),
+          '"' + makeFileNameReadable(policyLens, gridType, usingGeoTiff) + '"'),
   );
 </script>
 
@@ -1987,6 +2744,7 @@
       {#key startingPosition}
         <FilterChipParent
           {gridType}
+          {usingGeoTiff}
           {startingPosition}
           {selectedSubLayers}
           bind:selected
@@ -2195,9 +2953,6 @@
               bind:selectedLA
               bind:policyLens
               bind:drawing
-              {unpackAndBlendLayers}
-              {unpackZippedLayers}
-              {usingGeoTiff}
               {mobile}
               {gridType}
               {markerLocation}
@@ -2335,9 +3090,6 @@
                 colourScale={"Off"}
                 bind:sortState
                 bind:selectedRestriction
-                {makeAndPaintCanvasFromIndices}
-                {makeAndPaintCanvasFromIndicesMobile}
-                bind:dataURL
                 {mobile}
               />
               <Button
