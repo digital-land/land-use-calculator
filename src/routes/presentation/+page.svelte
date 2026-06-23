@@ -1,5 +1,5 @@
 <script>
-  import { base } from "$app/paths";
+  import { base, asset } from "$app/paths";
   import Spinner from "$lib/components/Spinner.svelte";
 
   let contentSnippet = `const size = 37_000_000;
@@ -74,7 +74,7 @@ result`;
   </h1>
   <div class="slide-content">
     <img
-      src="../lightbulb.png"
+      src={asset("/lightbulb.png")}
       alt="Pixelated lightbulb showing conversion from vector to raster"
     />
   </div>
@@ -86,7 +86,7 @@ result`;
     We want to analyse the data in a range of ways
   </h1>
   <div class="slide-content">
-    <img src="../QGIStools.png" alt="QGIS tools available" />
+    <img src={asset("/QGIStools.png")} alt="QGIS tools available" />
   </div>
 </div>
 <div
@@ -94,7 +94,7 @@ result`;
 >
   <h1 class="slide-heading govuk-heading-l">The data is just an array</h1>
   <div class="slide-content">
-    <img src="../massive-array.png" alt="1s and 0s showing a map" />
+    <img src={asset("/massive-array.png")} alt="1s and 0s showing a map" />
   </div>
 </div>
 <div
@@ -117,7 +117,7 @@ result`;
   class="slide govuk-width-container govuk-main-wrapper govuk-main-wrapper--l"
 >
   <img
-    src="../agent-smith.jpg"
+    src={asset("/agent-smith.jpg")}
     alt="Many copies of Agent Smith from the Matrix"
     width="80%"
   />
@@ -245,7 +245,7 @@ result`;
       Do built up areas in National Parks have more conservation areas than BUAs
       generally?
     </blockquote>
-    <img src="../Ambleside.png" alt="Beautiful place" width="80%" />
+    <img src={asset("/Ambleside.png")} alt="Beautiful place" width="80%" />
   </div>
 </div>
 

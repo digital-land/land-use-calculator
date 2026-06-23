@@ -604,7 +604,9 @@
             ] === 1
               ? densityMetric == "dwellings"
                 ? " dwelling" + " at this location"
-                : " business address" + " at this location"
+                : densityMetric == "business addresses"
+                  ? " business address" + " at this location"
+                  : " " + densityMetric + " at this location"
               : " " + densityMetric + " at this location");
       } else {
         info.style.visibility = "hidden";

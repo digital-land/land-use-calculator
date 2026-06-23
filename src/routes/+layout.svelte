@@ -14,9 +14,9 @@
   // $inspect(currentPath);
 
   let applicationPages = [
-    { href: "/", label: "Home" },
-    { href: "/about", label: "About and user guide" },
-    { href: "/paintMapStats", label: "Experimental painting app" },
+    { href: "./", label: "Home" },
+    { href: "./about", label: "About and user guide" },
+    { href: "./paintMapStats", label: "Experimental painting app" },
   ];
 
   let navigationItems = $derived(
