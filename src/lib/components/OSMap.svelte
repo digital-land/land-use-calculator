@@ -65,9 +65,10 @@
     seeMarker,
     tileCodes,
     tileIndex,
+    sidePanelEffectiveWidth,
   } = $props();
 
-  // $inspect("breakdownDataURL", breakdownDataURL);
+  $inspect("drawnFeature", drawnFeature);
 
   let mapElement: HTMLDivElement;
   let map: Map;
@@ -156,7 +157,8 @@
   });
 
   $effect(() => {
-    console.log("UPDATING marker source");
+    // console.log("UPDATING marker source");
+    $inspect.trace("UPDATING marker source");
     if (seeMarker && markerLocation) {
       map?.removeLayer(markerLayer);
       const newMarkerSource = markerSource;
@@ -461,7 +463,7 @@
       console.log({ customAreaBBox });
       map.getView().fit(customAreaBBox, {
         duration: 1000,
-        padding: [20, 20, 20, 20],
+        padding: [20, 20, 20, sidePanelEffectiveWidth],
         maxZoom: 10,
       });
     } else {
@@ -531,7 +533,8 @@
                 (feature.get("LAD25NM") || feature.get("LPA23NM")) +
                 "</b>" +
                 "<br>" +
-                "Area: " +
+                "Area" +
+                (drawnFeature ? " (within the custom area): " : ": ") +
                 Number(
                   breakdownData?.find(
                     (d) =>

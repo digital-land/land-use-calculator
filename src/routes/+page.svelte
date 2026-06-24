@@ -116,7 +116,7 @@
     urlPolicyLens,
     ...rest
   } = $derived(data);
-
+  $inspect({ grid10mVariables });
   // let grid10mVariables = data.grid10mVariables;
   const mobile = new MediaQuery("max-width: 600px");
   // let pageLayout = $state("grid-template-columns: 23% 40% 37%");
@@ -126,6 +126,9 @@
   let mapSize: number = $state(50);
   // $inspect(mapSize);
   let sidePanelWidth: number = $state(250);
+  let sidePanelEffectiveWidth: number = $derived(
+    showFilters ? sidePanelWidth : 8,
+  );
 
   $effect(() => {
     document.documentElement.style.setProperty("--mapWidth", `${mapSize}%`);
@@ -135,7 +138,7 @@
     );
     document.documentElement.style.setProperty(
       "--zoom-control-position",
-      `${showFilters ? sidePanelWidth : 8}px`,
+      `${sidePanelEffectiveWidth}px`,
     );
   });
 
@@ -844,7 +847,12 @@
               ?.map((layer) => {
                 return {
                   value: makeFileNameDatasetKey(layer.filename),
-                  label: layer.dataLayer,
+                  // label: layer.dataLayer,
+                  label: makeFileNameReadable(
+                    layer.filename,
+                    gridType,
+                    usingGeoTiff,
+                  ),
                   exclusive: layer.level == 2 ? true : false,
                   checked: layer.initiallyChecked,
                   parentCheckBoxName:
@@ -861,7 +869,7 @@
       };
     }),
   );
-  $inspect({ filterSections });
+  // $inspect({ filterSections });
 
   let selectedSubLayers: object = $derived.by(() => {
     const subLayersToInclude =
@@ -883,7 +891,7 @@
       return acc;
     }, {});
   });
-  $inspect({ selectedSubLayers });
+  // $inspect({ selectedSubLayers });
 
   // let uniqueArray = $state([]);
 
@@ -1568,7 +1576,7 @@
     canvas.height = height;
 
     const ctx = canvas.getContext("2d");
-    console.log(width, height);
+    // console.log(width, height);
     const imageData = ctx.createImageData(width, height);
 
     const pixelCount = imageData.data.length / 4;
@@ -2012,8 +2020,9 @@
     console.timeEnd("show-density");
   }
 
-  const densityStats = $derived(
-    gridType === "hectare"
+  const densityStats = $derived.by(() => {
+    // $inspect.trace("calculating densityStats");
+    return gridType === "hectare"
       ? computeDensityStats(
           breakdownChartSortValue === "total" ? customArea : blendedIndices,
           densityArray,
@@ -2023,8 +2032,19 @@
             colOffset: 0,
           },
         )
-      : null,
-  );
+      : {
+          stats: {
+            count: 0,
+            sum: 0,
+            mean: 0,
+            median: 0,
+            min: 0,
+            max: 0,
+            indexOfMaxValue: null,
+          },
+          histogram: {},
+        };
+  });
 
   function showArea() {
     seeDensity = false;
@@ -2438,6 +2458,7 @@
               {seeMarker}
               {tileCodes}
               {tileIndex}
+              {sidePanelEffectiveWidth}
             />
           {/key}
         </div>

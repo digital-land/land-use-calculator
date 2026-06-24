@@ -1,32 +1,32 @@
 ﻿Level,Tier,Category,Data_layer,filename,initially_checked,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-3,airQualityManagementArea,All categories, All data layers,10_airQualityManagementArea_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,airQualityManagementArea
-3,ancientWoodland,All categories, All data layers,10_ancientWoodland_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,ancientWoodland
-3,archaeologicalPriorityArea,All categories, All data layers,10_archaeologicalPriorityArea_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,archaeologicalPriorityArea
-3,areaOfOutstandingNaturalBeauty,All categories, All data layers,10_areaOfOutstandingNaturalBeauty_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,areaOfOutstandingNaturalBeauty
-3,article4DirectionArea,All categories, All data layers,10_article4DirectionArea_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,article4DirectionArea
-3,battlefield,All categories, All data layers,10_battlefield_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,battlefield
-3,brownfieldSite,All categories, All data layers,10_brownfieldSite_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,brownfieldSite
-3,builtUpArea,All categories, All data layers,10_builtUpArea_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,builtUpArea
-3,certificateOfImmunity,All categories, All data layers,10_certificateOfImmunity_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,certificateOfImmunity
-3,conservationArea,All categories, All data layers,10_conservationArea_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,conservationArea
-3,designCodeArea,All categories, All data layers,10_designCodeArea_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,designCodeArea
-3,developmentCorporationBoundary,All categories, All data layers,10_developmentCorporationBoundary_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,developmentCorporationBoundary
-3,floodStorageArea,All categories, All data layers,10_floodStorageArea_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,floodStorageArea
-3,greenBelt,All categories, All data layers,10_greenBelt_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,greenBelt
-3,heritageAtRisk,All categories, All data layers,10_heritageAtRisk_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,heritageAtRisk
-3,heritageCoast,All categories, All data layers,10_heritageCoast_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,heritageCoast
-3,historicParksAndGardens,All categories, All data layers,10_historicParksAndGardens_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,historicParksAndGardens
-3,infrastructureProject,All categories, All data layers,10_infrastructureProject_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,infrastructureProject
-3,listedBuildingOutline,All categories, All data layers,10_listedBuildingOutline_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,listedBuildingOutline
-3,localNatureReserve,All categories, All data layers,10_localNatureReserve_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,localNatureReserve
-3,nationalNatureReserve,All categories, All data layers,10_nationalNatureReserve_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,nationalNatureReserve
-3,nationalPark,All categories, All data layers,10_nationalPark_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,nationalPark
-3,natureImprovementArea,All categories, All data layers,10_natureImprovementArea_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,natureImprovementArea
-3,ramsarSite,All categories, All data layers,10_ramsarSite_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,ramsarSite
-3,scheduledMonument,All categories, All data layers,10_scheduledMonument_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,scheduledMonument
-3,siteOfSpecialScientificInterest,All categories, All data layers,10_siteOfSpecialScientificInterest_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,siteOfSpecialScientificInterest
-3,specialAreaOfConservation,All categories, All data layers,10_specialAreaOfConservation_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,specialAreaOfConservation
-3,specialProtectionArea,All categories, All data layers,10_specialProtectionArea_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,specialProtectionArea
-3,treePreservationZone,All categories, All data layers,10_treePreservationZone_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,treePreservationZone
-3,worldHeritageSite,All categories, All data layers,10_worldHeritageSite_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,worldHeritageSite
-3,worldHeritageSiteBufferZone,All categories, All data layers,10_worldHeritageSiteBufferZone_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,worldHeritageSiteBufferZone
+3,Other,All categories, All data layers,10_airQualityManagementArea_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,airQualityManagementArea
+3,Other,All categories, All data layers,10_ancientWoodland_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,ancientWoodland
+3,Other,All categories, All data layers,10_archaeologicalPriorityArea_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,archaeologicalPriorityArea
+3,Other,All categories, All data layers,10_areaOfOutstandingNaturalBeauty_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,areaOfOutstandingNaturalBeauty
+3,Other,All categories, All data layers,10_article4DirectionArea_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,article4DirectionArea
+3,Development restricted,All categories, All data layers,10_battlefield_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,battlefield
+3,Other,All categories, All data layers,10_brownfieldSite_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,brownfieldSite
+3,Physically restricted,All categories, All data layers,10_builtUpArea_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,builtUpArea
+3,Other,All categories, All data layers,10_certificateOfImmunity_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,certificateOfImmunity
+3,Development limited,All categories, All data layers,10_conservationArea_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,conservationArea
+3,Other,All categories, All data layers,10_designCodeArea_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,designCodeArea
+3,Other,All categories, All data layers,10_developmentCorporationBoundary_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,developmentCorporationBoundary
+3,Other,All categories, All data layers,10_floodStorageArea_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,floodStorageArea
+3,Development restricted,All categories, All data layers,10_greenBelt_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,greenBelt
+3,Other,All categories, All data layers,10_heritageAtRisk_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,heritageAtRisk
+3,Other,All categories, All data layers,10_heritageCoast_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,heritageCoast
+3,Development restricted,All categories, All data layers,10_historicParksAndGardens_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,historicParksAndGardens
+3,Development limited,All categories, All data layers,10_infrastructureProject_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,infrastructureProject
+3,Other,All categories, All data layers,10_listedBuildingOutline_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,listedBuildingOutline
+3,Development limited,All categories, All data layers,10_localNatureReserve_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,localNatureReserve
+3,Development limited,All categories, All data layers,10_nationalNatureReserve_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,nationalNatureReserve
+3,Development limited,All categories, All data layers,10_nationalPark_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,nationalPark
+3,Other,All categories, All data layers,10_natureImprovementArea_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,natureImprovementArea
+3,Development restricted,All categories, All data layers,10_ramsarSite_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,ramsarSite
+3,Other,All categories, All data layers,10_scheduledMonument_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,scheduledMonument
+3,Development restricted,All categories, All data layers,10_siteOfSpecialScientificInterest_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,siteOfSpecialScientificInterest
+3,Development restricted,All categories, All data layers,10_specialAreaOfConservation_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,specialAreaOfConservation
+3,Development restricted,All categories, All data layers,10_specialProtectionArea_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,specialProtectionArea
+3,Other,All categories, All data layers,10_treePreservationZone_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,treePreservationZone
+3,Development restricted,All categories, All data layers,10_worldHeritageSite_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,worldHeritageSite
+3,Development restricted,All categories, All data layers,10_worldHeritageSiteBufferZone_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,worldHeritageSiteBufferZone

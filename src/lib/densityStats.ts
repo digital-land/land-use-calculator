@@ -58,7 +58,8 @@ export function computeDensityStats(
     if (v > max) max = v;
   }
 
-  const indexOfMaxValue = densityArray.indexOf(max);
+  // const indexOfMaxValue = densityArray.indexOf(max);
+  const indexOfMaxValue = paintedIndices[values.indexOf(max)];
 
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
