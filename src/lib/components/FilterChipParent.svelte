@@ -14,6 +14,7 @@
     policyLens = $bindable(),
     categoryToColor,
     openPanelAndScrollToMap,
+    tableData,
   }: {
     gridType: string;
     usingGeoTiff: boolean;
@@ -22,7 +23,8 @@
     selected: string[];
     policyLens: string;
     categoryToColor: object;
-    openPanelAndScrollToMap: void;
+    openPanelAndScrollToMap: () => Promise<void>;
+    tableData: object[];
   } = $props();
 
   const dispatch = createEventDispatcher();
@@ -35,7 +37,12 @@
       const found = startingPosition?.find(
         (d) => makeFileNameDatasetKey(d.filename) === id,
       );
-      if (found) {
+      if (
+        found &&
+        tableData.find(
+          (e) => e?.name === makeFileNameReadable(id, gridType, usingGeoTiff),
+        )?.area
+      ) {
         all[id] = {
           id: makeFileNameDatasetKey(found.filename),
           title: makeFileNameReadable(found.filename, gridType, usingGeoTiff),
@@ -150,7 +157,7 @@
       <hr />
     </div>
     {#each zones.zone2 as id}
-      {#if id !== "England"}
+      {#if id !== "England" && chipData[id]}
         <FilterChip
           {...chipData[id]}
           currentZone="zone2"
@@ -165,6 +172,14 @@
         />
       {/if}
     {/each}
+    {#if tableData?.filter((d) => d?.area === 0).length > 0}
+      <p>
+        No data in this area for: {tableData
+          .filter((d) => d.area === 0)
+          .map((d) => d.name)
+          .join(", ")}
+      </p>
+    {/if}
     <div class="button-container">
       <Button
         textContent="Edit filters"

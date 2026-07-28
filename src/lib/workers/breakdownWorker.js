@@ -3,9 +3,9 @@ import init, {
 } from "$lib/raster_ops/pkg/raster_ops.js";
 import { parseCsvForBreakdown, unpackABGR } from "$lib/utils";
 import areaSizeLookup from "$lib/data/areas_las_pixels.json";
-import { hectareSettings, shortCategoricalColorPalette } from "$lib/constants";
+// import { hectareSettings, shortCategoricalColorPalette } from "$lib/constants";
 
-const { width, height } = hectareSettings;
+// const { width, height } = hectareSettings;
 let wasmReady = false;
 
 let laLookupCache = null;
@@ -32,6 +32,8 @@ self.onmessage = async (e) => {
     numCats = 400,
     numChunks,
     BREAKDOWN_LUT,
+    width,
+    height,
   } = e.data;
 
   if (!wasmReady) {

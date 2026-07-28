@@ -38,6 +38,33 @@ export interface PolicyLensItem {
   sentenceText: string;
 }
 
+export type ContentBlock =
+  | {
+      type: "paragraph";
+      html: string;
+    }
+  | {
+      type: "list";
+      items: string[];
+    }
+  | {
+      type: "code";
+      text: string;
+    }
+  | {
+      type: "table";
+      headers: string[];
+      rows: string[][];
+    };
+
+export type ContentSection = {
+  title: string;
+  id: string;
+  level?: 1 | 2 | 3 | 4;
+  blocks?: ContentBlock[];
+  children?: ContentSection[];
+};
+
 export async function loadIndexedArray(url) {
   try {
     const res = await fetch(url);
@@ -57,6 +84,84 @@ export async function loadIndexedArrayUint16(url) {
   } catch {
     return new Uint16Array(0); // network errors too
   }
+}
+
+export function filterTileCodes(meta, requestedSet) {
+  const codes = meta?.tile_codes ?? [];
+  if (!requestedSet) return codes;
+  return codes.filter((c) => requestedSet.has(c));
+}
+
+export type TiledCategoricalDatasetSettings = {
+  tileCodes: string[];
+  globalFrame: any;
+  tileWidth: number;
+  tileIndex: any;
+  sourceFolder: string;
+};
+
+export async function loadTiledCategoricalDatasetGlobal({
+  tileCodes,
+  globalFrame,
+  tileWidth,
+  tileIndex,
+  sourceFolder,
+}: TiledCategoricalDatasetSettings) {
+  if (!tileCodes.length || !globalFrame) {
+    return {
+      data: new Uint16Array(0),
+    };
+  }
+
+  const canvasWidth = globalFrame.cols * tileWidth;
+  const canvasHeight = globalFrame.rows * tileWidth;
+
+  const merged = new Uint16Array(canvasWidth * canvasHeight);
+
+  await Promise.all(
+    tileCodes.map(async (code) => {
+      try {
+        const t = tileIndex[code];
+
+        if (!t) {
+          return;
+        }
+
+        const url = `${sourceFolder}/${code}_10_Category.bin`;
+
+        const res = await fetch(url);
+
+        if (!res.ok) {
+          return;
+        }
+
+        const buffer = await res.arrayBuffer();
+        const tileData = new Uint16Array(buffer);
+
+        if (!tileData.length) {
+          return;
+        }
+
+        const tileOffsetX = (t.grid_x - globalFrame.minCol) * tileWidth;
+        const tileOffsetY = (t.grid_y - globalFrame.minRow) * tileWidth;
+
+        for (let localIndex = 0; localIndex < tileData.length; localIndex++) {
+          const value = tileData[localIndex];
+
+          const x = localIndex % tileWidth;
+          const y = Math.floor(localIndex / tileWidth);
+
+          const globalX = tileOffsetX + x;
+          const globalY = tileOffsetY + y;
+          const globalIndex = globalY * canvasWidth + globalX;
+
+          merged[globalIndex] = value;
+        }
+      } catch {}
+    }),
+  );
+
+  return merged;
 }
 
 export function capitaliseFirst(str: string): string {
@@ -85,6 +190,7 @@ export type DoughnutData = {
   color: string;
   name: string;
   selected: number;
+  inverse: number;
   total: number;
 };
 
@@ -193,8 +299,9 @@ export function jsonToCsv(
   selectedAreaWording: string,
   selected: string[],
   gridType: string,
+  usingGeoTiff: boolean,
 ): string {
-  const title = `"Selected area covers : ${selected.map((d) => makeFileNameReadable(d, gridType)).join(", ")}"\r\n`;
+  const title = `"Selected area covers : ${selected.map((d) => makeFileNameReadable(d, gridType, usingGeoTiff)).join(", ")}"\r\n`;
   const footer =
     "\r\n Notes: \r\n 1. All figures are in hectares. \r\n 2. This is an experimental product under development.";
   const caveat =
@@ -218,7 +325,7 @@ export function jsonToCsv(
 export function makeFileNameReadable(
   filename: string,
   gridType: string = "hectare",
-  usingGeoTiff: boolean,
+  usingGeoTiff: boolean = false,
 ): string {
   // console.log(filename);
   if (usingGeoTiff)

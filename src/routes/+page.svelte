@@ -43,13 +43,14 @@
     // originY,
     geometryToGridHitsScanline,
     indexToCoord,
-    // getTheInverse,
+    getTheInverse,
     getBBoxFromTileCodes,
     tileIndex,
     tilesForBBox,
     loadIndexedArray,
     loadIndexedArrayUint16,
     capitaliseFirst,
+    loadTiledCategoricalDatasetGlobal,
   } from "$lib/utils";
   import { computeDensityStats } from "$lib/densityStats";
   import {
@@ -71,7 +72,6 @@
   import { indicesToGeoJSON } from "$lib/downloadGeoJSON";
   import type { PageData, PageProps } from "./$types";
   import type { Feature } from "ol";
-  // import type { DataLayerItem } from "$lib/utils";
   import type { DataLayerItem, DoughnutData, EnrichedLayer } from "$lib/utils";
 
   let analysisRunId = 0;
@@ -105,6 +105,8 @@
     gridType === "hectare" ? hectareSettings : tenMetreSettings,
   );
   $inspect(gridSize, sourceFolder);
+
+  let globalFrame = $state();
 
   let { data }: PageProps = $props();
 
@@ -173,6 +175,13 @@
     ),
     "population 2049-50": asset(
       `/data/categorised-land/population/population_49-50_100m.bin`,
+    ),
+    water: asset(`/data/categorised-land/water/baseline_sdb_2024.bin`),
+    "water-wrz": asset(
+      `/data/categorised-land/water/baseline_sdb_2024_wrz.bin`,
+    ),
+    "water-wrz-2049": asset(
+      `/data/categorised-land/water/baseline_sdb_2049_wrz.bin`,
     ),
   };
 
@@ -377,10 +386,12 @@
     },
     // LAD: "",
     ownership: {
-      csvUrl: asset(`/data/categorised-land/ownership_lookup_fine.csv`),
+      csvUrl: asset(
+        `/data/categorised-land/ownership_lookup_fine_franklin.csv`,
+      ),
       baseUrl: `${base}/data/categorised-land`,
       numChunks: 1,
-      chunkUrls: asset(`/data/categorised-land/ownership_cat_260518_8am.bin`),
+      chunkUrls: asset(`/data/categorised-land/Category_All.bin`),
       LUT: BREAKDOWN_LUT,
     },
   };
@@ -397,7 +408,7 @@
   );
 
   let breakdownArray: Uint16Array = $state(new Uint16Array(0));
-  // $inspect({ breakdownArray });
+  $inspect({ breakdownArray });
 
   async function refreshBreakdownArray(args: {
     runId: number;
@@ -406,7 +417,16 @@
     const { runId, chunkUrls } = args;
 
     try {
-      const result = await loadIndexedArrayUint16(chunkUrls);
+      const result =
+        gridType === "hectare"
+          ? await loadIndexedArrayUint16(chunkUrls)
+          : await loadTiledCategoricalDatasetGlobal({
+              tileCodes: tileCodes,
+              globalFrame: globalFrame,
+              tileWidth: 5000,
+              tileIndex: tileIndex,
+              sourceFolder: `${base}/data/categorised-land/ownership/10m/`,
+            });
 
       if (runId !== breakdownArrayLoadRunId) return;
 
@@ -472,7 +492,11 @@
     }
 
     const activeIndices =
-      breakdownChartSortValue === "total" ? customArea : blendedIndices;
+      breakdownChartSortValue === "total"
+        ? customArea
+        : breakdownChartSortValue === "inverse"
+          ? getTheInverse(customArea, blendedIndices)
+          : blendedIndices;
 
     if (!activeIndices?.length) {
       if (runId === breakdownOverlayRunId) {
@@ -520,7 +544,10 @@
 
     const breakdownArraySnapshot = breakdownArray;
     const blendedIndicesSnapshot = blendedIndices;
-    const customAreaSnapshot = customArea;
+    const customAreaSnapshot =
+      policyLensValue === "England" || policyLensValue === "customArea"
+        ? customArea
+        : lensIndices;
     const sortValueSnapshot = breakdownChartSortValue;
     const currentLUTSnapshot = currentLUT;
     const widthSnapshot = width;
@@ -547,7 +574,26 @@
     });
   });
 
-  let policyLens: string = $state("England");
+  let policyLensValue: string = $state("England");
+  $inspect({ policyLensValue });
+  let policyLens = $derived.by(() => {
+    const mutatedSourceFolder = sourceFolder.split("_");
+
+    gridType === "hectare"
+      ? (mutatedSourceFolder[2] = policyLensValue)
+      : mutatedSourceFolder.splice(2, 0, policyLensValue);
+
+    // mutatedSourceFolder[2] = policyLensValue;
+    return policyLensValue === "England"
+      ? "England"
+      : policyLensValue === "customArea"
+        ? "customArea"
+        : gridType === "hectare"
+          ? mutatedSourceFolder.join("_") + ".bin"
+          : // : mutatedSourceFolder.slice(1).join("_") + ".bin";
+            policyLensValue;
+  });
+
   if (urlPolicyLens) {
     policyLens = urlPolicyLens;
   }
@@ -570,7 +616,8 @@
   let tileCodes = $derived(
     customAreaBBox
       ? tilesForBBox(customAreaBBox, tileIndex, 50000)
-      : ["STNE", "STSW"],
+      : // : ["STNE", "STSW"],
+        ["SSSE", "SSSW"],
   );
 
   let bbox: [number, number, number, number] = $derived(
@@ -624,7 +671,7 @@
       // };
 
       // console.log({ customArea, tileCodes });
-      policyLens = "customArea";
+      policyLensValue = "customArea";
 
       closePanelAndScrollToMap();
     }
@@ -640,7 +687,7 @@
       ? new Uint32Array(
           geometryToGridHitsScanline(customAreaGeometry, bbox, width, height),
         )
-      : policyLens === "England" && gridType === "hectare"
+      : policyLensValue === "England" && gridType === "hectare"
         ? englandAreaHectare
         : new Uint32Array(0),
   );
@@ -1007,7 +1054,7 @@
     selectedLA = undefined;
 
     // console.log("in the geo file upload handler, customArea: ", customArea);
-    policyLens = "customArea";
+    policyLensValue = "customArea";
   }
 
   let csvLocation = $derived(
@@ -1077,6 +1124,7 @@
 
     englandAreaHectare = await loadIndexedArray(
       asset(`/data/categorised-land/ENGLAND_100M_OS_GRID_COMPATIBLE.bin`),
+      // "/blob/a-dlap/ENGLAND_100M_OS_GRID_COMPATIBLE.bin.br" + SAS-token,
     );
     englandAreaReady = true;
 
@@ -1112,7 +1160,7 @@
     const runId = ++analysisRunId;
 
     prepareToUnpack();
-    URL.revokeObjectURL(dataURL);
+    if (typeof dataURL === "string") URL.revokeObjectURL(dataURL);
     dataURL = null;
 
     const worker = new Worker(
@@ -1232,7 +1280,11 @@
   //   // (_, i) => `${baseUrl}/ownership_cats_260520.bin`,
   // );
 
-  async function getLABreakdown(cRoutes, bitArray, customArea) {
+  async function getLABreakdown(
+    cRoutes: string | string[],
+    bitArray: Uint8Array,
+    customArea: Uint32Array,
+  ) {
     const urls = Array.isArray(cRoutes) ? cRoutes : [cRoutes];
 
     const areaMask = customArea?.length
@@ -1272,6 +1324,8 @@
           numCats: 64465,
           numChunks,
           BREAKDOWN_LUT: currentLUT,
+          width,
+          height,
         });
       });
 
@@ -1322,7 +1376,7 @@
   function blendLayers() {
     done = selected.length > 0 ? false : true;
     if (selected.length === 0) {
-      URL.revokeObjectURL(dataURL);
+      if (typeof dataURL === "string") URL.revokeObjectURL(dataURL);
       dataURL = null;
     }
 
@@ -1368,8 +1422,6 @@
 
         blendWorker.terminate();
 
-        // getBreakdownAndCreateDensityCanvas();
-
         mobile.current
           ? (dataURL = await makeAndPaintCanvasFromIndicesMobile())
           : makeAndPaintCanvasFromIndices();
@@ -1399,7 +1451,7 @@
       height,
     } = args;
     console.log({ runId });
-    if (gridType !== "hectare") return;
+    // if (gridType !== "hectare") return;
     if (!width || !height) return;
 
     // No area of interest -> no breakdown
@@ -1472,7 +1524,11 @@
     if (!customArea?.length) return;
 
     const activeIndices =
-      breakdownChartSortValue === "total" ? customArea : blendedIndices;
+      breakdownChartSortValue === "total"
+        ? customArea
+        : breakdownChartSortValue === "inverse"
+          ? getTheInverse(customArea, blendedIndices)
+          : blendedIndices;
 
     if (!activeIndices?.length) {
       if (runId === densityRunId) {
@@ -1515,7 +1571,10 @@
     const gridTypeSnapshot = gridType;
     const chunkUrlsSnapshot = chunkUrls;
     const blendedIndicesSnapshot = blendedIndices;
-    const customAreaSnapshot = customArea;
+    const customAreaSnapshot =
+      policyLensValue === "England" || policyLensValue === "customArea"
+        ? customArea
+        : lensIndices;
     const widthSnapshot = width;
     const heightSnapshot = height;
 
@@ -1538,7 +1597,10 @@
 
     const gridTypeSnapshot = gridType;
     const blendedIndicesSnapshot = blendedIndices;
-    const customAreaSnapshot = customArea;
+    const customAreaSnapshot =
+      policyLensValue === "England" || policyLensValue === "customArea"
+        ? customArea
+        : lensIndices;
     const widthSnapshot = width;
     const heightSnapshot = height;
     const densityArraySnapshot = densityArray;
@@ -1622,7 +1684,7 @@
     ctx.putImageData(imageData, 0, 0);
 
     canvas.toBlob((blob) => {
-      URL.revokeObjectURL(dataURL);
+      if (typeof dataURL === "string") URL.revokeObjectURL(dataURL);
       dataURL = URL.createObjectURL(blob);
     });
 
@@ -1835,7 +1897,7 @@
     const runId = ++analysisRunId;
 
     done = false;
-    URL.revokeObjectURL(dataURL);
+    if (typeof dataURL === "string") URL.revokeObjectURL(dataURL);
     dataURL = null;
     prepareToUnpack();
 
@@ -1881,8 +1943,9 @@
         if (e.data.canvasHeight) {
           height = e.data.canvasHeight;
         }
-        const debug = e.data.debug;
-        const tileIndex = e.data.tileIndex;
+        // const debug = e.data.debug;
+        // const tileIndex = e.data.tileIndex;
+        globalFrame = e.data.globalFrame;
 
         // debug.layers.forEach((layer) => {
         //   console.group(`Layer: ${layer.layer}`);
@@ -2024,7 +2087,19 @@
     // $inspect.trace("calculating densityStats");
     return gridType === "hectare"
       ? computeDensityStats(
-          breakdownChartSortValue === "total" ? customArea : blendedIndices,
+          breakdownChartSortValue === "total"
+            ? policyLensValue === "England" || policyLensValue === "customArea"
+              ? customArea
+              : lensIndices
+            : breakdownChartSortValue === "inverse"
+              ? getTheInverse(
+                  policyLensValue === "England" ||
+                    policyLensValue === "customArea"
+                    ? customArea
+                    : lensIndices,
+                  blendedIndices,
+                )
+              : blendedIndices,
           densityArray,
           {
             width,
@@ -2050,6 +2125,7 @@
     seeDensity = false;
     seeBreakdown = false;
     seeArea = true;
+    // breakdownMetric = "LPA";
     console.log("showing area");
   }
 
@@ -2115,8 +2191,9 @@
 
   let selectedAreaWording = $derived(
     selectedLA
-      ? LAselectOptions.find((d) => d.value === selectedLA)["text"]
-      : (policyLensItems.find((d) => d.value == policyLens)?.sentenceText ??
+      ? LAselectOptions.find((d) => d.value === selectedLA)?.["text"]
+      : (policyLensItems.find((d) => d.value == policyLensValue)
+          ?.sentenceText ??
           '"' + makeFileNameReadable(policyLens, gridType, usingGeoTiff) + '"'),
   );
 </script>
@@ -2148,25 +2225,36 @@
           detailedText={policyLensContent}
         >
           {#snippet policyLensContent()}
-            {#if gridType === "hectare"}
-              <Select
-                id="policyLensInput"
-                name="policyLensInput"
-                items={policyLensItems}
-                bind:value={policyLens}
-                label={"Select area to explore"}
-                onchange={async () => {
-                  // customAreaBBox = undefined;
-                  // customArea = null;
-                  drawnFeature = undefined;
-                  Object.keys(tiffArrayBuffersFromZip).length > 0
-                    ? unpackZippedLayers()
-                    : // : unpackSelectedLayers();
-                      await unpackAndBlendLayers();
-                }}
-              />
-              <p class="or">~ or ~</p>
-            {/if}
+            <!-- {#if gridType === "hectare"} -->
+            <Select
+              id="policyLensInput"
+              name="policyLensInput"
+              items={policyLensItems.map((d) =>
+                startingPosition
+                  .map(
+                    (e) =>
+                      e.filename.split("_")[gridType === "hectare" ? 2 : 1],
+                  )
+                  .includes(d.value) || d.value === "England"
+                  ? { ...d, disabled: false }
+                  : { ...d, disabled: true },
+              )}
+              bind:value={policyLensValue}
+              label={"Select area to explore"}
+              onchange={async () => {
+                // customAreaBBox = undefined;
+                // customArea = null;
+                drawnFeature = undefined;
+                selectedLA = undefined;
+                Object.keys(tiffArrayBuffersFromZip).length > 0
+                  ? unpackZippedLayers()
+                  : // : unpackSelectedLayers();
+                    await unpackAndBlendLayers();
+                closePanelAndScrollToMap();
+              }}
+            />
+            <p class="or">~ or ~</p>
+            <!-- {/if} -->
 
             <Button
               buttonType="secondary"
@@ -2250,6 +2338,7 @@
           bind:policyLens
           {openPanelAndScrollToMap}
           {categoryToColor}
+          {tableData}
           on:itemRemoved={() => {
             // console.log(startingPosition);
             startingPosition.forEach((d) =>
@@ -2328,7 +2417,7 @@
           selected = [];
           // dataURL = null;
           // if (oldDataURL) {
-          URL.revokeObjectURL(dataURL);
+          if (typeof dataURL === "string") URL.revokeObjectURL(dataURL);
           // }
           dataURL = null;
 
@@ -2435,9 +2524,21 @@
               {densityMetric}
               {bbox}
               {breakdownData}
+              {breakdownMetric}
               blendedIndices={breakdownChartSortValue === "total"
-                ? customArea
-                : blendedIndices}
+                ? policyLensValue === "England" ||
+                  policyLensValue === "customArea"
+                  ? customArea
+                  : lensIndices
+                : breakdownChartSortValue === "inverse"
+                  ? getTheInverse(
+                      policyLensValue === "England" ||
+                        policyLensValue === "customArea"
+                        ? customArea
+                        : lensIndices,
+                      blendedIndices,
+                    )
+                  : blendedIndices}
               {seeDensity}
               {seeArea}
               {seeBreakdown}
@@ -2446,11 +2547,10 @@
               bind:opacity
               {densityArray}
               {breakdownArray}
-              // bind:customArea
               {customAreaBBox}
               bind:drawnFeature
               bind:selectedLA
-              bind:policyLens
+              bind:policyLensValue
               bind:drawing
               {mobile}
               {gridType}
@@ -2498,6 +2598,11 @@
                 id: "table",
                 label: "Results",
                 content: tableSnippet,
+              },
+              {
+                id: "breakdown",
+                label: "Breakdown",
+                content: breakdownSnippet,
               },
             ]}
         {showDensity}
@@ -2603,6 +2708,7 @@
                     selectedAreaWording,
                     selected,
                     gridType,
+                    usingGeoTiff,
                   );
                   const blob = new Blob([csvStr], { type: "text/csv" });
                   const link = document.createElement("a");
@@ -2628,6 +2734,7 @@
                       selectedAreaWording,
                       selected,
                       gridType,
+                      usingGeoTiff,
                     );
                     const blob = new Blob([csvStr], { type: "text/csv" });
                     const link = document.createElement("a");
@@ -2679,12 +2786,28 @@
             { value: "business addresses", text: "Business addresses" },
             { value: "population 2025-26", text: "Population 2025-26" },
             { value: "population 2049-50", text: "Population 2049-50" },
+            {
+              value: "water",
+              text: "Water, baseline supply demand balance 2024",
+            },
+            {
+              value: "water-wrz",
+              text: "Water by WRZ, baseline supply demand balance 2024",
+            },
+            {
+              value: "water-wrz-2049",
+              text: "Water by WRZ, baseline supply demand balance 2049",
+            },
           ]}
           label={"Select the dataset"}
           bind:value={densityMetric}
         />
         <Radios
-          legend="View the breakdown by:"
+          legend={"View the breakdown " +
+            (policyLens !== "England"
+              ? "(within " + selectedAreaWording + ")"
+              : "") +
+            " by:"}
           legendSize="s"
           name="density-value"
           bind:selectedValue={breakdownChartSortValue}
@@ -2694,6 +2817,10 @@
             {
               value: "selected",
               label: "Area covered by the selected categories",
+            },
+            {
+              value: "inverse",
+              label: "Area NOT covered by the selected categories",
             },
           ]}
         ></Radios>
@@ -2757,7 +2884,11 @@
           bind:value={breakdownMetric}
         />
         <Radios
-          legend="View the breakdown by:"
+          legend={"View the breakdown " +
+            (policyLens !== "England"
+              ? "(within " + selectedAreaWording + ")"
+              : "") +
+            " by:"}
           legendSize="s"
           name="breakdown-chart"
           bind:selectedValue={breakdownChartSortValue}
@@ -2769,6 +2900,10 @@
               label: "Area covered by the selected categories",
             },
             {
+              value: "inverse",
+              label: "Area NOT covered by the selected categories",
+            },
+            {
               value: "proportion",
               label:
                 "Percentage of the total that is covered by the selected categories",
@@ -2776,7 +2911,10 @@
           ]}
         ></Radios>
         {#if breakdownChartSortValue === "proportion"}
-          <strong>Owner</strong>
+          <div class="split-bar-header">
+            <div>Owner</div>
+            <div>Percentage restricted</div>
+          </div>
           {#each summaryByCategory as [key, value]}
             {@const barWidth =
               breakdownChartSortValue === "selected"
@@ -2841,6 +2979,12 @@
   :global(#modifyGeoJson) {
     left: var(--zoom-control-position);
     transition: left 0.1s ease;
+  }
+
+  .split-bar-header {
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
   }
 
   .mosaic-row {

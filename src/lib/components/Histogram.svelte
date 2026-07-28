@@ -48,7 +48,7 @@
   <svg width="700" height="150">
     <!-- Bars -->
     {#each keys as key, i}
-      {#if max > 0}
+      {#if max > 0 && histogram[key]}
         <!-- Bar -->
         <rect
           x={(i * chartWidth) / keys.length + 1}

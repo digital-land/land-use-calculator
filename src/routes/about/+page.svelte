@@ -1,4 +1,4 @@
-<svelte:head>
+<!-- <svelte:head>
   <title>About and user guide</title>
   <meta
     name="description"
@@ -535,4 +535,158 @@ It combines:
 The result is a transparent and auditable categorisation of land ownership suitable for analytical and policy use.
 </p>
 </div>
+</div> -->
+
+<script lang="ts">
+  import type { ContentBlock, ContentSection } from "$lib/utils";
+  import { SideNav } from "@communitiesuk/svelte-component-library";
+  // import { onMount } from "svelte";
+  import { page } from "$app/state";
+  // type Props = {
+  //   sections: ContentSection[];
+  // };
+
+  // let { sections }: Props = $props();
+
+  import { aboutPageContent } from "./aboutPageContent";
+
+  type SideNavItem = {
+    text: string;
+    href: string;
+    subItems?: SideNavItem[];
+  };
+
+  type SideNavSection = {
+    title: string;
+    items: SideNavItem[];
+  };
+
+  function toSideNavItem(section: ContentSection): SideNavItem {
+    return {
+      text: section.title,
+      href: `#${section.id}`,
+      subItems: section.children?.map(toSideNavItem),
+    };
+  }
+
+  export function createSideNav(content: ContentSection[]): SideNavSection[] {
+    return [
+      {
+        title: "About and user guide",
+        items: content.map(toSideNavItem),
+      },
+    ];
+  }
+
+  function createGroups(content: ContentSection[]): SideNavSection[] {
+    return content.map((section) => ({
+      title: "",
+      items: [
+        {
+          text: section.title,
+          href: `#${section.id}`,
+          subItems: section.children?.map((child) => ({
+            text: child.title,
+            href: `#${child.id}`,
+          })),
+        },
+      ],
+    }));
+  }
+
+  let sideNavData = createSideNav(aboutPageContent);
+  $inspect(sideNavData);
+
+  function headingClass(level: number | undefined) {
+    if (level === 1) return "govuk-heading-xl";
+    if (level === 2) return "govuk-heading-l";
+    if (level === 3) return "govuk-heading-m";
+    return "govuk-heading-s";
+  }
+
+  let currentItem = $derived(page.url.hash);
+  // function syncCurrentItemToHash() {
+  //   currentItem = window.location.hash;
+  // }
+  // onMount(syncCurrentItemToHash);
+</script>
+
+<!-- <svelte:window on:hashchange={syncCurrentItemToHash} /> -->
+
+{#snippet renderBlock(block: ContentBlock)}
+  {#if block.type === "paragraph"}
+    <p class="govuk-body">{@html block.html}</p>
+  {:else if block.type === "list"}
+    <ul class="govuk-list govuk-list--bullet">
+      {#each block.items as item}
+        <li>{@html item}</li>
+      {/each}
+    </ul>
+  {:else if block.type === "code"}
+    <p class="govuk-body">
+      <code>{block.text}</code>
+    </p>
+  {:else if block.type === "table"}
+    <table class="govuk-table">
+      <thead class="govuk-table__head">
+        <tr class="govuk-table__row">
+          {#each block.headers as header}
+            <th class="govuk-table__header" scope="col">{header}</th>
+          {/each}
+        </tr>
+      </thead>
+      <tbody class="govuk-table__body">
+        {#each block.rows as row}
+          <tr class="govuk-table__row">
+            {#each row as cell}
+              <td class="govuk-table__cell">{@html cell}</td>
+            {/each}
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  {/if}
+{/snippet}
+
+{#snippet renderSection(section: ContentSection)}
+  <section id={section.id} class="dlap-content-section">
+    <svelte:element
+      this={`h${section.level ?? 2}`}
+      class={headingClass(section.level)}
+    >
+      {section.title}
+    </svelte:element>
+
+    {#each section.blocks ?? [] as block}
+      {@render renderBlock(block)}
+    {/each}
+
+    {#each section.children ?? [] as child}
+      {@render renderSection(child)}
+    {/each}
+  </section>
+{/snippet}
+<div class="govuk-width-container govuk-main-wrapper govuk-main-wrapper--l">
+  <div class="nav-and-content-wrapper">
+    <!-- <div class="app-split-pane__nav"> -->
+    <SideNav groups={sideNavData} {currentItem} />
+    <!-- </div> -->
+    <div class="app-split-pane__content">
+      {#each aboutPageContent as section}
+        {@render renderSection(section)}
+      {/each}
+    </div>
+  </div>
 </div>
+
+<style>
+  .nav-and-content-wrapper {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+  }
+
+  :global(.app-subnav) {
+    position: sticky;
+    top: 0px;
+  }
+</style>

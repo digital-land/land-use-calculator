@@ -4,6 +4,7 @@ import {
   makeFileNameDatasetKey,
   buildTileFilename,
   loadIndexedArray,
+  filterTileCodes,
 } from "$lib/utils";
 
 // --------------------------------------------------
@@ -87,32 +88,16 @@ class MinHeap {
   }
 }
 
-// async function loadIndexedArray(url) {
-//   const res = await fetch(url);
-//   if (!res.ok) throw new Error(`Failed to load ${url}`);
-//   return new Uint32Array(await res.arrayBuffer());
-// }
-
-// async function loadIndexedArray(url) {
-//   try {
-//     const res = await fetch(url);
-//     if (!res.ok) return new Uint32Array(0); // ← key change
-//     return new Uint32Array(await res.arrayBuffer());
-//   } catch {
-//     return new Uint32Array(0); // network errors too
-//   }
-// }
-
 function resolveRequestedTileSet(tileCodes) {
   if (!tileCodes || tileCodes.length === 0) return null; // null = no filter, use all
   return new Set(tileCodes);
 }
 
-function filterTileCodes(meta, requestedSet) {
-  const codes = meta?.tile_codes ?? [];
-  if (!requestedSet) return codes;
-  return codes.filter((c) => requestedSet.has(c));
-}
+// function filterTileCodes(meta, requestedSet) {
+//   const codes = meta?.tile_codes ?? [];
+//   if (!requestedSet) return codes;
+//   return codes.filter((c) => requestedSet.has(c));
+// }
 
 function intersectUint32(a, b) {
   if (!a?.length || !b?.length) return new Uint32Array(0);
@@ -125,75 +110,6 @@ function intersectUint32(a, b) {
   }
   return new Uint32Array(result);
 }
-
-// function unionSortedUint32Arrays(arrays) {
-//   const total = arrays.reduce((sum, a) => sum + a.length, 0);
-//   const merged = new Uint32Array(total);
-
-//   let offset = 0;
-//   for (const a of arrays) {
-//     merged.set(a, offset);
-//     offset += a.length;
-//   }
-
-//   merged.sort();
-
-//   let uniqueCount = 0;
-//   for (let i = 0; i < merged.length; i++) {
-//     if (i === 0 || merged[i] !== merged[i - 1]) {
-//       merged[uniqueCount++] = merged[i];
-//     }
-//   }
-
-//   const result = new Uint32Array(uniqueCount);
-//   result.set(merged.subarray(0, uniqueCount));
-//   return result;
-// }
-
-// function findUniquePerArray(indexArrays) {
-//   if (!indexArrays.length)
-//     return { uniqueCounts: new Uint32Array(0), uniqueArrays: [] };
-
-//   let maxIndex = 0;
-//   for (const arr of indexArrays) {
-//     for (let i = 0; i < arr.length; i++)
-//       if (arr[i] > maxIndex) maxIndex = arr[i];
-//   }
-
-//   const freq = new Uint8Array(maxIndex + 1);
-//   const owner = new Int32Array(maxIndex + 1);
-
-//   indexArrays.forEach((arr, i) => {
-//     for (let k = 0; k < arr.length; k++) {
-//       const idx = arr[k];
-//       if (freq[idx] === 0) {
-//         freq[idx] = 1;
-//         owner[idx] = i;
-//       } else if (freq[idx] === 1) {
-//         freq[idx] = 2;
-//       }
-//     }
-//   });
-
-//   const uniqueCounts = new Uint32Array(indexArrays.length);
-//   for (let idx = 0; idx <= maxIndex; idx++) {
-//     if (freq[idx] === 1) uniqueCounts[owner[idx]]++;
-//   }
-
-//   const uniqueArrays = indexArrays.map(
-//     (_, i) => new Uint32Array(uniqueCounts[i]),
-//   );
-//   const writePointers = new Uint32Array(indexArrays.length);
-
-//   for (let idx = 0; idx <= maxIndex; idx++) {
-//     if (freq[idx] === 1) {
-//       const i = owner[idx];
-//       uniqueArrays[i][writePointers[i]++] = idx;
-//     }
-//   }
-
-//   return { uniqueCounts, uniqueArrays };
-// }
 
 // --------------------------------------------------
 // Global frame computation
@@ -273,21 +189,6 @@ function computeGlobalTileFrame(
 
     const tileCodes = filterTileCodes(meta, requestedSet);
 
-    //   if (meta?.tile_codes?.length) {
-    //     meta.tile_codes.forEach((code) => {
-    //       const t = tileIndex[code];
-    //       if (!t) throw new Error(`Tile metadata not found for ${code}`);
-    //       allTiles.push({
-    //         code,
-    //         col: t.grid_x,
-    //         row: t.grid_y,
-    //         east: t.east,
-    //         north: t.north,
-    //       });
-    //     });
-    //   }
-    // });
-
     if (tileCodes.length) {
       tileCodes.forEach((code) => {
         const t = tileIndex[code];
@@ -364,35 +265,6 @@ async function loadTiledDatasetGlobal({
     loaded: [],
     missing: [],
   };
-
-  // const loadedTiles = (
-  //   await Promise.all(
-  //     meta.tile_codes.map(async (code) => {
-  //       try {
-  //         const t = tileIndex[code];
-  //         if (!t) return null; // guard
-
-  //         const subFolder = t.code + sourceFolder.slice(5);
-  //         const filename = buildTileFilename(code, layerKey, meta);
-  //         const url = `${base}/data/${sourceFolder}/${subFolder}/${filename}`;
-
-  //         const data = await loadIndexedArray(url);
-
-  //         if (!data.length) return null; // ← skip missing/empty tiles
-
-  //         return { ...t, data };
-  //       } catch (e) {
-  //         // optional debug:
-  //         // console.warn("Tile failed:", code, e);
-  //         return null;
-  //       }
-  //     }),
-  //   )
-  // ).filter(Boolean);
-
-  // if (!loadedTiles.length) {
-  //   return new Uint32Array(0);
-  // }
 
   const tileCodes = filterTileCodes(meta, requestedSet);
   if (!tileCodes.length) {
@@ -497,7 +369,7 @@ self.onmessage = async function (e) {
       const meta = grid10mVariables[layerKey];
       if (meta?.tile_codes?.length) {
         const globalFrameTmp = computeGlobalTileFrame(
-          [{ filename: policyLens }],
+          [{ filename: "policyLens_" + policyLens }],
           grid10mVariables,
           gridSize,
           width,
@@ -519,15 +391,6 @@ self.onmessage = async function (e) {
           layer: policyLens,
           ...result.debug,
         });
-        // lensLayer = await loadTiledDatasetGlobal({
-        //   layerKey,
-        //   meta,
-        //   base,
-        //   sourceFolder,
-        //   gridSize,
-        //   globalFrame: globalFrameTmp,
-        //   width,
-        // });
       } else {
         lensLayer = await loadIndexedArray(
           `${base}/data/${sourceFolder}/${policyLens}`,
@@ -600,16 +463,6 @@ self.onmessage = async function (e) {
             }, new Uint32Array(0));
           }
 
-          // await loadTiledDatasetGlobal({
-          //     layerKey,
-          //     meta,
-          //     base,
-          //     sourceFolder,
-          //     gridSize,
-          //     globalFrame,
-          //     width,
-          //   })
-
           data.sort();
         } else {
           data = await loadIndexedArray(
@@ -664,6 +517,7 @@ self.onmessage = async function (e) {
         canvasHeight: globalFrame ? globalFrame.rows * width : null,
         debug: debugInfo,
         tileIndex,
+        globalFrame: globalFrame ?? null,
       },
       transferList,
     );

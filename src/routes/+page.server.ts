@@ -4,7 +4,7 @@ import type { PageServerLoad } from "./$types";
 
 // export const load: PageServerLoad = async ({ fetch, url }) => {
 export const load: PageServerLoad = async ({ fetch }) => {
-  const response: Response = await fetch(asset(`/output.csv`));
+  const response: Response = await fetch(asset(`/output-new.csv`));
 
   if (!response.ok) {
     throw new Error("Failed to fetch CSV");
