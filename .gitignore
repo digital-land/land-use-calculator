@@ -7,6 +7,7 @@ node_modules/
 # Ignore big source binaries
 *.bin
 *.zip
+*.br
 
 # Ignore images
 *.jpg

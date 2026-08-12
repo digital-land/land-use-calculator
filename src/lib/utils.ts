@@ -9,7 +9,24 @@ import ImageCanvasSource from "ol/source/ImageCanvas.js";
 // import { width, height, gridSize, bbox } from "./constants";
 import { tiles as tileMetadata, hectareBbox } from "./constants";
 
-export const tileIndex = Object.fromEntries(
+export type TileIndex = {
+  [k: string]: {
+    id: number;
+    code: string;
+    lat_lng: string;
+    X: number;
+    y: number;
+    grid_x: number;
+    grid_y: number;
+    pos_rel: string;
+    east: number;
+    north: number;
+    square: string;
+    extent: string;
+  };
+};
+
+export const tileIndex: TileIndex = Object.fromEntries(
   tileMetadata.map((t) => [t.code, t]),
 );
 
@@ -100,6 +117,90 @@ export type TiledCategoricalDatasetSettings = {
   sourceFolder: string;
 };
 
+export async function loadTiledBinaryDatasetGlobal({
+  tileCodes,
+  globalFrame,
+  tileWidth,
+  tileIndex,
+  sourceFolder,
+}: TiledCategoricalDatasetSettings): Promise<Uint32Array> {
+  if (!tileCodes.length || !globalFrame) {
+    return new Uint32Array(0);
+  }
+
+  const canvasWidth = globalFrame.cols * tileWidth;
+
+  const chunks = await Promise.all(
+    tileCodes.map(async (code) => {
+      try {
+        const t = tileIndex[code];
+
+        if (!t) {
+          console.warn(`No tile index entry for ${code}`);
+          return new Uint32Array(0);
+        }
+
+        const url = `data/${sourceFolder}/${code}/${code}_10m_of_England_Boundaries_2024.br`;
+
+        const res = await fetch(url);
+
+        if (!res.ok) {
+          console.warn(
+            `Could not fetch ${url}: ${res.status} ${res.statusText}`,
+          );
+          return new Uint32Array(0);
+        }
+
+        const buffer = await res.arrayBuffer();
+
+        // Important: will need to adjust this once we have sparse arrays rather than dense
+        const mask = new Uint32Array(buffer);
+        const tileData = binaryMaskToIndices(mask);
+
+        if (!tileData.length) {
+          return new Uint32Array(0);
+        }
+
+        const tileOffsetX = (t.grid_x - globalFrame.minCol) * tileWidth;
+        const tileOffsetY = (t.grid_y - globalFrame.minRow) * tileWidth;
+
+        const out = new Uint32Array(tileData.length);
+
+        for (let i = 0; i < tileData.length; i++) {
+          const localIndex = tileData[i];
+
+          const x = localIndex % tileWidth;
+          const y = Math.floor(localIndex / tileWidth);
+
+          const globalX = tileOffsetX + x;
+          const globalY = tileOffsetY + y;
+
+          out[i] = globalY * canvasWidth + globalX;
+        }
+
+        return out;
+      } catch (err) {
+        console.warn(`Failed loading England boundary tile ${code}`, err);
+        return new Uint32Array(0);
+      }
+    }),
+  );
+
+  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+  const merged = new Uint32Array(totalLength);
+
+  let offset = 0;
+
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.length;
+  }
+
+  merged.sort();
+
+  return merged;
+}
+
 export async function loadTiledCategoricalDatasetGlobal({
   tileCodes,
   globalFrame,
@@ -108,9 +209,7 @@ export async function loadTiledCategoricalDatasetGlobal({
   sourceFolder,
 }: TiledCategoricalDatasetSettings) {
   if (!tileCodes.length || !globalFrame) {
-    return {
-      data: new Uint16Array(0),
-    };
+    return new Uint16Array(0);
   }
 
   const canvasWidth = globalFrame.cols * tileWidth;
@@ -162,6 +261,67 @@ export async function loadTiledCategoricalDatasetGlobal({
   );
 
   return merged;
+}
+
+export type GlobalFrame = {
+  minCol: number;
+  maxCol: number;
+  minRow: number;
+  maxRow: number;
+  cols: number;
+  rows: number;
+  canvasWidth: number;
+  canvasHeight: number;
+  minEast: number;
+  minNorth: number;
+  maxEast: number;
+  maxNorth: number;
+} | null;
+
+export function computeGlobalTileFrameFromTileCodes(
+  tileCodes: string[],
+): GlobalFrame {
+  const width = 5000;
+  const allTiles = tileCodes.map((code) => {
+    const t = tileIndex[code];
+
+    return {
+      code,
+      col: t.grid_x,
+      row: t.grid_y,
+      east: t.east,
+      north: t.north,
+    };
+  });
+
+  if (!allTiles.length) return null;
+
+  const minCol = Math.min(...allTiles.map((t) => t.col));
+  const maxCol = Math.max(...allTiles.map((t) => t.col));
+  const minRow = Math.min(...allTiles.map((t) => t.row));
+  const maxRow = Math.max(...allTiles.map((t) => t.row));
+  const cols = maxCol - minCol + 1;
+  const rows = maxRow - minRow + 1;
+  const TILE_SIZE_METERS = width * 10;
+  const minEast = Math.min(...allTiles.map((t) => t.east));
+  const minNorth = Math.min(...allTiles.map((t) => t.north));
+  const maxEast = Math.max(...allTiles.map((t) => t.east)) + TILE_SIZE_METERS;
+  const maxNorth = Math.max(...allTiles.map((t) => t.north)) + TILE_SIZE_METERS;
+
+  return {
+    minCol,
+    maxCol,
+    minRow,
+    maxRow,
+    cols,
+    rows,
+    canvasWidth: cols * width,
+    canvasHeight: rows * width,
+    minEast,
+    minNorth,
+    maxEast,
+    maxNorth,
+  };
 }
 
 export function capitaliseFirst(str: string): string {
@@ -274,6 +434,7 @@ export function parseCSVToObject(csvText) {
     row.data_type = values[3];
     row.datum = values[4];
     row.data_structure = values[5];
+    row.extension = values[6];
 
     // Extract tile codes where value === "1"
     const tile_codes = [];
@@ -929,9 +1090,9 @@ export const cellSize = 100; // meters per cell/hectare
 export const fillOpacity = 0.5;
 
 export function buildTileFilename(tileCode, varName, meta) {
-  const { grid_size, data_type, datum, data_structure, date } = meta;
+  const { grid_size, data_type, datum, data_structure, date, extension } = meta;
 
-  return `${tileCode}_${grid_size}_${varName}_${data_type}_${datum}_${data_structure}_${date}.bin`;
+  return `${tileCode}_${grid_size}_${varName}_${data_type}_${datum}_${data_structure}_${date}.${extension}`;
 }
 
 export function getBBoxFromTileCodes(
@@ -973,4 +1134,22 @@ export function binaryMaskToIndices(src: ArrayLike<number>): Uint32Array {
   }
 
   return result;
+}
+
+export function downloadCsv(
+  csv: string,
+  filename: string = "dlap-multi-feature.csv",
+): void {
+  const blob = new Blob([csv], {
+    type: "text/csv;charset=utf-8",
+  });
+
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename + "-ownership-breakdown.csv";
+  link.click();
+
+  URL.revokeObjectURL(url);
 }

@@ -51,6 +51,10 @@
     loadIndexedArrayUint16,
     capitaliseFirst,
     loadTiledCategoricalDatasetGlobal,
+    loadTiledBinaryDatasetGlobal,
+    computeGlobalTileFrameFromTileCodes,
+    downloadCsv,
+    binaryMaskToIndices,
   } from "$lib/utils";
   import { computeDensityStats } from "$lib/densityStats";
   import {
@@ -72,7 +76,13 @@
   import { indicesToGeoJSON } from "$lib/downloadGeoJSON";
   import type { PageData, PageProps } from "./$types";
   import type { Feature } from "ol";
-  import type { DataLayerItem, DoughnutData, EnrichedLayer } from "$lib/utils";
+  import type {
+    DataLayerItem,
+    DoughnutData,
+    EnrichedLayer,
+    TileIndex,
+    GlobalFrame,
+  } from "$lib/utils";
 
   let analysisRunId = 0;
   let breakdownRunId = 0;
@@ -106,7 +116,7 @@
   );
   $inspect(gridSize, sourceFolder);
 
-  let globalFrame = $state();
+  // let globalFrame = $state();
 
   let { data }: PageProps = $props();
 
@@ -410,22 +420,98 @@
   let breakdownArray: Uint16Array = $state(new Uint16Array(0));
   $inspect({ breakdownArray });
 
+  // async function refreshBreakdownArray(args: {
+  //   runId: number;
+  //   chunkUrls: string | string[];
+  // }) {
+  //   const { runId, chunkUrls } = args;
+
+  //   try {
+  //     const result =
+  //       gridType === "hectare"
+  //         ? await loadIndexedArrayUint16(chunkUrls)
+  //         : await loadTiledCategoricalDatasetGlobal({
+  //             tileCodes: tileCodes,
+  //             globalFrame: globalFrame,
+  //             tileWidth: 5000,
+  //             tileIndex: tileIndex,
+  //             sourceFolder: `${base}/data/categorised-land/ownership/10m/`,
+  //           });
+
+  //     if (runId !== breakdownArrayLoadRunId) return;
+
+  //     breakdownArray = result;
+  //   } catch (err) {
+  //     if (runId === breakdownArrayLoadRunId) {
+  //       console.error("Failed to load breakdown array:", err);
+  //     }
+  //   }
+  // }
+
+  // $effect(() => {
+  //   const chunkUrlsSnapshot = chunkUrls;
+  //   const runId = ++breakdownArrayLoadRunId;
+
+  //   void refreshBreakdownArray({
+  //     runId,
+  //     chunkUrls: chunkUrlsSnapshot,
+  //   });
+  // });
+
+  $effect(() => {
+    const gridTypeSnapshot = gridType;
+    const chunkUrlsSnapshot = chunkUrls;
+
+    const tileCodesSnapshot = [...tileCodes];
+    const globalFrameSnapshot = { ...globalFrame };
+    const tileIndexSnapshot = tileIndex;
+    const sourceFolderSnapshot = `${base}/data/categorised-land/ownership/10m/`;
+
+    const runId = ++breakdownArrayLoadRunId;
+
+    void refreshBreakdownArray({
+      runId,
+      gridType: gridTypeSnapshot,
+      chunkUrls: chunkUrlsSnapshot,
+      tileCodes: tileCodesSnapshot,
+      globalFrame: globalFrameSnapshot,
+      tileWidth: 5000,
+      tileIndex: tileIndexSnapshot,
+      sourceFolder: sourceFolderSnapshot,
+    });
+  });
+
   async function refreshBreakdownArray(args: {
     runId: number;
+    gridType: "hectare" | "10m" | string;
     chunkUrls: string | string[];
+    tileCodes: string[];
+    globalFrame: GlobalFrame;
+    tileWidth: number;
+    tileIndex: TileIndex;
+    sourceFolder: string;
   }) {
-    const { runId, chunkUrls } = args;
+    const {
+      runId,
+      gridType,
+      chunkUrls,
+      tileCodes,
+      globalFrame,
+      tileWidth,
+      tileIndex,
+      sourceFolder,
+    } = args;
 
     try {
       const result =
         gridType === "hectare"
           ? await loadIndexedArrayUint16(chunkUrls)
           : await loadTiledCategoricalDatasetGlobal({
-              tileCodes: tileCodes,
-              globalFrame: globalFrame,
-              tileWidth: 5000,
-              tileIndex: tileIndex,
-              sourceFolder: `${base}/data/categorised-land/ownership/10m/`,
+              tileCodes,
+              globalFrame,
+              tileWidth,
+              tileIndex,
+              sourceFolder,
             });
 
       if (runId !== breakdownArrayLoadRunId) return;
@@ -437,16 +523,6 @@
       }
     }
   }
-
-  $effect(() => {
-    const chunkUrlsSnapshot = chunkUrls;
-    const runId = ++breakdownArrayLoadRunId;
-
-    void refreshBreakdownArray({
-      runId,
-      chunkUrls: chunkUrlsSnapshot,
-    });
-  });
 
   async function refreshBreakdownOverlay(args: {
     runId: number;
@@ -616,8 +692,7 @@
   let tileCodes = $derived(
     customAreaBBox
       ? tilesForBBox(customAreaBBox, tileIndex, 50000)
-      : // : ["STNE", "STSW"],
-        ["SSSE", "SSSW"],
+      : ["SSSE", "SSSW"],
   );
 
   let bbox: [number, number, number, number] = $derived(
@@ -630,6 +705,8 @@
   let height = $derived((bbox[3] - bbox[1]) / gridSize);
   // $inspect(bbox, width, height);
 
+  let globalFrame = $derived(computeGlobalTileFrameFromTileCodes(tileCodes));
+
   const format = new GeoJSON();
   let geojsonString = $derived(
     drawnFeature
@@ -641,8 +718,70 @@
   );
   // $inspect({ geojsonString });
 
-  let englandAreaHectare = $state(new Uint32Array(0));
+  async function loadSSSW(url) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return new Uint32Array(0); // ← key change
+      return new Uint32Array(await res.arrayBuffer());
+    } catch {
+      return new Uint32Array(0); // network errors too
+    }
+  }
 
+  let englandAreaHectare = $state(new Uint32Array(0));
+  let englandAreaSSSW = $state(new Uint32Array(0));
+
+  let englandArea10m = $state<Uint32Array>(new Uint32Array(0));
+  let englandArea10mLoading = $state(false);
+
+  $effect(() => {
+    const codes = tileCodes;
+    const frame = globalFrame;
+
+    if (!codes.length || !frame) {
+      englandArea10m = new Uint32Array(0);
+      return;
+    }
+
+    let cancelled = false;
+    englandArea10mLoading = true;
+
+    loadTiledBinaryDatasetGlobal({
+      tileCodes: codes,
+      globalFrame: frame,
+      tileWidth: 5000,
+      tileIndex,
+      sourceFolder: "England_10m",
+    })
+      .then((result) => {
+        if (!cancelled) {
+          englandArea10m = result;
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          console.error("Failed loading England 10m area", err);
+          englandArea10m = new Uint32Array(0);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          englandArea10mLoading = false;
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  });
+
+  // loadSSSW(
+  //   asset("/data/categorised-land/SSSW_10m_of_England_Boundaries_2024.br"),
+  // ).then((value) => {
+  //   englandAreaSSSW = binaryMaskToIndices(value);
+  // });
+
+  // $inspect({ englandAreaSSSW });
   $effect(() => {
     if (selectedLA && LAGeoJSON) {
       // console.log(
@@ -689,7 +828,9 @@
         )
       : policyLensValue === "England" && gridType === "hectare"
         ? englandAreaHectare
-        : new Uint32Array(0),
+        : policyLensValue === "England" && gridType !== "hectare"
+          ? englandArea10m
+          : new Uint32Array(0),
   );
   $inspect({ customArea });
 
@@ -760,7 +901,11 @@
   };
 
   let breakdownData: BreakdownDatum[] = $state([]);
-  $inspect({ breakdownData });
+  $inspect(
+    breakdownData?.map((d) => {
+      return { [d.area_name]: d.total_area };
+    }),
+  );
 
   function categoryKey(areaName: string) {
     const cleaned = areaName ?? ""; /*.replace(/[^a-z0-9]/gi, "");*/
@@ -1148,6 +1293,16 @@
     // console.log(LAGeoJSON);
   });
 
+  // $effect(async () => {
+  //   englandAreaSSSW = await loadTiledBinaryDatasetGlobal({
+  //     tileCodes,
+  //     globalFrame,
+  //     tileWidth: 5000,
+  //     tileIndex,
+  //     sourceFolder: `${base}/data/categorised-land/`,
+  //   });
+  // });
+
   function prepareToUnpack() {
     layersToUnpack = selected?.map((d) =>
       parseCsv(metadataCsv).find(
@@ -1281,96 +1436,54 @@
   // );
 
   async function getLABreakdown(
-    cRoutes: string | string[],
+    breakdownArray: Uint16Array,
     bitArray: Uint8Array,
-    customArea: Uint32Array,
+    customArea: Uint32Array | null,
+    width: number,
+    height: number,
   ) {
-    const urls = Array.isArray(cRoutes) ? cRoutes : [cRoutes];
-
     const areaMask = customArea?.length
       ? indicesToBinaryMask(customArea, width, height)
       : null;
-    console.log({ areaMask });
-    let accumulatedResult = null;
-    let rowOffset = 0;
 
     const breakdownWorker = new Worker(
       new URL("$lib/workers/breakdownWorker.js", import.meta.url),
       { type: "module" },
     );
 
-    // More robust than reassigning onmessage each time
-    const processChunk = (categoricalChunk, selectionChunk, areaChunk) =>
-      new Promise((resolve, reject) => {
+    try {
+      const json = await new Promise((resolve, reject) => {
         const onMessage = (e) => {
           const { json, error } = e.data;
-          if (error) reject(new Error(error));
-          else resolve(json);
-        };
-        const onError = (err) => reject(new Error("Worker crashed"));
-        // console.log(categoricalChunk);
-        breakdownWorker.addEventListener("message", onMessage, { once: true });
-        breakdownWorker.addEventListener("error", onError, { once: true });
 
-        // const csvUrl = `${base}/data/LAs/lad_may_2025_lookup.csv`;
-        // const csvUrl = `${base}/data/categorised-land/ownership_lookup_fine.csv`;
-        // const csvUrl = `${base}/data/LPAs/LPA_100m.csv`;
+          if (error) {
+            reject(new Error(error));
+          } else {
+            resolve(json);
+          }
+        };
+
+        breakdownWorker.addEventListener("message", onMessage, {
+          once: true,
+        });
 
         breakdownWorker.postMessage({
-          categoricalArray: categoricalChunk,
-          selectionMask: selectionChunk,
-          areaMask: areaChunk, // may be null
+          categoricalArray: breakdownArray,
+          selectionMask: bitArray,
+          areaMask,
           csvUrl,
           numCats: 64465,
-          numChunks,
           BREAKDOWN_LUT: currentLUT,
-          width,
-          height,
         });
       });
 
-    for (const url of urls) {
-      const catBuffer = await fetch(url).then((r) => r.arrayBuffer());
-      const evenLength = catBuffer.byteLength & ~1;
-      const safeBuffer = catBuffer.slice(0, evenLength);
-      const cChunk = new Uint16Array(safeBuffer);
-
-      const chunkRows = cChunk.length / width;
-      const bitStart = rowOffset * width;
-      const bitEnd = bitStart + chunkRows * width;
-
-      const selectionChunk = bitArray.subarray(bitStart, bitEnd);
-      const areaChunk = areaMask ? areaMask.subarray(bitStart, bitEnd) : null;
-
-      // ensure same length
-      const minLength = Math.min(cChunk.length, selectionChunk.length);
-      const cTrim = cChunk.subarray(0, minLength);
-      const selTrim = selectionChunk.subarray(0, minLength);
-      const areaTrim = areaChunk ? areaChunk.subarray(0, minLength) : null;
-
-      const chunkResult = await processChunk(cTrim, selTrim, areaTrim);
-
-      if (!accumulatedResult) {
-        accumulatedResult = chunkResult;
-      } else {
-        for (let i = 0; i < accumulatedResult.length; i++) {
-          accumulatedResult[i].selected_area += chunkResult[i].selected_area;
-          accumulatedResult[i].total_area += chunkResult[i].total_area; // ✅ accumulate now
-        }
-      }
-
-      rowOffset += chunkRows;
+      return {
+        json,
+        bitArray,
+      };
+    } finally {
+      breakdownWorker.terminate();
     }
-
-    // final proportions (computed once)
-    for (const row of accumulatedResult ?? []) {
-      row.selected_area_as_a_proportion_of_total_area = row.total_area
-        ? row.selected_area / row.total_area
-        : 0;
-    }
-
-    breakdownWorker.terminate();
-    return { json: accumulatedResult, bitArray };
   }
 
   function blendLayers() {
@@ -1450,7 +1563,7 @@
       width,
       height,
     } = args;
-    console.log({ runId });
+    console.log({ runId, width, height });
     // if (gridType !== "hectare") return;
     if (!width || !height) return;
 
@@ -1474,9 +1587,12 @@
       const selectionMask = indicesToBinaryMask(blendedIndices, width, height);
 
       const breakdownResult = await getLABreakdown(
-        chunkUrls,
+        // chunkUrls,
+        breakdownArray,
         selectionMask,
         customArea,
+        width,
+        height,
       );
 
       if (runId !== breakdownRunId) return;
@@ -1945,8 +2061,8 @@
         }
         // const debug = e.data.debug;
         // const tileIndex = e.data.tileIndex;
-        globalFrame = e.data.globalFrame;
-
+        // globalFrame = e.data.globalFrame;
+        // console.log(globalFrame);
         // debug.layers.forEach((layer) => {
         //   console.group(`Layer: ${layer.layer}`);
         //   console.log("Expected:", layer.expected.length);
@@ -2196,6 +2312,206 @@
           ?.sentenceText ??
           '"' + makeFileNameReadable(policyLens, gridType, usingGeoTiff) + '"'),
   );
+
+  type BreakdownDataRow = {
+    area_name: string;
+    total_area: number;
+    [key: string]: string | number | boolean | null | undefined;
+  };
+
+  type FeatureBreakdownResult = {
+    featureName: string;
+    breakdownData: BreakdownDataRow[];
+  };
+
+  async function runMultiFeatureBreakdownCsv(
+    geojson: GeoJSON.FeatureCollection,
+  ): Promise<string> {
+    const features = extractValidFeatures(geojson);
+
+    const results: FeatureBreakdownResult[] = [];
+
+    for (const [index, feature] of features.entries()) {
+      const featureName = getFeatureName(feature, index);
+
+      downloadingCsvProgress = index / features.length;
+
+      const singleFeatureGeojson: GeoJSON.FeatureCollection = {
+        type: "FeatureCollection",
+        features: [feature],
+      };
+
+      const localFeatureGeometry = feature.getGeometry();
+      const featureBBox = localFeatureGeometry.getExtent();
+
+      const localTileCodes = tilesForBBox(featureBBox, tileIndex, 50000);
+      const localBBox = getBBoxFromTileCodes(localTileCodes, gridSize, 5000);
+      const localWidth = (localBBox[2] - localBBox[0]) / gridSize;
+      const localHeight = (localBBox[3] - localBBox[1]) / gridSize;
+
+      const localCustomArea = new Uint32Array(
+        geometryToGridHitsScanline(
+          localFeatureGeometry,
+          localBBox,
+          localWidth,
+          localHeight,
+        ),
+      );
+
+      const breakdownArray = await loadTiledCategoricalDatasetGlobal({
+        tileCodes: localTileCodes,
+        globalFrame: computeGlobalTileFrameFromTileCodes(localTileCodes),
+        tileWidth: 5000,
+        tileIndex,
+        sourceFolder: `${base}/data/categorised-land/ownership/10m/`,
+      });
+
+      // const breakdownData = refreshBreakdownSummaryForArray({
+      //   breakdownArray,
+      //   datasetConfig,
+      // });
+
+      const selectionMask = indicesToBinaryMask(
+        localCustomArea,
+        localWidth,
+        localHeight,
+      );
+
+      const breakdownResult = await getLABreakdown(
+        // chunkUrls,
+        breakdownArray,
+        selectionMask,
+        localCustomArea,
+        localWidth,
+        localHeight,
+      );
+
+      const breakdownData: BreakdownDataRow[] = breakdownResult.json.map(
+        (d) => {
+          return {
+            area_name: d.area_name,
+            total_area: d.total_area,
+            [d.area_name]: d.total_area,
+          };
+        },
+      );
+
+      results.push({
+        featureName,
+        breakdownData,
+      });
+    }
+
+    return buildBreakdownCsv(results);
+  }
+
+  function extractValidFeatures(geojson: GeoJSON.GeoJSON): GeoJSON.Feature[] {
+    const format = new GeoJSON();
+
+    const features = format.readFeatures(geojson, {
+      dataProjection: "EPSG:4326",
+      featureProjection: "EPSG:27700",
+    });
+
+    // if (geojson.type === "FeatureCollection") {
+    //   return geojson.features.filter((feature) => feature.geometry !== null);
+    // }
+
+    // if (geojson.type === "Feature" && geojson.geometry !== null) {
+    //   return [geojson];
+    // }
+
+    return [...features];
+
+    throw new Error("Uploaded GeoJSON must be a Feature or FeatureCollection.");
+  }
+
+  function getFeatureName(feature: GeoJSON.Feature, index: number): string {
+    const props = feature.getProperties() ?? {};
+
+    const rawName =
+      props.name ??
+      props.Name ??
+      props.area_name ??
+      props["Location Name"] ??
+      feature.id ??
+      `Feature ${index + 1}`;
+
+    return props.value
+      ? String(rawName).trim() + " (" + props.value + ")"
+      : String(rawName).trim() || `Feature ${index + 1}`;
+  }
+
+  function buildBreakdownCsv(results: FeatureBreakdownResult[]): string {
+    const rawFeatureNames = results.map((result) => result.featureName);
+    const featureNames = makeUniqueNames(rawFeatureNames);
+
+    const rowsByAreaName = new Map<string, Record<string, string | number>>();
+
+    for (const [featureIndex, result] of results.entries()) {
+      const featureName = featureNames[featureIndex];
+
+      for (const row of result.breakdownData) {
+        const areaName = row.area_name;
+        const totalArea = row.total_area ?? 0;
+
+        if (!rowsByAreaName.has(areaName)) {
+          rowsByAreaName.set(areaName, {
+            area_name: areaName,
+          });
+        }
+
+        rowsByAreaName.get(areaName)![featureName] = convertPixelsToHectares(
+          totalArea,
+          gridSize,
+        );
+      }
+    }
+
+    const header = ["area_name", ...featureNames];
+
+    const csvRows = [...rowsByAreaName.values()].map((row) => {
+      return header
+        .map((column) => {
+          const value = row[column] ?? 0;
+          return escapeCsvValue(value);
+        })
+        .join(",");
+    });
+
+    return [header.map(escapeCsvValue).join(","), ...csvRows].join("\n");
+  }
+
+  function escapeCsvValue(value: unknown): string {
+    const text = String(value ?? "");
+
+    if (
+      text.includes(",") ||
+      text.includes('"') ||
+      text.includes("\n") ||
+      text.includes("\r")
+    ) {
+      return `"${text.replaceAll('"', '""')}"`;
+    }
+
+    return text;
+  }
+
+  function makeUniqueNames(names: string[]): string[] {
+    const seen = new Map<string, number>();
+
+    return names.map((name) => {
+      const count = seen.get(name) ?? 0;
+      seen.set(name, count + 1);
+
+      if (count === 0) return name;
+
+      return `${name} (${count + 1})`;
+    });
+  }
+
+  let downloadingCsv = $state(false);
+  let downloadingCsvProgress = $state(0);
 </script>
 
 <svelte:head>
@@ -2953,7 +3269,70 @@
           <DoughnutChart
             data={doughnutChartData}
             title={breakdownChartSortValue}
+            {gridSize}
           />
+        {/if}
+        <!-- <Button
+          buttonType="secondary"
+          textContent="Get breakdown from geoJSON"
+        /> -->
+        {#if gridType !== "hectare"}
+          <label for="multi-geojson-file-upload"
+            >Get breakdown from geoJSON:</label
+          >
+          <!-- <input
+            accept=".geojson,.json"
+            id="multi-geojson-file-upload"
+            type="file"
+            onchange={async (e) => {
+              const multiFeatureGeoJSON = await e.target.files[0].text();
+              downloadingCsv = true;
+              console.log(e.target.files[0].name.split(".")[0]);
+              const fileName = e.target.files[0].name.split(".")[0];
+              runMultiFeatureBreakdownCsv(multiFeatureGeoJSON).then(
+                (result) => {
+                  downloadCsv(result, fileName);
+                  downloadingCsv = false;
+                },
+              );
+            }}
+          /> -->
+          <input
+            accept=".geojson,.json"
+            id="multi-geojson-file-upload"
+            type="file"
+            multiple
+            onchange={async (e) => {
+              downloadingCsv = true;
+
+              try {
+                const files = Array.from(e.target.files);
+
+                for (const file of files) {
+                  console.log(file.name);
+
+                  const multiFeatureGeoJSON = await file.text();
+                  const fileName = file.name.split(".")[0];
+
+                  const result =
+                    await runMultiFeatureBreakdownCsv(multiFeatureGeoJSON);
+
+                  downloadCsv(result, fileName);
+                }
+              } finally {
+                downloadingCsv = false;
+              }
+            }}
+          />
+          <br />
+          {#if downloadingCsv}
+            <label for="creating-breakdown-csv">Downloading progress:</label>
+            <progress
+              id="creating-breakdown-csv"
+              value={downloadingCsvProgress}
+              max="1">{downloadingCsvProgress * 100}%</progress
+            >
+          {/if}
         {/if}
       {/snippet}
     </div>

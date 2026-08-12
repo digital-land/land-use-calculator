@@ -1,13 +1,18 @@
 <script lang="ts">
   import { arc, pie } from "d3-shape";
   import Button from "./Button.svelte";
+  import { convertPixelsToHectares } from "$lib/utils";
   import type { DoughnutData } from "$lib/utils";
 
   let {
     data,
     title,
-  }: { data: DoughnutData[]; title: "selected" | "total" | "inverse" } =
-    $props();
+    gridSize,
+  }: {
+    data: DoughnutData[];
+    title: "selected" | "total" | "inverse";
+    gridSize: number;
+  } = $props();
   // console.log("doughnut data: ", data);
 
   interface DonutSlice {
@@ -456,7 +461,10 @@
               opacity={hoveredSegment === d.data.key ? 1 : 0}
               transform="translate({labelArcs.centroid(d).join(' ')})"
               style:z-index={hoveredSegment === d.data.key ? 10 : 0}
-              >{d.data[title].toLocaleString() +
+              >{convertPixelsToHectares(
+                d.data[title],
+                gridSize,
+              ).toLocaleString() +
                 " ha (" +
                 ((d.data[title] / currentTotal) * 100).toFixed(0) +
                 "%)"}
@@ -490,7 +498,7 @@
             text-anchor="middle"
             font-size="1em"
             class="fill-gray-100"
-            >{currentTotal.toLocaleString()} ha
+            >{convertPixelsToHectares(currentTotal, gridSize).toLocaleString()} ha
           </text>
         </g>
       </svg>

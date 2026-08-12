@@ -188,7 +188,7 @@ export const CODES: Array<[number, string]> = [
 
   [23400, "UK_corporate.non_profit.charity_in_name"],
   [23111, "UK_corporate.non_profit.church.C_of_E.commissioners"],
-  [23112, "UK_corporate.non_profit.church.C_of_E.dioscese"],
+  [23112, "UK_corporate.non_profit.church.C_of_E.diocese"],
   [23120, "UK_corporate.non_profit.church.other"],
   [23300, "UK_corporate.non_profit.community_interest_company"],
   [23200, "UK_corporate.non_profit.national_trust"],
