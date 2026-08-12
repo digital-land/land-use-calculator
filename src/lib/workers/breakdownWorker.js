@@ -1,25 +1,31 @@
 import init, {
   categorical_count_masked,
 } from "$lib/raster_ops/pkg/raster_ops.js";
+
 import { parseCsvForBreakdown, unpackABGR } from "$lib/utils";
 import areaSizeLookup from "$lib/data/areas_las_pixels.json";
-import { hectareSettings, shortCategoricalColorPalette } from "$lib/constants";
 
-const { width, height } = hectareSettings;
 let wasmReady = false;
 
 let laLookupCache = null;
 let laLookupUrlCache = null;
 
 async function getLaLookup(csvUrl) {
-  if (laLookupCache && laLookupUrlCache === csvUrl) return laLookupCache;
+  if (laLookupCache && laLookupUrlCache === csvUrl) {
+    return laLookupCache;
+  }
 
   const response = await fetch(csvUrl);
-  if (!response.ok) throw new Error(`Failed to fetch CSV at ${csvUrl}`);
-  const lookupCsv = await response.text();
 
-  laLookupCache = parseCsvForBreakdown(lookupCsv);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch CSV at ${csvUrl}`);
+  }
+
+  const text = await response.text();
+
+  laLookupCache = parseCsvForBreakdown(text);
   laLookupUrlCache = csvUrl;
+
   return laLookupCache;
 }
 
@@ -29,93 +35,82 @@ self.onmessage = async (e) => {
     selectionMask,
     areaMask,
     csvUrl,
-    numCats = 400,
-    numChunks,
+    numCats = 64465,
     BREAKDOWN_LUT,
   } = e.data;
 
   if (!wasmReady) {
-    try {
-      await init({
-        module_or_path: new URL(
-          "$lib/raster_ops/pkg/raster_ops_bg.wasm",
-          import.meta.url,
-        ),
-      });
-      wasmReady = true;
-    } catch (err) {
-      self.postMessage({ error: err.message });
-      return;
-    }
+    await init({
+      module_or_path: new URL(
+        "$lib/raster_ops/pkg/raster_ops_bg.wasm",
+        import.meta.url,
+      ),
+    });
+
+    wasmReady = true;
   }
 
   try {
-    const expectedLength = width * height;
-    const c =
-      categoricalArray.length > expectedLength
-        ? categoricalArray.subarray(0, expectedLength)
-        : categoricalArray;
+    const minLen = areaMask
+      ? Math.min(categoricalArray.length, selectionMask.length, areaMask.length)
+      : Math.min(categoricalArray.length, selectionMask.length);
 
-    const sel = selectionMask;
+    const categories = categoricalArray.subarray(0, minLen);
+    const selectedMask = selectionMask.subarray(0, minLen);
 
-    // Optional restriction mask
-    const hasAreaMask = !!areaMask;
-    console.log({ areaMask, hasAreaMask });
-    // Compute selected counts:
-    // - if areaMask exists: selection AND areaMask
-    // - else: selection only
     let selectedCounts;
     let totalCounts = null;
 
-    if (hasAreaMask) {
-      const minLen = Math.min(c.length, sel.length, areaMask.length);
+    if (areaMask) {
+      const area = areaMask.subarray(0, minLen);
 
-      // combine masks (assumes 0/1 values; bitwise & is fine)
-      const combined = new Uint8Array(minLen);
-      for (let i = 0; i < minLen; i++)
-        combined[i] = sel[i] & areaMask[i] ? 1 : 0;
+      const combinedMask = new Uint8Array(minLen);
 
-      // totals within area
-      totalCounts = categorical_count_masked(
-        c.subarray(0, minLen),
-        areaMask.subarray(0, minLen),
-        numCats,
-      );
+      for (let i = 0; i < minLen; i++) {
+        combinedMask[i] = selectedMask[i] && area[i] ? 1 : 0;
+      }
+
+      totalCounts = categorical_count_masked(categories, area, numCats);
+
       selectedCounts = categorical_count_masked(
-        c.subarray(0, minLen),
-        combined,
+        categories,
+        combinedMask,
         numCats,
       );
     } else {
-      selectedCounts = categorical_count_masked(c, sel, numCats);
+      selectedCounts = categorical_count_masked(
+        categories,
+        selectedMask,
+        numCats,
+      );
     }
 
-    const laLookup = await getLaLookup(csvUrl);
+    const lookup = await getLaLookup(csvUrl);
 
-    const jsonResult = laLookup.map((d, i) => {
-      const idx = +d.index;
+    const json = lookup.map((row) => {
+      const idx = Number(row.index);
 
-      const total = hasAreaMask
+      const total = areaMask
         ? (totalCounts?.[idx] ?? 0)
-        : (areaSizeLookup?.[idx + 1]?.["Pixel count"] / numChunks ?? 0);
+        : (areaSizeLookup?.[idx + 1]?.["Pixel count"] ?? 0);
 
       const selected = selectedCounts?.[idx] ?? 0;
-      // console.log(idx, totalCounts[idx], selectedCounts[idx]);
+
       return {
-        area_code: d.area_code,
-        area_name: d.area_name,
+        area_code: row.area_code,
+        area_name: row.area_name,
         selected_area: selected,
         total_area: total,
-        selected_area_as_a_proportion_of_total_area: total
-          ? selected / total
-          : 0,
+        selected_area_as_a_proportion_of_total_area:
+          total > 0 ? selected / total : 0,
         color: unpackABGR(BREAKDOWN_LUT[idx]),
       };
     });
-    // console.log("jsonResult", jsonResult);
 
-    self.postMessage({ json: jsonResult });
+    self.postMessage({ json });
   } catch (err) {
-    self.postMessage({ error: err.message });
+    self.postMessage({
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 };

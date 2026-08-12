@@ -12,6 +12,8 @@
 3,Other,All categories, All data layers,10_designCodeArea_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,designCodeArea
 3,Other,All categories, All data layers,10_developmentCorporationBoundary_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,developmentCorporationBoundary
 3,Other,All categories, All data layers,10_floodStorageArea_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,floodStorageArea
+3,Other,All categories, All data layers,10_floodZones2_B_idx_32_20260804.br,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+3,Other,All categories, All data layers,10_floodZones3_B_idx_32_20260804.br,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 3,Development restricted,All categories, All data layers,10_greenBelt_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,greenBelt
 3,Other,All categories, All data layers,10_heritageAtRisk_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,heritageAtRisk
 3,Other,All categories, All data layers,10_heritageCoast_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,heritageCoast
@@ -30,3 +32,6 @@
 3,Other,All categories, All data layers,10_treePreservationZone_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,treePreservationZone
 3,Development restricted,All categories, All data layers,10_worldHeritageSite_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,worldHeritageSite
 3,Development restricted,All categories, All data layers,10_worldHeritageSiteBufferZone_B_idx_32_20260417.bin,y,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,worldHeritageSiteBufferZone
+3,Ownership,All categories, All data layers,10_ukCompaniesProperty_B_idx_32_20260417.bin,,,,ukCompaniesProperty,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+3,Ownership,All categories, All data layers,10_privateProperty_B_idx_32_20260417.bin,,,,privateProperty,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+3,Ownership,All categories, All data layers,10_overseasCompaniesProperty_B_idx_32_20260417.bin,,,,overseasCompaniesProperty,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

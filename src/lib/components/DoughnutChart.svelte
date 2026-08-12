@@ -1,10 +1,18 @@
 <script lang="ts">
   import { arc, pie } from "d3-shape";
   import Button from "./Button.svelte";
+  import { convertPixelsToHectares } from "$lib/utils";
   import type { DoughnutData } from "$lib/utils";
 
-  let { data, title }: { data: DoughnutData[]; title: "selected" | "total" } =
-    $props();
+  let {
+    data,
+    title,
+    gridSize,
+  }: {
+    data: DoughnutData[];
+    title: "selected" | "total" | "inverse";
+    gridSize: number;
+  } = $props();
   // console.log("doughnut data: ", data);
 
   interface DonutSlice {
@@ -13,6 +21,7 @@
     depth: number; // 1..N
     total: number;
     selected: number;
+    inverse: number;
     color: string;
 
     // Optional but helpful for UI:
@@ -103,6 +112,7 @@
             depth,
             total: d.total,
             selected: d.selected,
+            inverse: d.total - d.selected,
             color: chosenColor,
             parentKey,
             topKey,
@@ -112,6 +122,7 @@
           existing.selected += d.selected;
           existing.color = d.color;
           // keep existing color
+          existing.inverse += d.total - d.selected;
         }
       }
     }
@@ -237,15 +248,79 @@
 
   let width = $state(0);
   const height = 440;
-  let hoveredSegment = $state(null);
+  let hoveredSegment = $state<string | null>(null);
   // $inspect(hoveredSegment);
 
-  const pieGenerator = pie().value((d: DoughnutData) => d[title]);
+  const pieGenerator = pie<DonutSlice>().value((d) => d[title]);
   let pieData = $derived(pieGenerator(slices));
   let currentTotal = $derived(
     pieData.reduce((acc, curr) => acc + curr.value, 0),
   );
-  // $inspect(pieData);
+
+  type MetricKey = "selected" | "total" | "inverse";
+
+  function valueFor(slice: DonutSlice, metric: MetricKey): number {
+    return slice[metric] ?? 0;
+  }
+
+  function sumSlices(slices: DonutSlice[], metric: MetricKey): number {
+    return slices.reduce((acc, slice) => acc + valueFor(slice, metric), 0);
+  }
+
+  function findSliceByKey(
+    cuts: Map<number, DonutSlice[]>,
+    key: string,
+  ): DonutSlice | undefined {
+    const sliceDepth = key.split(".").filter(Boolean).length;
+    return cuts.get(sliceDepth)?.find((slice) => slice.key === key);
+  }
+
+  const metric = $derived(title as MetricKey);
+
+  const rootSlices = $derived(cuts.get(1) ?? []);
+
+  // const rootTotal = $derived(sumSlices(rootSlices, metric));
+
+  const currentViewTotal = $derived(sumSlices(slices, metric));
+
+  const contextSubjectKey = $derived(hoveredSegment ?? focusKey);
+
+  const contextSubject = $derived(
+    contextSubjectKey ? findSliceByKey(cuts, contextSubjectKey) : undefined,
+  );
+
+  const contextParent = $derived(
+    contextSubject?.parentKey
+      ? findSliceByKey(cuts, contextSubject.parentKey)
+      : undefined,
+  );
+
+  const contextSubjectValue = $derived(
+    contextSubject ? valueFor(contextSubject, metric) : currentViewTotal,
+  );
+
+  const contextParentValue = $derived(
+    contextParent ? valueFor(contextParent, metric) : rootTotal,
+  );
+
+  const contextPercentOfTotal = $derived(
+    rootTotal > 0 ? (contextSubjectValue / rootTotal) * 100 : 0,
+  );
+
+  const contextPercentOfParent = $derived(
+    contextParentValue > 0
+      ? (contextSubjectValue / contextParentValue) * 100
+      : 0,
+  );
+
+  const currentViewPercentOfTotal = $derived(
+    rootTotal > 0 ? (currentViewTotal / rootTotal) * 100 : 0,
+  );
+
+  const contextLabel = $derived(
+    contextSubject?.label ??
+      (focusKey ? focusKey.split(".").at(-1) : "All land"),
+  );
 
   const arcGenerator = arc()
     .innerRadius((0.5 * height) / 2.4)
@@ -256,6 +331,42 @@
   const labelArcs = arc()
     .innerRadius((0.8 * height) / 2)
     .outerRadius((0.8 * height) / 2);
+
+  function buildBreadcrumb(
+    cuts: Map<number, DonutSlice[]>,
+    focusKey?: string,
+  ): DonutSlice[] {
+    if (!focusKey) return [];
+
+    const result: DonutSlice[] = [];
+
+    let currentKey: string | undefined = focusKey;
+
+    while (currentKey) {
+      const depth = currentKey.split(".").length;
+
+      const slice = cuts.get(depth)?.find((s) => s.key === currentKey);
+
+      if (!slice) break;
+
+      result.push(slice);
+      currentKey = slice.parentKey;
+    }
+
+    return result.reverse();
+  }
+
+  const breadcrumb = $derived(buildBreadcrumb(cuts, focusKey));
+  $inspect(breadcrumb);
+
+  const rootTotal = $derived(
+    (cuts.get(1) ?? []).reduce((sum, s) => sum + s[title], 0),
+  );
+
+  // const parentValue = breadcrumb[i - 1]?.[title];
+
+  // const percentOfParent =
+  //   parentValue > 0 ? (slice[title] / parentValue) * 100 : 100;
 </script>
 
 <div
@@ -266,6 +377,40 @@
     onClickFunction={drillUp}
     textContent={"Go up one level"}
   />
+
+  {#if breadcrumb.length > 0}
+    <div class="breadcrumb-container">
+      {#each breadcrumb as slice, i}
+        {@const parentValue = breadcrumb[i - 1]?.[title]}
+        {@const percentOfParent =
+          parentValue > 0 ? (slice[title] / parentValue) * 100 : 100}
+
+        <div class="breadcrumb-row">
+          <div class="breadcrumb-label">
+            {slice.label}
+          </div>
+
+          <div class="breadcrumb-bar">
+            <div
+              class="breadcrumb-fill"
+              style="
+              width: {(slice[title] / rootTotal) * 100}%;
+              background-color: {slice.color};
+            "
+            ></div>
+          </div>
+
+          <div class="breadcrumb-value">
+            {((slice[title] / rootTotal) * 100).toFixed(1)}%
+            <!-- {#if parentValue}
+              ({percentOfParent.toFixed(1)}% of {parentValue})
+            {/if} -->
+          </div>
+        </div>
+      {/each}
+    </div>
+  {/if}
+
   <div class="svg-container w-[500px]" bind:clientWidth={width}>
     {#if width}
       <svg {width} {height} class="chart">
@@ -316,7 +461,10 @@
               opacity={hoveredSegment === d.data.key ? 1 : 0}
               transform="translate({labelArcs.centroid(d).join(' ')})"
               style:z-index={hoveredSegment === d.data.key ? 10 : 0}
-              >{d.data[title].toLocaleString() +
+              >{convertPixelsToHectares(
+                d.data[title],
+                gridSize,
+              ).toLocaleString() +
                 " ha (" +
                 ((d.data[title] / currentTotal) * 100).toFixed(0) +
                 "%)"}
@@ -350,7 +498,7 @@
             text-anchor="middle"
             font-size="1em"
             class="fill-gray-100"
-            >{currentTotal.toLocaleString()} ha
+            >{convertPixelsToHectares(currentTotal, gridSize).toLocaleString()} ha
           </text>
         </g>
       </svg>
@@ -370,5 +518,78 @@
   text {
     transition: all 0.5s ease;
     pointer-events: none;
+  }
+
+  .context-panel {
+    padding: 0.75rem;
+  }
+
+  .context-bar {
+    display: flex;
+    width: 100%;
+    height: 20px;
+    overflow: hidden;
+    border-radius: 4px;
+    background: #444;
+  }
+
+  .context-bar > div {
+    transition: width 0.3s ease;
+  }
+
+  .context-muted {
+    opacity: 0.35;
+    height: 20px;
+  }
+
+  .context-highlight {
+    opacity: 1;
+    filter: brightness(1.2);
+    height: 20px;
+  }
+
+  .context-remainder {
+    background: repeating-linear-gradient(
+      45deg,
+      rgba(156, 163, 175, 0.25),
+      rgba(156, 163, 175, 0.25) 6px,
+      rgba(156, 163, 175, 0.12) 6px,
+      rgba(156, 163, 175, 0.12) 12px
+    );
+  }
+
+  .breadcrumb-container {
+    width: 100%;
+    margin-bottom: 1rem;
+  }
+
+  .breadcrumb-row {
+    display: grid;
+    grid-template-columns: 150px 1fr 60px;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+  }
+
+  .breadcrumb-bar {
+    height: 12px;
+    background: #9c9c9c;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .breadcrumb-fill {
+    height: 100%;
+    transition: width 0.3s ease;
+  }
+
+  .breadcrumb-value {
+    text-align: right;
+    font-size: 0.9rem;
+  }
+
+  .breadcrumb-label {
+    text-transform: capitalize;
   }
 </style>

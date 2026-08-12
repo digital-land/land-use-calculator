@@ -44,6 +44,7 @@
     bbox,
     selectedAreaName = $bindable(),
     breakdownData,
+    breakdownMetric,
     blendedIndices,
     seeDensity,
     seeArea,
@@ -57,7 +58,7 @@
     customAreaBBox,
     drawnFeature = $bindable(),
     selectedLA = $bindable(),
-    policyLens = $bindable(),
+    policyLensValue = $bindable(),
     drawing = $bindable(),
     mobile,
     gridType,
@@ -68,7 +69,7 @@
     sidePanelEffectiveWidth,
   } = $props();
 
-  $inspect("drawnFeature", drawnFeature);
+  // $inspect("drawnFeature", drawnFeature);
 
   let mapElement: HTMLDivElement;
   let map: Map;
@@ -83,20 +84,23 @@
   //Form WTK from tileCodes
   function getWKTFromTileCodes() {
     const tilesWKTs = tileCodes?.map(
-      (d) => tiles.find((e) => e.code === d).square,
+      (d: string) => tiles.find((e) => e.code === d)?.square,
     );
     return "GEOMETRYCOLLECTION(" + tilesWKTs?.join(", ") + ")";
   }
   // WKT
-  const wkt =
-    tileCodes?.length > 0 ? getWKTFromTileCodes() : "GEOMETRYCOLLECTION EMPTY";
+  const wkt = $derived(
+    tileCodes?.length > 0 ? getWKTFromTileCodes() : "GEOMETRYCOLLECTION EMPTY",
+  );
 
   const format = new WKT();
 
-  const feature = format.readFeature(wkt, {
-    dataProjection: "EPSG:27700",
-    featureProjection: "EPSG:27700",
-  });
+  const feature = $derived(
+    format.readFeature(wkt, {
+      dataProjection: "EPSG:27700",
+      featureProjection: "EPSG:27700",
+    }),
+  );
 
   const wktVector = new VectorLayer({
     source: new VectorSource({
@@ -175,19 +179,32 @@
 
   const drawSource = new VectorSource({ wrapX: false });
 
-  const drawStyle = new Style({
-    fill: new Fill({
-      color: "rgba(255, 0, 0, 0.05)", // red with transparency (polygon fill)
+  const drawStyle = $derived(
+    new Style({
+      fill: new Fill({
+        color: "rgba(255, 0, 255, " + (seeArea ? " 0.05)" : " 0.27)"), // red with transparency (polygon fill)
+      }),
+      stroke: new Stroke({
+        color: "red", // line color
+        width: 2,
+      }),
+      image: new CircleStyle({
+        radius: 6,
+        fill: new Fill({
+          color: "red", // point color
+        }),
+        stroke: new Stroke({
+          color: "#fff",
+          width: 1,
+        }),
+      }),
     }),
-    stroke: new Stroke({
-      color: "red", // line color
-      width: 2,
-    }),
+  );
+
+  const vertexStyle = new Style({
     image: new CircleStyle({
       radius: 6,
-      fill: new Fill({
-        color: "red", // point color
-      }),
+      fill: new Fill({ color: "red" }),
       stroke: new Stroke({
         color: "#fff",
         width: 1,
@@ -195,9 +212,34 @@
     }),
   });
 
+  const drawStyleFunction = (feature) => {
+    const styles = [drawStyle]; // your base polygon style
+
+    // ✅ Early exit if not modifiable
+    if (!(shapeModifiable || drawing)) return styles;
+
+    const geometry = feature.getGeometry();
+    if (!geometry) return styles;
+
+    if (geometry.getType() === "Polygon") {
+      const coords = geometry.getCoordinates()[0];
+
+      for (const coord of coords) {
+        styles.push(
+          new Style({
+            image: vertexStyle.getImage(),
+            geometry: new Point(coord),
+          }),
+        );
+      }
+    }
+
+    return styles;
+  };
+
   const drawLayer = new VectorLayer({
     source: drawSource,
-    style: drawStyle,
+    style: drawStyleFunction,
   });
 
   let draw: Draw = $state();
@@ -441,19 +483,20 @@
     draw = new Draw({
       source: drawSource,
       type: "Polygon",
-      style: drawStyle,
+      style: drawStyleFunction,
     });
 
-    // map.addInteraction(draw);
-
-    modify = new Modify({ source: drawSource });
+    modify = new Modify({
+      source: drawSource,
+      style: vertexStyle,
+    });
 
     draw.on("drawend", async function (event) {
       drawnFeature = event.feature;
 
       selectedLA = null;
 
-      policyLens = "customArea";
+      policyLensValue = "customArea";
 
       map.removeInteraction(draw);
       drawing = false;
@@ -592,15 +635,21 @@
         info.style.visibility = "visible";
 
         info.innerHTML = seeBreakdown
-          ? (CODES.find(
-              (d) =>
-                d[0] ===
+          ? breakdownMetric === "ownership"
+            ? (CODES.find(
+                (d) =>
+                  d[0] ===
+                  breakdownArray[
+                    coordToIndex(...evt.coordinate, { width, height })
+                  ],
+              )?.[1]
+                ?.replaceAll(".", " > ")
+                ?.replaceAll("_", " ") ?? "Unregistered")
+            : breakdownData[
                 breakdownArray[
                   coordToIndex(...evt.coordinate, { width, height })
-                ],
-            )?.[1]
-              ?.replaceAll(".", " > ")
-              ?.replaceAll("_", " ") ?? "Unregistered")
+                ] - 1 //-1 because the numbers in breakdownArray are 1 based, but breakdownData is 0 based
+              ]?.area_name
           : densityArray[coordToIndex(...evt.coordinate, { width, height })] +
             (densityArray[
               coordToIndex(...evt.coordinate, { width, height })
@@ -640,14 +689,17 @@
       tiffLayer?.setVisible(true);
       densityLayer?.setVisible(false);
       breakdownLayer?.setVisible(false);
+      drawLayer.changed();
     } else if (seeDensity) {
       tiffLayer?.setVisible(false);
       densityLayer?.setVisible(true);
       breakdownLayer?.setVisible(false);
+      drawLayer.changed();
     } else {
       tiffLayer?.setVisible(false);
       densityLayer?.setVisible(false);
       breakdownLayer?.setVisible(true);
+      drawLayer.changed();
     }
   });
 
@@ -711,6 +763,7 @@
   function makeShapeModifiable() {
     map?.addInteraction(modify);
     shapeModifiable = true;
+    drawLayer.changed();
   }
 
   async function useModifiedShape() {
@@ -724,7 +777,14 @@
   }
 </script>
 
-<div bind:this={mapElement} class="map-container" tabindex="0">
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+<div
+  role="region"
+  aria-label="Interactive map for viewing and interacting with data"
+  bind:this={mapElement}
+  class="map-container"
+  tabindex="0"
+>
   <div id="info"></div>
   {#if drawnFeature}
     <div id="modifyGeoJson" class="ol-unselectable ol-control">
@@ -732,7 +792,6 @@
         onclick={() =>
           !shapeModifiable ? makeShapeModifiable() : useModifiedShape()}
         type="button"
-        aria-pressed={shapeModifiable}
         role="switch"
         aria-checked={shapeModifiable}
       >
@@ -818,46 +877,9 @@
   #modifyGeoJson {
     top: 65px;
     /* left: 0.5em; */
-    --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
-      "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-      "Liberation Mono", "Courier New", monospace;
     --color-gray-50: oklch(98.5% 0.002 247.839);
-    --color-gray-400: oklch(70.7% 0.022 261.325);
-    --color-gray-700: oklch(37.3% 0.034 259.733);
-    --color-black: #000;
-    --color-white: #fff;
-    --spacing: 0.25rem;
-    --text-xl: 1.25rem;
-    --text-xl--line-height: calc(1.75 / 1.25);
-    --text-2xl: 1.5rem;
-    --text-2xl--line-height: calc(2 / 1.5);
-    --font-weight-bold: 700;
-    --radius-sm: 0.25rem;
-    --radius-md: 0.375rem;
-    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
-    --default-transition-duration: 150ms;
-    --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-    --default-font-family: var(--font-sans);
-    --default-mono-font-family: var(--font-mono);
-    --tw-duration: 200ms;
-    --tw-ease: var(--ease-in-out);
     --ol-background-color: white;
-    --ol-accent-background-color: #f5f5f5;
-    --ol-subtle-background-color: rgba(128, 128, 128, 0.25);
-    --ol-partial-background-color: rgba(255, 255, 255, 0.75);
-    --ol-foreground-color: #333333;
     --ol-subtle-foreground-color: #666666;
-    --ol-brand-color: #00aaff;
-    --govuk-frontend-version: "5.11.1";
-    --govuk-breakpoint-mobile: 20rem;
-    --govuk-frontend-breakpoint-mobile: var(--govuk-breakpoint-mobile);
-    --govuk-breakpoint-tablet: 40.0625rem;
-    --govuk-frontend-breakpoint-tablet: var(--govuk-breakpoint-tablet);
-    --govuk-breakpoint-desktop: 48.0625rem;
-    --govuk-frontend-breakpoint-desktop: var(--govuk-breakpoint-desktop);
-    --mapWidth: 50%;
-    --tw-translate-x: 0%;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
     pointer-events: auto;

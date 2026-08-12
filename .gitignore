@@ -2,10 +2,12 @@
 node_modules/
 .svelte-kit/
 .DS_Store
+.env
 
 # Ignore big source binaries
 *.bin
 *.zip
+*.br
 
 # Ignore images
 *.jpg
